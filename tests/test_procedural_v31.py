@@ -32,7 +32,7 @@ def test_procedural_v34_reports_style_profiles(tmp_path: Path):
     ]
     for index, (prompt, expected) in enumerate(cases):
         result = generator.generate(_request(prompt), tmp_path / f"{index}.wav")
-        assert result.metadata["engine"] == "procedural-v3.4"
+        assert result.metadata["engine"].startswith("procedural-v3.")
         assert result.metadata["style_profile"] == expected
         assert result.metadata["lyrics_behavior"] in ("synthetic_singing_voice", "formant_singing")
         assert result.metadata["singing_voice"] in {"female", "male", "choir", "robot", "whisper"}

@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import math
+import os
 import wave
 from pathlib import Path
 
@@ -64,6 +65,7 @@ def run_ace_step(args: argparse.Namespace) -> None:
         print("ACE runner dry-run ok")
         print(f"prompt chars={len(prompt)} lyrics chars={len(lyrics)} negative chars={len(negative)}")
         print(f"voice={args.singing_voice} intensity={args.vocal_intensity} style={args.vocal_style}")
+        print(f"HF_HOME={os.environ.get('HF_HOME', '')}")
         return
 
     if args.placeholder_wav:
@@ -93,7 +95,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--vocal-style", default="")
     parser.add_argument("--model-dir", default="")
     parser.add_argument("--device", default="cuda")
-    parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--dry-run", action="store_true", help="Validate wiring without running ACE-Step inference")
     parser.add_argument("--placeholder-wav", action="store_true", help="Write a tiny fake WAV only to test app wiring")
     return parser.parse_args()

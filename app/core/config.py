@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     cors_origins: str = Field(default="http://localhost:8000,http://localhost:5173", alias="CORS_ORIGINS")
 
     ace_enabled: bool = Field(default=False, alias="ACE_ENABLED")
+    ace_step_dir: Path | None = Field(default=None, alias="ACE_STEP_DIR")
     ace_python: Path = Field(default=Path("python"), alias="ACE_PYTHON")
     ace_script: Path = Field(default=Path("./models/ACE-Step/infer.py"), alias="ACE_SCRIPT")
     ace_model_dir: Path = Field(default=Path("./models/ace-step"), alias="ACE_MODEL_DIR")

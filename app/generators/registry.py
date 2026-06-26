@@ -32,12 +32,15 @@ class GeneratorRegistry:
 
 def create_default_registry(settings: Settings) -> GeneratorRegistry:
     from app.generators.ace_step import AceStepCommandGenerator
+    from app.generators.auto_render import AutoRenderGenerator
     from app.generators.mock_ai import MockAIGenerator
     from app.generators.procedural import ProceduralGenerator
 
     registry = GeneratorRegistry()
     procedural = ProceduralGenerator()
+    ace = AceStepCommandGenerator(settings=settings, fallback=procedural)
+    registry.register(AutoRenderGenerator(procedural=procedural, ace=ace))
     registry.register(procedural)
     registry.register(MockAIGenerator())
-    registry.register(AceStepCommandGenerator(settings=settings, fallback=procedural))
+    registry.register(ace)
     return registry

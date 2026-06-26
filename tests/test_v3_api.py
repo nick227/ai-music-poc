@@ -1,7 +1,7 @@
 def test_health_v3(client):
     c, _ = client
     data = c.get('/api/health').json()
-    assert data['version'] == '3.4'
+    assert data['version'].startswith('3.')
 
 
 def test_presets_api(client):

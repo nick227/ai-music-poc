@@ -17,9 +17,9 @@ class QualityProfile:
 
 
 QUALITY_PROFILES: dict[str, QualityProfile] = {
-    "draft": QualityProfile(6, 0.06, 0.10, 0.04, False, False, 1.05),
-    "balanced": QualityProfile(9, 0.12, 0.16, 0.07, True, True, 1.08),
-    "high": QualityProfile(12, 0.18, 0.22, 0.10, True, True, 1.12),
+    "draft": QualityProfile(10, 0.06, 0.10, 0.04, False, False, 1.05),
+    "balanced": QualityProfile(16, 0.12, 0.16, 0.07, True, True, 1.08),
+    "high": QualityProfile(22, 0.18, 0.22, 0.10, True, True, 1.12),
 }
 
 

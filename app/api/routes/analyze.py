@@ -31,6 +31,7 @@ class AnalyzeResponse(BaseModel):
     mood_tags: list[str] = []
     negative_prompt: str = ""
     enhanced_prompt: str = ""
+    ai_enhanced: bool = False
 
 
 ANALYZE_SYSTEM = """You are a music production expert. Analyze the user's music generation prompt and extract precise musical parameters. Return ONLY valid JSON with these optional fields:
@@ -52,10 +53,136 @@ ANALYZE_SYSTEM = """You are a music production expert. Analyze the user's music 
 Be specific and production-aware. Infer missing parameters from genre conventions. Return ONLY the JSON object."""
 
 
+def _local_analyze(prompt: str, lyrics: str) -> AnalyzeResponse:
+    """Keyword-based fallback when no API key is configured."""
+    text = (prompt + " " + lyrics).lower()
+
+    # BPM inference
+    bpm_map = [
+        (["lullaby", "ambient", "meditation", "sleep"], 68),
+        (["ballad", "slow", "melancholy", "sad"], 76),
+        (["folk", "acoustic", "singer-songwriter"], 90),
+        (["lofi", "lo-fi", "chill", "chillhop"], 86),
+        (["hip hop", "hiphop", "rap", "trap"], 92),
+        (["pop", "radio", "mainstream"], 120),
+        (["disco", "funky", "funk"], 118),
+        (["dance", "club", "house"], 128),
+        (["techno", "trance"], 140),
+        (["drum and bass", "dnb", "jungle"], 174),
+        (["punk", "metal", "thrash"], 160),
+    ]
+    bpm = 120
+    for kws, b in bpm_map:
+        if any(k in text for k in kws):
+            bpm = b
+            break
+
+    # Key detection from prompt text
+    key = None
+    import re
+    m = re.search(r'\b(?:in\s+)?([A-G][b#]?)\s+(?:major|minor|maj|min)?\b', prompt, re.IGNORECASE)
+    if m:
+        key = m.group(1)
+
+    # Mode
+    mode = "song"
+    if any(k in text for k in ["instrumental", "no vocals", "no voice", "without vocals"]):
+        mode = "instrumental"
+    elif any(k in text for k in ["vocal demo", "vocal only", "a cappella"]):
+        mode = "vocal_demo"
+    elif any(k in text for k in ["loop", "looping", "seamless"]):
+        mode = "loop"
+
+    # Structure
+    structure = "auto"
+    if any(k in text for k in ["club", "warehouse", "rave", "build-up", "buildup", "drop"]):
+        structure = "club_build"
+    elif any(k in text for k in ["hook loop", "hook"]):
+        structure = "hook_loop"
+    elif any(k in text for k in ["ambient", "drone", "meditation"]):
+        structure = "ambient_loop"
+    elif any(k in text for k in ["intro", "verse", "chorus"]):
+        structure = "intro_verse_chorus"
+
+    # Singing voice
+    singing_voice = "auto"
+    if any(k in text for k in ["female", "woman", "soprano", "alto", "girl"]):
+        singing_voice = "female"
+    elif any(k in text for k in ["male", "man", "tenor", "baritone", "bass voice"]):
+        singing_voice = "male"
+    elif any(k in text for k in ["choir", "choral", "group", "harmony vocals"]):
+        singing_voice = "choir"
+    elif any(k in text for k in ["robot", "vocoder", "autotune", "synth voice"]):
+        singing_voice = "robot"
+    elif any(k in text for k in ["whisper", "breathy", "hushed"]):
+        singing_voice = "whisper"
+
+    # Vocal style
+    style_parts = []
+    if any(k in text for k in ["powerful", "belting", "strong"]):
+        style_parts.append("powerful belt")
+    elif any(k in text for k in ["soft", "gentle", "tender"]):
+        style_parts.append("soft and gentle")
+    if any(k in text for k in ["soulful", "soul", "r&b", "gospel"]):
+        style_parts.append("soulful")
+    if any(k in text for k in ["electronic", "processed", "effect"]):
+        style_parts.append("processed")
+    vocal_style = ", ".join(style_parts) if style_parts else "natural"
+
+    # Genre tags
+    genre_kw = {
+        "pop": ["pop", "radio", "mainstream", "chart"],
+        "hip hop": ["hip hop", "hiphop", "rap", "trap"],
+        "electronic": ["edm", "electronic", "synth", "electro"],
+        "lo-fi": ["lofi", "lo-fi", "chillhop"],
+        "disco": ["disco", "funky", "funk"],
+        "acoustic": ["acoustic", "folk", "singer-songwriter", "guitar"],
+        "ambient": ["ambient", "drone", "meditation", "atmospheric"],
+        "club": ["club", "techno", "house", "warehouse", "rave"],
+        "cinematic": ["cinematic", "epic", "orchestral", "trailer", "score"],
+        "r&b": ["r&b", "rnb", "soul", "soulful"],
+    }
+    genre_tags = [g for g, kws in genre_kw.items() if any(k in text for k in kws)][:5]
+
+    # Mood tags
+    mood_kw = {
+        "energetic": ["energetic", "upbeat", "exciting", "powerful", "pumping", "fast"],
+        "groovy": ["funky", "funk", "groove", "groovy", "dance", "danceable"],
+        "chill": ["chill", "relaxed", "laid-back", "mellow", "calm", "soothing"],
+        "melancholy": ["melancholy", "sad", "emotional", "longing", "heartbreak", "bittersweet"],
+        "euphoric": ["euphoric", "joyful", "happy", "uplifting", "feel-good", "positive"],
+        "dark": ["dark", "gritty", "intense", "aggressive", "heavy", "ominous"],
+        "dreamy": ["dreamy", "ethereal", "hypnotic", "spacey", "hazy", "floating"],
+        "romantic": ["romantic", "love", "intimate", "tender", "sweet", "passionate"],
+        "epic": ["epic", "cinematic", "dramatic", "grand", "powerful", "triumphant"],
+    }
+    mood_tags = [m for m, kws in mood_kw.items() if any(k in text for k in kws)][:5]
+
+    enhanced_prompt = prompt.strip()
+    if genre_tags:
+        enhanced_prompt += f". Genre: {', '.join(genre_tags)}"
+    if mood_tags:
+        enhanced_prompt += f". Vibe: {', '.join(mood_tags)}"
+
+    return AnalyzeResponse(
+        bpm=bpm,
+        key=key,
+        mode=mode,
+        structure=structure,
+        quality="balanced",
+        singing_voice=singing_voice,
+        vocal_style=vocal_style,
+        genre_tags=genre_tags,
+        mood_tags=mood_tags,
+        negative_prompt="",
+        enhanced_prompt=enhanced_prompt,
+    )
+
+
 @router.post("/analyze-prompt", response_model=AnalyzeResponse)
 async def analyze_prompt(request: AnalyzeRequest, settings: Settings = Depends(get_settings)):
     if not settings.anthropic_api_key:
-        raise HTTPException(status_code=503, detail="ANTHROPIC_API_KEY not configured — add it to .env to enable AI prompt analysis")
+        return _local_analyze(request.prompt, request.lyrics)
     try:
         import anthropic
         client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
@@ -76,7 +203,7 @@ async def analyze_prompt(request: AnalyzeRequest, settings: Settings = Depends(g
             if text.startswith("json"):
                 text = text[4:]
         data = json.loads(text)
-        return AnalyzeResponse(**{k: v for k, v in data.items() if k in AnalyzeResponse.model_fields})
+        return AnalyzeResponse(ai_enhanced=True, **{k: v for k, v in data.items() if k in AnalyzeResponse.model_fields and k != "ai_enhanced"})
     except json.JSONDecodeError as exc:
         logger.warning("analyze_prompt json decode failed: %s", exc)
         raise HTTPException(status_code=502, detail="AI response was not valid JSON")

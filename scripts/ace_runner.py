@@ -20,17 +20,17 @@ import sys
 import tempfile
 from pathlib import Path
 
-ACE_STEP_DIR = Path(__file__).resolve().parent.parent.parent / "models" / "ACE-Step-1.5"
+ACE_STEP_DIR = Path(os.environ.get("ACE_STEP_DIR", Path(__file__).resolve().parent.parent.parent / "models" / "ACE-Step-1.5"))
 ACE_VENV = ACE_STEP_DIR / ".venv" / "bin" / "python"
 ACE_CLI = ACE_STEP_DIR / "cli.py"
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="ACE-Step runner bridge")
-    parser.add_argument("--prompt-file", required=True)
-    parser.add_argument("--lyrics-file", required=True)
+    parser.add_argument("--prompt-file")
+    parser.add_argument("--lyrics-file")
     parser.add_argument("--negative-file")
-    parser.add_argument("--output", required=True)
+    parser.add_argument("--output")
     parser.add_argument("--duration", type=int, default=60)
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--guidance-scale", type=float, default=7.5)
@@ -49,12 +49,17 @@ def main() -> None:
         print(f"  ACE_STEP_DIR={ACE_STEP_DIR} exists={ACE_STEP_DIR.exists()}")
         print(f"  ACE_VENV={ACE_VENV} exists={ACE_VENV.exists()}")
         print(f"  ACE_CLI={ACE_CLI} exists={ACE_CLI.exists()}")
+        print(f"  HF_HOME={os.environ.get('HF_HOME', '')}")
+        print(f"  HUGGINGFACE_HUB_CACHE={os.environ.get('HUGGINGFACE_HUB_CACHE', '')}")
         print(f"  voice={args.singing_voice} intensity={args.vocal_intensity} style={args.vocal_style!r}")
         missing = [label for label, path in [("ACE_STEP_DIR", ACE_STEP_DIR), ("ACE_VENV", ACE_VENV), ("ACE_CLI", ACE_CLI)] if not path.exists()]
         if missing:
             print(f"[ace_runner] missing paths: {', '.join(missing)}", file=sys.stderr)
             sys.exit(2)
         sys.exit(0)
+
+    if not args.prompt_file or not args.lyrics_file or not args.output:
+        parser.error("--prompt-file, --lyrics-file, and --output are required unless --dry-run is set")
 
     caption = Path(args.prompt_file).read_text(encoding="utf-8").strip()
     lyrics_path = Path(args.lyrics_file)

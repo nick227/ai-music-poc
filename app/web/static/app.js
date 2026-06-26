@@ -53,7 +53,8 @@ async function api(url, options = {}) {
 async function loadGenerators() {
   const data = await api('/api/generators');
   generatorEl.innerHTML = data.generators.map(g => `<option value="${g.name}">${g.label} — ${g.status}</option>`).join('');
-  if ([...generatorEl.options].some(o => o.value === 'procedural-v3')) generatorEl.value = 'procedural-v3';
+  if ([...generatorEl.options].some(o => o.value === 'auto-render')) generatorEl.value = 'auto-render';
+  else if ([...generatorEl.options].some(o => o.value === 'procedural-v3')) generatorEl.value = 'procedural-v3';
 }
 async function loadPresets() {
   const data = await api('/api/presets');
@@ -130,7 +131,7 @@ vocalIntensityEl.addEventListener('input', () => { vocalIntensityValueEl.textCon
 analyzeBtn.addEventListener('click', async () => {
   setError('');
   analyzeStatusEl.hidden = false;
-  analyzeStatusEl.textContent = 'Analyzing prompt with Claude…';
+  analyzeStatusEl.textContent = 'Analyzing prompt…';
   analyzeBtn.disabled = true;
   try {
     const result = await api('/api/analyze-prompt', {
@@ -148,7 +149,9 @@ analyzeBtn.addEventListener('click', async () => {
     if (result.mood_tags?.length) document.querySelector('#mood_tags').value = result.mood_tags.join(', ');
     if (result.negative_prompt) document.querySelector('#negative').value = result.negative_prompt;
     if (result.enhanced_prompt) document.querySelector('#prompt').value = result.enhanced_prompt;
-    analyzeStatusEl.textContent = 'Prompt analyzed — fields updated. Review and generate.';
+    analyzeStatusEl.textContent = result.ai_enhanced
+      ? 'AI-enhanced analysis done — fields updated. Review and generate.'
+      : 'Prompt analyzed (heuristic) — fields updated. Add ANTHROPIC_API_KEY to .env for AI analysis.';
   } catch (err) {
     analyzeStatusEl.hidden = true;
     setError('Analyze failed: ' + err.message);

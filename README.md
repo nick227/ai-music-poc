@@ -1,6 +1,6 @@
 # AI Music POC v3.4
 
-Local prompt-and-lyrics music generation console with persistent jobs, downloadable WAV/bundles, procedural fallback with synthetic singing voices, and an ACE-Step command bridge.
+Local prompt-and-lyrics music generation console with persistent jobs, downloadable WAV/bundles, instant parametric drafts with synthetic singing voices, and an ACE-Step final-render bridge.
 
 ## What V3.4 adds
 
@@ -49,10 +49,17 @@ http://localhost:8000
 Use generator:
 
 ```txt
-procedural-v3
+auto-render
 ```
 
-This proves the app/job/download/bundle pipeline. Procedural mode sings lyrics with synthetic formant voices. Use `quality: balanced` or `high` for vocal stem export in bundles.
+Render routing:
+
+```txt
+Draft            -> procedural-v3 parametric engine
+Balanced / High  -> ACE-Step command adapter, with procedural fallback while allowed
+```
+
+This proves the app/job/download/bundle pipeline immediately while ACE setup is still in progress. Procedural mode sings lyrics with synthetic formant voices. Use `quality: balanced` or `high` for vocal stem export in bundles and, once ACE is enabled, neural final renders.
 
 ## ACE bridge setup
 
@@ -71,14 +78,18 @@ chmod +x ~/models/ace_runner.py
 
 ```env
 ACE_ENABLED=true
+ACE_STEP_DIR=/home/administrator/models/ACE-Step-1.5
 ACE_PYTHON=/home/administrator/models/ACE-Step-1.5/.venv/bin/python
 ACE_SCRIPT=/home/administrator/models/ace_runner.py
-ACE_MODEL_DIR=/home/administrator/models/ACE-Step-1.5/checkpoints
+ACE_MODEL_DIR=/mnt/c/Users/Administrator/.cache/huggingface/ace-step-checkpoints
 ACE_DEVICE=cuda
 ACE_ALLOW_FALLBACK=true
 ACE_TIMEOUT_SECONDS=1200
+HF_CACHE_DIR=/mnt/c/Users/Administrator/.cache/huggingface
 ACE_COMMAND_TEMPLATE=$python $script --prompt-file $prompt_file --lyrics-file $lyrics_file --negative-file $negative_file --output $output_path --duration $duration_seconds --seed $seed --guidance-scale $guidance_scale --quality $quality --singing-voice $singing_voice --vocal-intensity $vocal_intensity --vocal-style $vocal_style --model-dir $model_dir --device $device
 ```
+
+`HF_CACHE_DIR` should point at one shared Hugging Face cache. `ACE_MODEL_DIR` should point at one shared ACE checkpoint folder. ACE-Step can reuse compatible Hugging Face cache files there, but it cannot reuse Ollama's `.ollama/models` blobs.
 
 ## ACE smoke test
 
