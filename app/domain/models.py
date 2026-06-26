@@ -1,0 +1,160 @@
+from __future__ import annotations
+
+from datetime import datetime, timezone
+from enum import Enum
+from typing import Any, Dict, Literal, Optional
+from uuid import uuid4
+
+from pydantic import BaseModel, Field, field_validator
+
+
+class JobStatus(str, Enum):
+    QUEUED = "QUEUED"
+    RUNNING = "RUNNING"
+    SUCCEEDED = "SUCCEEDED"
+    FAILED = "FAILED"
+    TIMEOUT = "TIMEOUT"
+    CANCELLED = "CANCELLED"
+
+
+class GenerationRequest(BaseModel):
+    title: str = Field(default="Untitled Sketch", min_length=1, max_length=120)
+    prompt: str = Field(min_length=1, max_length=2000)
+    lyrics: str = Field(default="", max_length=10000)
+    negative_prompt: str = Field(default="", max_length=1000)
+
+    generator: Optional[str] = Field(default=None, max_length=80)
+    duration_seconds: int = Field(default=60, ge=10, le=240)
+    seed: Optional[int] = Field(default=None, ge=0, le=2_147_483_647)
+
+    mode: Literal["song", "instrumental", "vocal_demo", "loop"] = "song"
+    structure: Literal["auto", "verse_chorus", "intro_verse_chorus", "hook_loop", "club_build", "ambient_loop"] = "auto"
+    quality: Literal["draft", "balanced", "high"] = "draft"
+
+    bpm: Optional[int] = Field(default=None, ge=40, le=220)
+    key: Optional[str] = Field(default=None, max_length=16)
+    vocal_style: Optional[str] = Field(default=None, max_length=160)
+    singing_voice: Literal["auto", "female", "male", "choir", "robot", "whisper"] = "auto"
+    vocal_intensity: float = Field(default=0.65, ge=0.0, le=1.0)
+    genre_tags: list[str] = Field(default_factory=list, max_length=12)
+    mood_tags: list[str] = Field(default_factory=list, max_length=12)
+
+    guidance_scale: float = Field(default=7.5, ge=0.0, le=20.0)
+    allow_fallback: bool = True
+    include_lyrics_in_bundle: bool = True
+
+    @field_validator("prompt", "lyrics", "title", "negative_prompt")
+    @classmethod
+    def strip_text(cls, value: str) -> str:
+        return value.strip()
+
+    @field_validator("key", "vocal_style")
+    @classmethod
+    def clean_optional_text(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        value = value.strip()
+        return value or None
+
+    @field_validator("genre_tags", "mood_tags")
+    @classmethod
+    def clean_tags(cls, value: list[str]) -> list[str]:
+        cleaned: list[str] = []
+        for tag in value:
+            tag = str(tag).strip().lower()[:40]
+            if tag and tag not in cleaned:
+                cleaned.append(tag)
+        if len(cleaned) > 12:
+            raise ValueError("No more than 12 tags are allowed per tag group")
+        return cleaned
+
+
+class GenerationResult(BaseModel):
+    file_name: str
+    mime_type: str = "audio/wav"
+    duration_seconds: int
+    sample_rate: int
+    generator_name: str
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+class JobRecord(BaseModel):
+    id: str = Field(default_factory=lambda: uuid4().hex)
+    status: JobStatus = JobStatus.QUEUED
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    started_at: Optional[datetime] = None
+    finished_at: Optional[datetime] = None
+    progress: float = Field(default=0, ge=0, le=1)
+    message: str = "Queued"
+    request: GenerationRequest
+    result: Optional[GenerationResult] = None
+    error: Optional[str] = None
+    log_file: Optional[str] = None
+    metadata_file: Optional[str] = None
+
+
+class GenerationResponse(BaseModel):
+    job_id: str
+    status: JobStatus
+    status_url: str
+
+
+class JobStatusResponse(BaseModel):
+    job: JobRecord
+    download_url: Optional[str] = None
+    vocal_download_url: Optional[str] = None
+    bundle_url: Optional[str] = None
+
+
+class GeneratorInfo(BaseModel):
+    name: str
+    label: str
+    supports_lyrics: bool
+    supports_seed: bool
+    supports_duration: bool
+    description: str
+    backend_type: Literal["local", "adapter", "fallback"] = "local"
+    available: bool = True
+    status: str = "ready"
+    install_hint: Optional[str] = None
+
+
+class Preset(BaseModel):
+    id: str
+    label: str
+    description: str
+    prompt_suffix: str = ""
+    negative_prompt: str = ""
+    mode: Literal["song", "instrumental", "vocal_demo", "loop"] = "song"
+    structure: Literal["auto", "verse_chorus", "intro_verse_chorus", "hook_loop", "club_build", "ambient_loop"] = "auto"
+    quality: Literal["draft", "balanced", "high"] = "draft"
+    duration_seconds: int = Field(default=60, ge=10, le=240)
+    bpm: Optional[int] = Field(default=None, ge=40, le=220)
+    key: Optional[str] = None
+    vocal_style: Optional[str] = None
+    singing_voice: Literal["auto", "female", "male", "choir", "robot", "whisper"] = "auto"
+    vocal_intensity: float = Field(default=0.65, ge=0.0, le=1.0)
+    genre_tags: list[str] = Field(default_factory=list)
+    mood_tags: list[str] = Field(default_factory=list)
+
+
+class ModelStatus(BaseModel):
+    ace_enabled: bool
+    ace_command_configured: bool
+    ace_python_exists: bool
+    ace_script_exists: bool
+    ace_model_dir_exists: bool
+    cuda_expected: bool
+    command_template_valid: bool
+    can_generate: bool
+    fallback_enabled: bool
+    ace_python: str = ""
+    ace_script: str = ""
+    ace_model_dir: str = ""
+    hf_cache_dir: str = ""
+    warnings: list[str] = Field(default_factory=list)
+
+
+class ErrorResponse(BaseModel):
+    error: str
+    message: str
