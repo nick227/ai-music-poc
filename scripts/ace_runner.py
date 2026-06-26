@@ -30,6 +30,8 @@ def main() -> None:
     parser.add_argument("--prompt-file")
     parser.add_argument("--lyrics-file")
     parser.add_argument("--negative-file")
+    parser.add_argument("--negative-prompt-file")
+    parser.add_argument("--request-file")
     parser.add_argument("--output")
     parser.add_argument("--duration", type=int, default=60)
     parser.add_argument("--seed", type=int, default=None)
@@ -51,6 +53,9 @@ def main() -> None:
         print(f"  ACE_CLI={ACE_CLI} exists={ACE_CLI.exists()}")
         print(f"  HF_HOME={os.environ.get('HF_HOME', '')}")
         print(f"  HUGGINGFACE_HUB_CACHE={os.environ.get('HUGGINGFACE_HUB_CACHE', '')}")
+        print(f"  TRANSFORMERS_CACHE={os.environ.get('TRANSFORMERS_CACHE', '')}")
+        print(f"  DIFFUSERS_CACHE={os.environ.get('DIFFUSERS_CACHE', '')}")
+        print(f"  ACESTEP_CHECKPOINTS_DIR={os.environ.get('ACESTEP_CHECKPOINTS_DIR', '')}")
         print(f"  voice={args.singing_voice} intensity={args.vocal_intensity} style={args.vocal_style!r}")
         missing = [label for label, path in [("ACE_STEP_DIR", ACE_STEP_DIR), ("ACE_VENV", ACE_VENV), ("ACE_CLI", ACE_CLI)] if not path.exists()]
         if missing:
@@ -61,9 +66,14 @@ def main() -> None:
     if not args.prompt_file or not args.lyrics_file or not args.output:
         parser.error("--prompt-file, --lyrics-file, and --output are required unless --dry-run is set")
 
+    negative_file = args.negative_prompt_file or args.negative_file
     caption = Path(args.prompt_file).read_text(encoding="utf-8").strip()
     lyrics_path = Path(args.lyrics_file)
     output_path = Path(args.output)
+    if negative_file and Path(negative_file).exists():
+        negative = Path(negative_file).read_text(encoding="utf-8").strip()
+        if negative:
+            caption = f"{caption}\n\nAvoid: {negative}"
 
     with tempfile.TemporaryDirectory(prefix="ace_out_") as save_dir:
         cmd: list[str] = [
