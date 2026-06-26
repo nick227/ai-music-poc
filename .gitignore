@@ -1,14 +1,37 @@
+# Python
 .venv/
+venv/
 __pycache__/
-*.pyc
+*.py[cod]
+*.pyo
 .pytest_cache/
 .ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+
+# Environment & secrets
 .env
+.env.*
+!.env.example
+
+# OS / editor
 .DS_Store
 Thumbs.db
 *:Zone.Identifier
 *Zone.Identifier
+.idea/
+.vscode/
+.claude/
+.cursor/
+
+# Local ML weights (install outside repo)
 models/
+
+# Runtime data (keep directory placeholders only)
 data/jobs/*.json
 data/outputs/*
 data/logs/*
@@ -17,3 +40,12 @@ data/tmp/*
 !data/outputs/.gitkeep
 !data/logs/.gitkeep
 !data/tmp/.gitkeep
+
+# Generated audio (if saved outside data/outputs)
+*.wav
+*.mp3
+*.flac
+*.zip
+
+# Legacy duplicate static tree (app serves app/web/static/)
+/static/
