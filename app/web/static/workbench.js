@@ -1,237 +1,228 @@
-let queue = [];
-let activeItem = null;
+const TRAINING_ROLES = new Set(['GOLD_REFERENCE', 'TRAINING_CANDIDATE']);
 
-const dropzone = document.getElementById('dropzone');
-const fileInput = document.getElementById('file-upload');
-const queueList = document.getElementById('queue-list');
-const queueCount = document.getElementById('queue-count');
-const editorPanel = document.getElementById('editor-panel');
-const workbenchLayout = document.getElementById('workbench-layout');
-const editorForm = document.getElementById('editor-form');
-const activeFilename = document.getElementById('active-filename');
-const mediaPlayer = document.getElementById('media-player');
-const pipelineCard = document.getElementById('pipeline-card');
+let sessions = [];
+let activeSession = null;
+let mediaById = new Map();
 
 function queryMediaId() {
   return new URLSearchParams(window.location.search).get('media_id');
 }
 
-function categoryCount(item) {
-  if (item.category_assignment_count != null) return item.category_assignment_count;
-  return item.category_assignments?.length ?? 0;
+function isTrainingEligible(item) {
+  const role = item.primary_role;
+  if (role && TRAINING_ROLES.has(role)) return true;
+  const count = item.category_assignment_count ?? item.category_assignments?.length ?? 0;
+  return item.review_status === 'REVIEWED' && count > 0;
 }
 
-function syncQueueItem(media) {
-  const index = queue.findIndex((entry) => entry.id === media.id);
-  if (index >= 0) {
-    queue[index] = {
-      ...queue[index],
-      ...media,
-      category_assignment_count: media.category_assignments?.length ?? media.category_assignment_count ?? 0,
-    };
-  }
+function roleLabel(item) {
+  if (item.primary_role) return item.primary_role.replace(/_/g, ' ').toLowerCase();
+  return '—';
 }
 
-function setEditorOpen(open) {
-  editorPanel.classList.toggle('editor-panel--idle', !open);
-  workbenchLayout.classList.toggle('workbench-layout--editor-open', open);
-  editorForm.hidden = !open;
-  pipelineCard.hidden = !open;
+function catCount(item) {
+  return item.category_assignment_count ?? item.category_assignments?.length ?? 0;
 }
 
-function updatePipeline() {
-  if (!activeItem) {
-    pipelineCard.hidden = true;
+async function loadMedia() {
+  const rows = await StudioApi.listMedia({ limit: 200 });
+  mediaById = new Map(rows.map((row) => [row.id, row]));
+}
+
+function renderSessions() {
+  const list = document.getElementById('session-list');
+  if (!sessions.length) {
+    list.innerHTML = '<p class="table-meta">No sessions yet</p>';
     return;
   }
-  const count = WorkbenchTaxonomy.getSelectedCategoryIds().length;
-  document.getElementById('pipeline-summary').textContent = activeItem.title;
-  const pill = document.getElementById('pipeline-cats');
-  pill.textContent = `${count} categor${count === 1 ? 'y' : 'ies'}`;
-  pill.classList.toggle('has-value', count > 0);
-  document.getElementById('pipeline-generate').href = `/?context_media=${activeItem.id}`;
-  document.getElementById('pipeline-media-link').href = `/media-detail.html?id=${activeItem.id}`;
+  list.innerHTML = sessions.map((session) => `
+    <button type="button" class="session-item ${activeSession?.id === session.id ? 'active' : ''}" data-id="${session.id}">
+      <span class="session-item-name">${session.name}</span>
+      <span class="session-item-meta">${session.media_ids.length} · ${session.status}</span>
+    </button>
+  `).join('');
+  list.querySelectorAll('.session-item').forEach((btn) => {
+    btn.addEventListener('click', () => selectSession(btn.dataset.id));
+  });
+}
+
+function renderStats() {
+  const payload = activeSession.media_ids.map((id) => mediaById.get(id)).filter(Boolean);
+  const gold = payload.filter((item) => item.primary_role === 'GOLD_REFERENCE').length;
+  const candidates = payload.filter((item) => item.primary_role === 'TRAINING_CANDIDATE').length;
+  const cats = new Set();
+  payload.forEach((item) => {
+    (item.category_assignments || []).forEach((a) => cats.add(a.category_id));
+  });
+  document.getElementById('session-stats').innerHTML = `
+    <span class="stat-pill">${payload.length} tracks</span>
+    <span class="stat-pill">${gold} gold</span>
+    <span class="stat-pill">${candidates} candidates</span>
+    <span class="stat-pill">${cats.size} categories</span>
+  `;
+  document.getElementById('payload-count').textContent = String(payload.length);
+}
+
+function renderPayload() {
+  const tbody = document.getElementById('payload-rows');
+  const items = activeSession.media_ids.map((id) => mediaById.get(id)).filter(Boolean);
+  if (!items.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="table-meta">No tracks in payload — add from pool below or Media</td></tr>';
+    return;
+  }
+  tbody.innerHTML = items.map((item) => `
+    <tr>
+      <td class="table-title"><a href="/media-detail.html?id=${item.id}">${item.title}</a></td>
+      <td class="table-meta">${roleLabel(item)}</td>
+      <td><span class="count-pill ${catCount(item) ? 'has-value' : ''}">${catCount(item)}</span></td>
+      <td class="table-meta">${item.review_status.replace(/_/g, ' ').toLowerCase()}</td>
+      <td><button type="button" class="ghost small" data-remove="${item.id}">Remove</button></td>
+    </tr>
+  `).join('');
+  tbody.querySelectorAll('[data-remove]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      activeSession = WorkbenchSessions.removeMedia(activeSession, btn.dataset.remove);
+      sessions = WorkbenchSessions.loadAll();
+      renderAll();
+    });
+  });
+}
+
+function renderPool() {
+  const tbody = document.getElementById('pool-rows');
+  const inPayload = new Set(activeSession.media_ids);
+  const pool = [...mediaById.values()].filter((item) => isTrainingEligible(item) && !inPayload.has(item.id));
+  if (!pool.length) {
+    tbody.innerHTML = '<tr><td colspan="4" class="table-meta">No eligible media — categorize and mark reviewed in Media</td></tr>';
+    return;
+  }
+  tbody.innerHTML = pool.map((item) => `
+    <tr>
+      <td class="table-title"><a href="/media-detail.html?id=${item.id}">${item.title}</a></td>
+      <td class="table-meta">${roleLabel(item)}</td>
+      <td><span class="count-pill ${catCount(item) ? 'has-value' : ''}">${catCount(item)}</span></td>
+      <td><button type="button" class="ghost small" data-add="${item.id}">Add</button></td>
+    </tr>
+  `).join('');
+  tbody.querySelectorAll('[data-add]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      activeSession = WorkbenchSessions.addMedia(activeSession, btn.dataset.add);
+      sessions = WorkbenchSessions.loadAll();
+      renderAll();
+    });
+  });
+}
+
+function renderHistory() {
+  const list = document.getElementById('history-list');
+  const entries = activeSession.history || [];
+  list.innerHTML = entries.map((entry) => `
+    <li><time>${new Date(entry.at).toLocaleString()}</time> <strong>${entry.action}</strong> — ${entry.detail}</li>
+  `).join('');
+}
+
+function renderActive() {
+  const hasSession = !!activeSession;
+  document.getElementById('session-main').hidden = !hasSession;
+  document.getElementById('session-empty').hidden = hasSession;
+  if (!hasSession) return;
+
+  document.getElementById('session-name').value = activeSession.name;
+  document.getElementById('session-notes').value = activeSession.notes || '';
+  const statusEl = document.getElementById('session-status');
+  statusEl.textContent = activeSession.status;
+  statusEl.className = `status-pill ${activeSession.status === 'ready' ? 'reviewed' : 'needs-review'}`;
+
+  renderStats();
+  renderPayload();
+  renderPool();
+  renderHistory();
+}
+
+function renderAll() {
+  renderSessions();
+  renderActive();
+}
+
+function selectSession(id) {
+  activeSession = WorkbenchSessions.get(id);
+  renderAll();
+}
+
+function createSession() {
+  activeSession = WorkbenchSessions.create();
+  sessions = WorkbenchSessions.loadAll();
+  renderAll();
+}
+
+function saveSessionFields() {
+  if (!activeSession) return;
+  activeSession.name = document.getElementById('session-name').value.trim() || activeSession.name;
+  activeSession.notes = document.getElementById('session-notes').value.trim();
+  activeSession = WorkbenchSessions.log(activeSession, 'updated', 'Session details saved');
+  sessions = WorkbenchSessions.loadAll();
+  renderSessions();
+}
+
+function exportPayload() {
+  if (!activeSession) return;
+  const payload = {
+    session_id: activeSession.id,
+    name: activeSession.name,
+    status: activeSession.status,
+    base_model_version: activeSession.base_model_version,
+    media: activeSession.media_ids.map((id) => mediaById.get(id)).filter(Boolean),
+    exported_at: new Date().toISOString(),
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `${activeSession.name.replace(/\s+/g, '-').toLowerCase()}-payload.json`;
+  link.click();
+  URL.revokeObjectURL(url);
+  activeSession = WorkbenchSessions.log(activeSession, 'exported', 'Training payload exported');
+  sessions = WorkbenchSessions.loadAll();
+  renderHistory();
 }
 
 async function init() {
-  StudioNav.render('workbench');
-  await WorkbenchTaxonomy.loadTaxonomy();
-  WorkbenchTaxonomy.init(updatePipeline);
-  await loadQueue();
-  setupDragAndDrop();
-  setEditorOpen(false);
+  await loadMedia();
+  const status = await StudioApi.modelStatus();
+  sessions = WorkbenchSessions.loadAll();
+  sessions.forEach((session) => {
+    if (!session.base_model_version) session.base_model_version = status.model_version || status.ace_model_dir || '';
+  });
+
+  if (!sessions.length) {
+    renderSessions();
+    document.getElementById('session-empty').hidden = false;
+    document.getElementById('session-main').hidden = true;
+  } else {
+    activeSession = sessions[0];
+    renderAll();
+  }
 
   const mediaId = queryMediaId();
-  if (mediaId) await focusMedia(mediaId);
-
-  editorForm.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    await saveAssignments({ advance: true, markReviewed: false });
-  });
-
-  document.getElementById('skip-btn').addEventListener('click', () => {
-    advanceQueue(activeItem?.id, { remove: false });
-  });
-
-  document.getElementById('done-btn').addEventListener('click', () => {
-    saveAssignments({ advance: true, markReviewed: true });
-  });
-}
-
-async function focusMedia(mediaId) {
-  const existing = queue.find((item) => item.id === mediaId);
-  if (existing) {
-    await selectItem(existing);
-    return;
-  }
-  const media = await StudioApi.getMedia(mediaId);
-  queue = [media, ...queue.filter((item) => item.id !== mediaId)];
-  renderQueue();
-  await selectItem(media);
-}
-
-async function loadQueue() {
-  try {
-    queue = await StudioApi.getInbox();
-    renderQueue();
-    if (queue.length > 0 && !activeItem && !queryMediaId()) await selectItem(queue[0]);
-  } catch (error) {
-    console.error('Failed to load inbox', error);
-  }
-}
-
-function renderQueue() {
-  queueCount.textContent = queue.length;
-  if (!queue.length) {
-    queueList.innerHTML = '';
-    return;
-  }
-  queueList.innerHTML = queue.map((item) => {
-    const count = categoryCount(item);
-    const metaClass = count > 0 ? 'queue-item-meta has-cats' : 'queue-item-meta';
-    return `
-      <div class="queue-item ${activeItem?.id === item.id ? 'active' : ''}" data-id="${item.id}">
-        <span class="queue-item-name">${item.title}</span>
-        <span class="${metaClass}">${count}</span>
-      </div>
-    `;
-  }).join('');
-  queueList.querySelectorAll('.queue-item').forEach((el) => {
-    el.addEventListener('click', () => selectItemById(el.dataset.id));
-  });
-}
-
-async function selectItemById(id) {
-  const item = queue.find((entry) => entry.id === id);
-  if (item) await selectItem(item);
-}
-
-async function selectItem(item) {
-  activeItem = await StudioApi.getMedia(item.id);
-  syncQueueItem(activeItem);
-  renderQueue();
-
-  const first = activeItem.category_assignments?.[0] || {};
-  document.getElementById('quality-score').value = first.quality_score ?? '';
-  document.getElementById('fit-score').value = first.fit_score ?? '';
-  document.getElementById('role-select').value = first.role || activeItem.primary_role || 'REFERENCE';
-  document.getElementById('notes-input').value = first.notes || '';
-
-  WorkbenchTaxonomy.setSelectionFromMedia(activeItem);
-  setEditorOpen(true);
-  activeFilename.textContent = activeItem.title;
-  mediaPlayer.src = `/api/media/${activeItem.id}/audio`;
-  updatePipeline();
-}
-
-function advanceQueue(currentId, { remove }) {
-  if (remove && currentId) queue = queue.filter((item) => item.id !== currentId);
-  renderQueue();
-  if (queue.length > 0) {
-    selectItem(queue[0]);
-    return;
-  }
-  activeItem = null;
-  setEditorOpen(false);
-  mediaPlayer.removeAttribute('src');
-  mediaPlayer.load();
-}
-
-function setupDragAndDrop() {
-  ['dragenter', 'dragover', 'dragleave', 'drop'].forEach((name) => {
-    dropzone.addEventListener(name, (e) => { e.preventDefault(); e.stopPropagation(); });
-  });
-  ['dragenter', 'dragover'].forEach((name) => dropzone.addEventListener(name, () => dropzone.classList.add('dragover')));
-  ['dragleave', 'drop'].forEach((name) => dropzone.addEventListener(name, () => dropzone.classList.remove('dragover')));
-  dropzone.addEventListener('drop', (e) => uploadFiles(e.dataTransfer.files));
-  fileInput.addEventListener('change', (e) => uploadFiles(e.target.files));
-}
-
-async function uploadFiles(files) {
-  if (!files.length) return;
-  const formData = new FormData();
-  for (const file of files) formData.append('files', file);
-  try {
-    const imported = await StudioApi.importMedia(formData);
-    queue = [...queue, ...imported];
-    renderQueue();
-    if (!activeItem && queue.length) await selectItem(queue[0]);
-  } catch (error) {
-    console.error('Upload failed', error);
-    alert('Upload failed.');
-  }
-}
-
-function parseOptionalScore(value) {
-  if (value === '' || value == null) return null;
-  const parsed = parseInt(value, 10);
-  return Number.isNaN(parsed) ? null : parsed;
-}
-
-function buildAssignmentPayload(markReviewed) {
-  const qualityScore = parseOptionalScore(document.getElementById('quality-score').value);
-  const fitScore = parseOptionalScore(document.getElementById('fit-score').value);
-  const role = document.getElementById('role-select').value || 'REFERENCE';
-  const notes = document.getElementById('notes-input').value.trim() || null;
-  const categoryIds = WorkbenchTaxonomy.getSelectedCategoryIds();
-  return {
-    mark_reviewed: markReviewed,
-    categories: categoryIds.map((categoryId) => ({
-      category_id: categoryId,
-      quality_score: qualityScore,
-      fit_score: fitScore,
-      role,
-      notes,
-      reviewed: markReviewed,
-    })),
-    concepts: [],
-  };
-}
-
-async function saveAssignments({ advance, markReviewed }) {
-  if (!activeItem) return;
-  const submitBtn = document.getElementById('save-next-btn');
-  submitBtn.disabled = true;
-  document.getElementById('done-btn').disabled = true;
-
-  try {
-    const saved = await StudioApi.saveAssignments(activeItem.id, buildAssignmentPayload(markReviewed));
-    WorkbenchTaxonomy.rememberSavedCategories();
-    activeItem = saved;
-    if (markReviewed) {
-      advanceQueue(activeItem.id, { remove: true });
-    } else {
-      syncQueueItem(saved);
-      if (advance) advanceQueue(activeItem.id, { remove: false });
-      else renderQueue();
+  if (mediaId) {
+    if (!activeSession) createSession();
+    if (mediaById.has(mediaId)) {
+      activeSession = WorkbenchSessions.addMedia(activeSession, mediaId);
+      sessions = WorkbenchSessions.loadAll();
+      renderAll();
     }
-  } catch (error) {
-    console.error('Save failed', error);
-    alert('Failed to save.');
-  } finally {
-    submitBtn.disabled = false;
-    document.getElementById('done-btn').disabled = false;
   }
+
+  document.getElementById('new-session-btn').addEventListener('click', createSession);
+  document.getElementById('new-session-empty-btn').addEventListener('click', createSession);
+  document.getElementById('session-name').addEventListener('change', saveSessionFields);
+  document.getElementById('session-notes').addEventListener('change', saveSessionFields);
+  document.getElementById('mark-ready-btn').addEventListener('click', () => {
+    activeSession = WorkbenchSessions.setStatus(activeSession, 'ready');
+    sessions = WorkbenchSessions.loadAll();
+    renderAll();
+  });
+  document.getElementById('export-payload-btn').addEventListener('click', exportPayload);
 }
 
 init();

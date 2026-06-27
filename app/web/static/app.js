@@ -160,7 +160,6 @@ analyzeBtn.addEventListener('click', async () => {
   }
 });
 async function loadContextMedia() {
-  StudioNav.render('generate');
   const mediaId = new URLSearchParams(window.location.search).get('context_media');
   if (!mediaId) return;
   const media = await StudioApi.getMedia(mediaId);

@@ -8,98 +8,97 @@
     <link rel="stylesheet" href="/studio.css" />
     <link rel="stylesheet" href="/workbench.css" />
   </head>
-  <body>
+  <body data-studio-tab="workbench">
     <main class="shell workbench-shell studio-shell">
       <nav id="studio-nav" class="studio-nav"></nav>
 
       <section class="studio-hero">
         <p class="eyebrow">Workbench</p>
-        <h1>Pipeline &amp; versioning</h1>
-        <p class="muted">Categorize reference audio, then use those tags to steer generation and compare outputs.</p>
+        <h1>Fine-tuning &amp; model versions</h1>
+        <p class="muted">Build training payloads from categorized media, manage sessions, and track model update history.</p>
       </section>
 
-      <section id="pipeline-card" class="card pipeline-card" hidden>
-        <h2>Active item</h2>
-        <p id="pipeline-summary" class="muted">—</p>
-        <div class="pipeline-steps">
-          <span id="pipeline-cats" class="count-pill">0 categories</span>
-          <a id="pipeline-generate" class="button" href="/">Generate baseline</a>
-          <a id="pipeline-songs" class="button ghost" href="/songs.html">View songs</a>
-          <a id="pipeline-media-link" class="button ghost" href="/media.html">Media library</a>
-        </div>
-      </section>
-
-      <div class="workbench-layout" id="workbench-layout">
-        <aside class="card queue-panel">
+      <div class="workbench-layout">
+        <aside class="card sessions-panel">
           <div class="section-head">
-            <h2>Review queue</h2>
-            <span id="queue-count" class="badge">0</span>
+            <h2>Sessions</h2>
+            <button type="button" id="new-session-btn" class="small">New</button>
           </div>
-          <div id="dropzone" class="dropzone">
-            <input type="file" id="file-upload" multiple accept="audio/*" hidden />
-            <button class="ghost small" type="button" onclick="document.getElementById('file-upload').click()">Add audio</button>
-          </div>
-          <div id="queue-list" class="queue-list"></div>
+          <div id="session-list" class="session-list"></div>
         </aside>
 
-        <section id="editor-panel" class="card editor-panel editor-panel--idle">
-          <form id="editor-form" class="editor-form" hidden>
-            <header class="editor-header">
-              <h2 id="active-filename"></h2>
-              <div class="actions">
-                <button type="button" id="skip-btn" class="ghost">Skip</button>
-                <button type="button" id="done-btn" class="ghost">Done</button>
-                <button type="submit" id="save-next-btn">Save + Next</button>
-              </div>
-            </header>
+        <section class="card session-main" id="session-main" hidden>
+          <header class="session-header">
+            <div>
+              <input type="text" id="session-name" class="session-name-input" />
+              <span id="session-status" class="status-pill">draft</span>
+            </div>
+            <div class="actions">
+              <button type="button" id="mark-ready-btn" class="ghost">Mark ready</button>
+              <button type="button" id="export-payload-btn" class="ghost">Export payload</button>
+            </div>
+          </header>
 
-            <audio id="media-player" controls></audio>
+          <div class="session-stats" id="session-stats"></div>
 
-            <section class="taxonomy-block">
-              <div id="cat-chips" class="chips-container selected-chips"></div>
-              <div id="cat-suggestions" class="chips-container suggestion-chips"></div>
-              <div class="search-wrap">
-                <input type="text" id="cat-search" placeholder="Search categories..." autocomplete="off" />
-                <div id="cat-results" class="search-results hidden"></div>
+          <label class="session-notes-label">
+            Notes
+            <textarea id="session-notes" rows="2" placeholder="Training goals, slice criteria, version notes…"></textarea>
+          </label>
+
+          <div class="session-panels">
+            <section>
+              <h3>Training payload <span id="payload-count" class="badge">0</span></h3>
+              <div class="data-table-wrap">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Title</th>
+                      <th>Role</th>
+                      <th>Cats</th>
+                      <th>Review</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody id="payload-rows"></tbody>
+                </table>
               </div>
-              <div id="cat-browse" class="browse-panel"></div>
             </section>
 
-            <details class="optional-details">
-              <summary>Scores &amp; role</summary>
-              <div class="row">
-                <label>
-                  Quality
-                  <input type="number" id="quality-score" min="1" max="5" />
-                </label>
-                <label>
-                  Fit
-                  <input type="number" id="fit-score" min="1" max="5" />
-                </label>
-                <label>
-                  Role
-                  <select id="role-select">
-                    <option value="REFERENCE" selected>Reference</option>
-                    <option value="GOLD_REFERENCE">Gold Reference</option>
-                    <option value="TRAINING_CANDIDATE">Training Candidate</option>
-                    <option value="NEGATIVE_EXAMPLE">Negative Example</option>
-                    <option value="REJECT">Reject</option>
-                  </select>
-                </label>
+            <section>
+              <h3>Eligible media pool</h3>
+              <p class="table-meta">Reviewed uploads with training roles or category assignments. Categorize in Media first.</p>
+              <div class="data-table-wrap">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Title</th>
+                      <th>Role</th>
+                      <th>Cats</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody id="pool-rows"></tbody>
+                </table>
               </div>
-            </details>
+            </section>
+          </div>
 
-            <label>
-              Notes
-              <textarea id="notes-input" rows="2"></textarea>
-            </label>
-          </form>
+          <section class="history-panel">
+            <h3>Session history</h3>
+            <ul id="history-list" class="history-list"></ul>
+          </section>
+        </section>
+
+        <section class="card session-empty" id="session-empty">
+          <p class="muted">Create a session to assemble a training payload from your categorized media library.</p>
+          <button type="button" id="new-session-empty-btn">New session</button>
         </section>
       </div>
     </main>
     <script src="/studio-api.js"></script>
     <script src="/studio-nav.js"></script>
-    <script src="/workbench-taxonomy.js"></script>
+    <script src="/workbench-sessions.js"></script>
     <script src="/workbench.js"></script>
   </body>
 </html>

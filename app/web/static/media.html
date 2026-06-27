@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="/studio.css" />
     <link rel="stylesheet" href="/media.css" />
   </head>
-  <body>
+  <body data-studio-tab="media">
     <main class="shell studio-shell">
       <nav id="studio-nav" class="studio-nav"></nav>
 
@@ -34,6 +34,7 @@
         <span id="table-count" class="muted"></span>
       </div>
 
+      <div id="dropzone" class="media-dropzone">
       <div class="data-table-wrap">
         <table class="data-table">
           <thead>
@@ -51,6 +52,7 @@
           </thead>
           <tbody id="media-rows"></tbody>
         </table>
+      </div>
       </div>
     </main>
     <script src="/studio-api.js"></script>

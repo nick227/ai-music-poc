@@ -9,7 +9,6 @@ function formatDate(value) {
 }
 
 async function load() {
-  StudioNav.render('songs');
   const songs = await StudioApi.listSongs(100);
   const tbody = document.getElementById('song-rows');
   if (!songs.length) {

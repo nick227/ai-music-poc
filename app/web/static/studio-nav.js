@@ -13,4 +13,10 @@ window.StudioNav = {
       <a href="${tab.href}" class="studio-tab ${tab.id === activeId ? 'active' : ''}">${tab.label}</a>
     `).join('');
   },
+  boot() {
+    const tab = document.body?.dataset?.studioTab;
+    if (tab) this.render(tab);
+  },
 };
+
+document.addEventListener('DOMContentLoaded', () => StudioNav.boot());

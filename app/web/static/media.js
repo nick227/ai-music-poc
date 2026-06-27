@@ -23,9 +23,9 @@ function roleLabel(item) {
 }
 
 async function load() {
-  StudioNav.render('media');
   allRows = await StudioApi.listMedia({ limit: 200 });
   render();
+  setupDropzone();
 }
 
 function filteredRows() {
@@ -64,7 +64,7 @@ function render() {
         <td class="table-meta">${formatDate(row.created_at)}</td>
         <td class="table-actions">
           <a class="button ghost small" href="/media-detail.html?id=${row.id}">Open</a>
-          <a class="button ghost small" href="/workbench.html?media_id=${row.id}">Workbench</a>
+          <a class="button ghost small" href="/workbench.html?media_id=${row.id}">Session</a>
         </td>
       </tr>
     `;
@@ -98,14 +98,27 @@ document.getElementById('import-btn').addEventListener('click', () => {
 });
 
 document.getElementById('import-files').addEventListener('change', async (e) => {
-  const files = e.target.files;
+  await importFiles(e.target.files);
+  e.target.value = '';
+});
+
+async function importFiles(files) {
   if (!files?.length) return;
   const formData = new FormData();
   for (const file of files) formData.append('files', file);
   await StudioApi.importMedia(formData);
-  e.target.value = '';
   allRows = await StudioApi.listMedia({ limit: 200 });
   render();
-});
+}
+
+function setupDropzone() {
+  const zone = document.getElementById('dropzone');
+  ['dragenter', 'dragover', 'dragleave', 'drop'].forEach((name) => {
+    zone.addEventListener(name, (e) => { e.preventDefault(); e.stopPropagation(); });
+  });
+  ['dragenter', 'dragover'].forEach((name) => zone.addEventListener(name, () => zone.classList.add('dragover')));
+  ['dragleave', 'drop'].forEach((name) => zone.addEventListener(name, () => zone.classList.remove('dragover')));
+  zone.addEventListener('drop', (e) => importFiles(e.dataTransfer.files));
+}
 
 load();

@@ -1,1 +1,9 @@
-.media-hidden-player { display: none; }
+.media-dropzone {
+  border-radius: 16px;
+  transition: box-shadow 0.2s, background 0.2s;
+}
+
+.media-dropzone.dragover {
+  box-shadow: inset 0 0 0 2px rgba(139,92,246,0.5);
+  background: rgba(139,92,246,0.06);
+}

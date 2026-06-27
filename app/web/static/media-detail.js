@@ -54,7 +54,6 @@ function updatePipelineLinks() {
 }
 
 async function load() {
-  StudioNav.render('media');
   mediaId = queryId();
   if (!mediaId) {
     window.location.href = '/media.html';
