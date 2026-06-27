@@ -101,3 +101,14 @@ The command must write the final WAV to `$output_path`.
 | `ace-step-command` | Neural ACE-Step singing | GPU + ACE venv + checkpoints |
 
 Procedural jobs at `balanced`/`high` quality may include `vocal_stem.wav` in bundles and at `/api/download/{job_id}/vocal`.
+
+## First-run duration
+
+The first real ACE generation through the app often takes **much longer** than later runs:
+
+1. **Wiring ready** (`GET /api/model-status`) — paths and command template only; fast.
+2. **Packages + CUDA ready** (`POST /api/model-status/test`) — ACE venv imports; no inference.
+3. **Checkpoint download** — may add 10–30+ minutes on first run while models populate `HF_CACHE_DIR` / `ACE_MODEL_DIR`.
+4. **Verified generation** (`first_real_generation_verified: true`) — set after at least one successful `ace-step-command` job with `backend: external-command` appears in app metadata.
+
+Set `ACE_TIMEOUT_SECONDS=3600` (or higher) for first-run jobs. Subsequent runs reuse cached checkpoints and are much faster.

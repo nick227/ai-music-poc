@@ -106,6 +106,9 @@ class AceStepCommandGenerator:
             raise RuntimeError(message[:1600])
 
         audio = validate_wav_output(output_path, expected_duration_seconds=request.duration_seconds)
+        command_preview = " ".join(cmd)
+        if len(command_preview) > 480:
+            command_preview = command_preview[:477] + "..."
         return GenerationResult(
             file_name=output_path.name,
             duration_seconds=round(audio.duration_seconds),
@@ -117,7 +120,7 @@ class AceStepCommandGenerator:
                 "device": self.settings.ace_device,
                 "model_dir": str(self.settings.ace_model_dir),
                 "hf_cache_dir": str(self.settings.hf_cache_dir) if self.settings.hf_cache_dir else None,
-                "command": cmd,
+                "command_preview": command_preview,
                 "ace_returncode": completed.returncode,
                 "ace_elapsed_seconds": elapsed_seconds,
                 "stdout_tail": stdout_tail,

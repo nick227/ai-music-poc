@@ -139,20 +139,44 @@ class Preset(BaseModel):
 
 
 class ModelStatus(BaseModel):
+    # --- Wiring layer: bridge is configured and paths exist ---
     ace_enabled: bool
     ace_command_configured: bool
+    command_template_valid: bool
     ace_python_exists: bool
     ace_script_exists: bool
     ace_model_dir_exists: bool
+    wiring_ok: bool  # True when all wiring conditions pass (fast, no subprocess)
+
+    # --- Package / runtime layer (unchecked until POST /api/model-status/test) ---
+    packages_checked: bool = False
+    packages_ok: bool | None = None  # None = not yet probed
+    missing_packages: list[str] = Field(default_factory=list)
+
+    # --- CUDA (unchecked until POST /api/model-status/test) ---
     cuda_expected: bool
-    command_template_valid: bool
-    can_generate: bool
+    cuda_available: bool | None = None  # None = not yet probed
+
+    # --- HF cache / checkpoint storage ---
+    hf_cache_dir: str = ""
+    hf_cache_configured: bool = False  # HF_CACHE_DIR env var is set
+    hf_cache_exists: bool = False       # configured path actually exists on disk
+
+    # --- Fallback ---
     fallback_enabled: bool
+
+    # --- Overall verdict ---
+    can_generate: bool  # wiring-only check; does NOT require packages to be probed
+    cuda_ready: bool | None = None  # None until packages probed; True when CUDA ok or not required
+    first_real_generation_verified: bool = False
+    first_real_generation: dict | None = None  # populated when a prior ACE external-command job exists
+    user_message: str = ""  # human-readable summary of current state
+    warnings: list[str] = Field(default_factory=list)
+
+    # --- Path display (kept for compatibility) ---
     ace_python: str = ""
     ace_script: str = ""
     ace_model_dir: str = ""
-    hf_cache_dir: str = ""
-    warnings: list[str] = Field(default_factory=list)
 
 
 class ErrorResponse(BaseModel):

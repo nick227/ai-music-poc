@@ -42,6 +42,16 @@ class MetadataStore:
             "output_file": result.file_name,
             "settings": result.metadata,
         }
+        if result.metadata.get("backend") == "external-command":
+            payload["ace"] = {
+                "backend": "external-command",
+                "engine": result.metadata.get("engine"),
+                "device": result.metadata.get("device"),
+                "model_dir": result.metadata.get("model_dir"),
+                "hf_cache_dir": result.metadata.get("hf_cache_dir"),
+                "elapsed_seconds": result.metadata.get("ace_elapsed_seconds"),
+                "audio": result.metadata.get("audio"),
+            }
         if self.settings.save_full_lyrics:
             payload["lyrics"] = req.lyrics
         path = self.path_for_job(job.id)

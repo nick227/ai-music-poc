@@ -10,7 +10,43 @@ Returns registered generators and status.
 
 ## `GET /api/model-status`
 
-Returns generator readiness plus whether the app is functional without GPU.
+Fast wiring check — no subprocesses. Fields are grouped by subsystem:
+
+| Field | Subsystem | Meaning |
+|---|---|---|
+| `wiring_ok` | Wiring | All path/config conditions pass (shorthand) |
+| `ace_enabled` | Wiring | `ACE_ENABLED=true` in `.env` |
+| `command_template_valid` | Wiring | Template has `$output_path` and `$prompt*` |
+| `ace_python_exists` | Wiring | `ACE_PYTHON` path resolves |
+| `ace_script_exists` | Wiring | `ACE_SCRIPT` file exists |
+| `ace_model_dir_exists` | Wiring | `ACE_MODEL_DIR` directory exists |
+| `can_generate` | Wiring | All wiring conditions pass; does **not** require packages to be probed |
+| `hf_cache_configured` | Cache | `HF_CACHE_DIR` is set in `.env` |
+| `hf_cache_exists` | Cache | Configured `HF_CACHE_DIR` path exists on disk |
+| `packages_checked` | Packages | Always `false` on GET; populated by POST `/test` |
+| `packages_ok` | Packages | `null` on GET; `true`/`false` after POST `/test` |
+| `missing_packages` | Packages | Empty on GET; filled by POST `/test` when imports fail |
+| `cuda_expected` | CUDA | `ACE_DEVICE=cuda` in config |
+| `cuda_available` | CUDA | `null` on GET; populated by POST `/test` |
+| `cuda_ready` | CUDA | `null` on GET; `true` when packages OK and CUDA available (or CPU mode) |
+| `first_real_generation_verified` | History | `true` when app metadata shows a prior ACE `external-command` job |
+| `first_real_generation` | History | Summary of most recent verified ACE job, or `null` |
+| `fallback_enabled` | Fallback | `ACE_ALLOW_FALLBACK=true` in `.env` |
+| `user_message` | Summary | Human-readable description of current state |
+
+**First-run note:** The first real ACE generation may take much longer than subsequent runs while Hugging Face checkpoints download into `HF_CACHE_DIR`. Wiring and package checks passing does not mean checkpoints are fully cached yet.
+
+## `POST /api/model-status/test`
+
+Runs subprocesses to probe the ACE venv. Returns the same shape as GET `/api/model-status` under a `"status"` key, but with:
+- `packages_checked: true`
+- `packages_ok: true|false`
+- `missing_packages: [...]` (names of imports that failed)
+- `cuda_available: true|false`
+- updated `user_message`
+
+Also returns `"diagnostic"`, `"packages"`, `"dry_run"`, `"recommended_actions"` keys.
+**Does not run model inference.**
 
 ## `POST /api/generate`
 
