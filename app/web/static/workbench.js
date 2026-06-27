@@ -16,21 +16,11 @@ window.WorkbenchApi = {
   listCategories() {
     return this.request('/api/categories');
   },
-  listConcepts() {
-    return this.request('/api/concepts');
-  },
   createCategory(name, dimension) {
     return this.request('/api/categories', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, dimension }),
-    });
-  },
-  createConcept(name, categoryIds) {
-    return this.request('/api/concepts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, category_ids: categoryIds }),
     });
   },
   saveAssignments(id, payload) {
@@ -85,7 +75,7 @@ async function loadQueue() {
 function renderQueue() {
   queueCount.textContent = queue.length;
   if (!queue.length) {
-    queueList.innerHTML = '<p>Inbox is empty.</p>';
+    queueList.innerHTML = '';
     return;
   }
   queueList.innerHTML = queue.map((item) => `
@@ -107,12 +97,11 @@ async function selectItem(item) {
   activeItem = await WorkbenchApi.getMedia(item.id);
   renderQueue();
 
-  const firstCat = activeItem.category_assignments?.[0] || {};
-  const firstCon = activeItem.concept_assignments?.[0] || {};
-  document.getElementById('quality-score').value = firstCat.quality_score ?? firstCon.quality_score ?? '';
-  document.getElementById('fit-score').value = firstCat.fit_score ?? firstCon.fit_score ?? '';
-  document.getElementById('role-select').value = firstCat.role || firstCon.role || 'REFERENCE';
-  document.getElementById('notes-input').value = firstCat.notes || firstCon.notes || '';
+  const first = activeItem.category_assignments?.[0] || {};
+  document.getElementById('quality-score').value = first.quality_score ?? '';
+  document.getElementById('fit-score').value = first.fit_score ?? '';
+  document.getElementById('role-select').value = first.role || 'REFERENCE';
+  document.getElementById('notes-input').value = first.notes || '';
 
   WorkbenchTaxonomy.setSelectionFromMedia(activeItem);
 
@@ -176,7 +165,6 @@ async function saveAndNext() {
   const role = document.getElementById('role-select').value || 'REFERENCE';
   const notes = document.getElementById('notes-input').value.trim() || null;
   const categoryIds = WorkbenchTaxonomy.getSelectedCategoryIds();
-  const conceptIds = WorkbenchTaxonomy.getSelectedConceptIds();
 
   const payload = {
     mark_reviewed: true,
@@ -188,14 +176,7 @@ async function saveAndNext() {
       notes,
       reviewed: true,
     })),
-    concepts: conceptIds.map((conceptId) => ({
-      concept_id: conceptId,
-      quality_score: qualityScore,
-      fit_score: fitScore,
-      role,
-      notes,
-      reviewed: true,
-    })),
+    concepts: [],
   };
 
   try {
@@ -206,7 +187,7 @@ async function saveAndNext() {
     selectNext();
   } catch (error) {
     console.error('Save failed', error);
-    alert('Failed to save media.');
+    alert('Failed to save.');
   } finally {
     submitBtn.disabled = false;
     submitBtn.textContent = 'Save + Next';

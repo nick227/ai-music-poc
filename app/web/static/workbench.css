@@ -9,11 +9,10 @@
 .workbench-layout { display: grid; grid-template-columns: 350px 1fr; gap: 24px; align-items: start; }
 
 .badge { background: #8b5cf6; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; }
-.dropzone { border: 2px dashed rgba(255,255,255,0.2); border-radius: 16px; padding: 30px 20px; text-align: center; margin-bottom: 20px; transition: all 0.2s; }
+.dropzone { border: 2px dashed rgba(255,255,255,0.2); border-radius: 16px; padding: 20px; text-align: center; margin-bottom: 20px; transition: all 0.2s; }
 .dropzone.dragover { border-color: #8b5cf6; background: rgba(139,92,246,0.1); }
-.dropzone p { margin: 0 0 10px 0; font-size: 14px; font-weight: 600; }
 
-.queue-list { display: flex; flex-direction: column; gap: 10px; max-height: 600px; overflow-y: auto; padding-right: 5px; }
+.queue-list { display: flex; flex-direction: column; gap: 10px; max-height: 600px; overflow-y: auto; padding-right: 5px; min-height: 40px; }
 .queue-item { display: flex; align-items: center; padding: 12px; border-radius: 12px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); cursor: pointer; transition: background 0.2s; }
 .queue-item:hover { background: rgba(255,255,255,0.08); }
 .queue-item.active { background: rgba(139,92,246,0.15); border-color: rgba(139,92,246,0.4); }
@@ -24,10 +23,7 @@
 .editor-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px; }
 .editor-header h2 { margin: 0; font-size: 20px; color: #fafafa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 400px; }
 
-.taxonomy-block { margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.08); }
-.block-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; }
-.block-head h3 { margin: 0; font-size: 15px; }
-.small { font-size: 12px; }
+.taxonomy-block { margin-bottom: 24px; }
 
 .search-wrap { position: relative; margin: 12px 0; }
 .search-results { position: absolute; top: 100%; left: 0; right: 0; background: #18181b; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; margin-top: 4px; max-height: 240px; overflow-y: auto; z-index: 10; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }

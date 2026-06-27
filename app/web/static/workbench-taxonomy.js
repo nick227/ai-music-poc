@@ -12,11 +12,8 @@ window.WorkbenchTaxonomy = (() => {
   const RECENT_KEY = 'workbench_recent_categories';
 
   let allCategories = [];
-  let allConcepts = [];
   let selectedCategoryIds = [];
-  let selectedConceptIds = [];
   let activeTitle = '';
-  let onChange = () => {};
 
   function dimensionLabel(value) {
     return DIMENSION_LABELS[value] || value;
@@ -26,17 +23,9 @@ window.WorkbenchTaxonomy = (() => {
     return allCategories.find((item) => item.id === id);
   }
 
-  function conceptById(id) {
-    return allConcepts.find((item) => item.id === id);
-  }
-
   function categoryLabel(id) {
     const cat = categoryById(id);
     return cat ? `${dimensionLabel(cat.dimension)} / ${cat.name}` : id;
-  }
-
-  function conceptLabel(id) {
-    return conceptById(id)?.name || id;
   }
 
   function loadRecent() {
@@ -58,11 +47,6 @@ window.WorkbenchTaxonomy = (() => {
 
   function buildCategorySuggestions() {
     const scores = new Map();
-    selectedConceptIds.forEach((conceptId) => {
-      conceptById(conceptId)?.category_ids?.forEach((catId) => {
-        scores.set(catId, (scores.get(catId) || 0) + 4);
-      });
-    });
     tokenize(activeTitle).forEach((token) => {
       allCategories.forEach((cat) => {
         const hay = `${cat.name} ${cat.slug} ${cat.dimension}`.toLowerCase();
@@ -80,57 +64,34 @@ window.WorkbenchTaxonomy = (() => {
       .filter(Boolean);
   }
 
-  function buildConceptSuggestions() {
-    const scores = new Map();
-    selectedCategoryIds.forEach((catId) => {
-      allConcepts.forEach((concept) => {
-        if (concept.category_ids?.includes(catId)) {
-          scores.set(concept.id, (scores.get(concept.id) || 0) + 2);
-        }
-      });
-    });
-    tokenize(activeTitle).forEach((token) => {
-      allConcepts.forEach((concept) => {
-        if (concept.name.toLowerCase().includes(token) || concept.slug?.includes(token)) {
-          scores.set(concept.id, (scores.get(concept.id) || 0) + 2);
-        }
-      });
-    });
-    return [...scores.entries()]
-      .filter(([id]) => !selectedConceptIds.includes(id))
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 8)
-      .map(([id]) => conceptById(id))
-      .filter(Boolean);
-  }
-
-  function renderSelectedChips(containerId, ids, labelFn, removeFn) {
-    const el = document.getElementById(containerId);
-    if (!ids.length) {
-      el.innerHTML = '<span class="muted small">None selected — browse or tap suggestions below.</span>';
+  function renderSelectedChips() {
+    const el = document.getElementById('cat-chips');
+    if (!selectedCategoryIds.length) {
+      el.innerHTML = '';
       return;
     }
-    el.innerHTML = ids.map((id) => `
-      <span class="chip chip-selected">${labelFn(id)}
+    el.innerHTML = selectedCategoryIds.map((id) => `
+      <span class="chip chip-selected">${categoryLabel(id)}
         <span class="remove" data-id="${id}">×</span>
       </span>
     `).join('');
     el.querySelectorAll('.remove').forEach((btn) => {
-      btn.addEventListener('click', () => removeFn(btn.dataset.id));
+      btn.addEventListener('click', () => removeCategory(btn.dataset.id));
     });
   }
 
-  function renderSuggestionChips(containerId, items, onPick) {
-    const el = document.getElementById(containerId);
+  function renderSuggestionChips() {
+    const el = document.getElementById('cat-suggestions');
+    const items = buildCategorySuggestions();
     if (!items.length) {
-      el.innerHTML = '<span class="muted small">Suggestions appear from filename, concepts, and recent picks.</span>';
+      el.innerHTML = '';
       return;
     }
     el.innerHTML = items.map((item) => `
-      <button type="button" class="chip chip-suggestion" data-id="${item.id}">${item.dimension ? dimensionLabel(item.dimension) + ' / ' + item.name : item.name}</button>
+      <button type="button" class="chip chip-suggestion" data-id="${item.id}">${dimensionLabel(item.dimension)} / ${item.name}</button>
     `).join('');
     el.querySelectorAll('.chip-suggestion').forEach((btn) => {
-      btn.addEventListener('click', () => onPick(btn.dataset.id));
+      btn.addEventListener('click', () => addCategory(btn.dataset.id));
     });
   }
 
@@ -164,35 +125,17 @@ window.WorkbenchTaxonomy = (() => {
       selectedCategoryIds.push(id);
       rememberRecent([id]);
       refresh();
-      onChange();
     }
   }
 
   function removeCategory(id) {
     selectedCategoryIds = selectedCategoryIds.filter((x) => x !== id);
     refresh();
-    onChange();
-  }
-
-  function addConcept(id) {
-    if (!selectedConceptIds.includes(id)) {
-      selectedConceptIds.push(id);
-      refresh();
-      onChange();
-    }
-  }
-
-  function removeConcept(id) {
-    selectedConceptIds = selectedConceptIds.filter((x) => x !== id);
-    refresh();
-    onChange();
   }
 
   function refresh() {
-    renderSelectedChips('cat-chips', selectedCategoryIds, categoryLabel, removeCategory);
-    renderSelectedChips('con-chips', selectedConceptIds, conceptLabel, removeConcept);
-    renderSuggestionChips('cat-suggestions', buildCategorySuggestions(), addCategory);
-    renderSuggestionChips('con-suggestions', buildConceptSuggestions(), (id) => addConcept(id));
+    renderSelectedChips();
+    renderSuggestionChips();
     renderBrowse();
   }
 
@@ -204,47 +147,12 @@ window.WorkbenchTaxonomy = (() => {
     }).slice(0, 12);
   }
 
-  function filterConcepts(query) {
-    const q = query.toLowerCase();
-    return allConcepts.filter((concept) => `${concept.name} ${concept.slug}`.toLowerCase().includes(q)).slice(0, 12);
-  }
-
-  function renderSearchResults(resultsEl, items, labelFn, onSelect, emptyQuery, onCreate) {
-    if (!emptyQuery) {
-      resultsEl.classList.add('hidden');
-      return;
-    }
-    let html = items.map((item) => `
-      <div class="search-result-item" data-id="${item.id}">${labelFn(item)}</div>
-    `).join('');
-    if (!items.length && onCreate) {
-      html = onCreate(emptyQuery);
-    }
-    resultsEl.innerHTML = html;
-    resultsEl.classList.remove('hidden');
-    resultsEl.querySelectorAll('.search-result-item:not(.search-create)').forEach((el) => {
-      el.addEventListener('click', () => onSelect(el.dataset.id));
-    });
-  }
-
   async function onCreateSubmit(name, dimension) {
     const created = await window.WorkbenchApi.createCategory(name, dimension);
     allCategories.push(created);
     addCategory(created.id);
     document.getElementById('cat-search').value = '';
     document.getElementById('cat-results').classList.add('hidden');
-  }
-
-  async function onConceptCreateSubmit(name) {
-    if (!selectedCategoryIds.length) {
-      alert('Select at least one category before creating a concept.');
-      return;
-    }
-    const created = await window.WorkbenchApi.createConcept(name, selectedCategoryIds);
-    allConcepts.push(created);
-    addConcept(created.id);
-    document.getElementById('con-search').value = '';
-    document.getElementById('con-results').classList.add('hidden');
   }
 
   function setupCategorySearch() {
@@ -255,58 +163,35 @@ window.WorkbenchTaxonomy = (() => {
       clearTimeout(timeout);
       const query = input.value.trim();
       timeout = setTimeout(() => {
+        if (!query) {
+          results.classList.add('hidden');
+          return;
+        }
         const matches = filterCategories(query);
-        renderSearchResults(
-          results,
-          matches,
-          (item) => `${dimensionLabel(item.dimension)} / ${item.name}`,
-          (id) => { addCategory(id); input.value = ''; results.classList.add('hidden'); },
-          query,
-          (q) => {
-            const options = DIMENSION_ORDER.map((d) => `<option value="${d}">${dimensionLabel(d)}</option>`).join('');
-            return `<div class="search-result-item search-create">
-              Create "<strong>${q}</strong>" in
-              <select id="inline-cat-dimension">${options}</select>
-              <button type="button" class="ghost small" data-action="create-category" data-name="${q.replace(/"/g, '')}">Create</button>
-            </div>`;
-          },
-        );
-        results.querySelectorAll('[data-action="create-category"]').forEach((btn) => {
-          btn.addEventListener('click', () => {
-            const dim = document.getElementById('inline-cat-dimension')?.value || 'GENRE';
-            onCreateSubmit(btn.dataset.name, dim);
+        if (matches.length) {
+          results.innerHTML = matches.map((item) => `
+            <div class="search-result-item" data-id="${item.id}">${dimensionLabel(item.dimension)} / ${item.name}</div>
+          `).join('');
+          results.querySelectorAll('.search-result-item').forEach((el) => {
+            el.addEventListener('click', () => {
+              addCategory(el.dataset.id);
+              input.value = '';
+              results.classList.add('hidden');
+            });
           });
-        });
-      }, 200);
-    });
-    document.addEventListener('click', (e) => {
-      if (!input.contains(e.target) && !results.contains(e.target)) results.classList.add('hidden');
-    });
-  }
-
-  function setupConceptSearch() {
-    const input = document.getElementById('con-search');
-    const results = document.getElementById('con-results');
-    let timeout = null;
-    input.addEventListener('input', () => {
-      clearTimeout(timeout);
-      const query = input.value.trim();
-      timeout = setTimeout(() => {
-        const matches = filterConcepts(query);
-        renderSearchResults(
-          results,
-          matches,
-          (item) => item.name,
-          (id) => { addConcept(id); input.value = ''; results.classList.add('hidden'); },
-          query,
-          (q) => `<div class="search-result-item search-create">
-            Create concept "<strong>${q}</strong>" (uses selected categories)
-            <button type="button" class="ghost small" data-action="create-concept" data-name="${q.replace(/"/g, '')}">Create</button>
-          </div>`,
-        );
-        results.querySelectorAll('[data-action="create-concept"]').forEach((btn) => {
-          btn.addEventListener('click', () => onConceptCreateSubmit(btn.dataset.name));
-        });
+        } else {
+          const options = DIMENSION_ORDER.map((d) => `<option value="${d}">${dimensionLabel(d)}</option>`).join('');
+          results.innerHTML = `<div class="search-result-item search-create">
+            <span>${query}</span>
+            <select id="inline-cat-dimension">${options}</select>
+            <button type="button" class="ghost small" data-action="create-category" data-name="${query.replace(/"/g, '')}">Create</button>
+          </div>`;
+          results.querySelector('[data-action="create-category"]')?.addEventListener('click', (e) => {
+            const dim = document.getElementById('inline-cat-dimension')?.value || 'GENRE';
+            onCreateSubmit(e.target.dataset.name, dim);
+          });
+        }
+        results.classList.remove('hidden');
       }, 200);
     });
     document.addEventListener('click', (e) => {
@@ -318,36 +203,18 @@ window.WorkbenchTaxonomy = (() => {
     async loadTaxonomy() {
       const catRes = await window.WorkbenchApi.listCategories();
       allCategories = catRes.categories || [];
-      const conRes = await window.WorkbenchApi.listConcepts();
-      allConcepts = conRes.concepts || [];
     },
     setSelectionFromMedia(media) {
       activeTitle = media?.title || '';
       selectedCategoryIds = (media.category_assignments || []).map((a) => a.category_id);
-      selectedConceptIds = (media.concept_assignments || []).map((a) => a.concept_id);
-      refresh();
-    },
-    setActiveTitle(title) {
-      activeTitle = title || '';
       refresh();
     },
     getSelectedCategoryIds: () => [...selectedCategoryIds],
-    getSelectedConceptIds: () => [...selectedConceptIds],
     rememberSavedCategories() {
       rememberRecent(selectedCategoryIds);
     },
-    registerConcept(concept) {
-      allConcepts.push(concept);
-      refresh();
-    },
-    registerCategory(category) {
-      allCategories.push(category);
-      refresh();
-    },
-    init(onSelectionChange) {
-      onChange = onSelectionChange || (() => {});
+    init() {
       setupCategorySearch();
-      setupConceptSearch();
       refresh();
     },
   };
