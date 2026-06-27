@@ -10,7 +10,7 @@ This document proposes a phased implementation to turn Workbench into the operat
 curated media → dataset slice → training run → style version → comparison generate → review
 ```
 
-The goal is not a separate training app. Workbench remains the slice builder and training launcher; Generate and Songs remain the evaluation surfaces.
+The goal is not a separate training app or training dashboard. Training stays the **downstream 20%** of the platform. Workbench remains the slice builder and training launcher; Generate and Songs remain the primary evaluation surfaces.
 
 ---
 
@@ -60,12 +60,27 @@ Per `01_PM_BRIEF.md`, prove the loop with a small experiment before scaling:
 - Automatic audio tagging or stem separation as training prerequisites
 - Training on media marked `DO_NOT_TRAIN` or `UNKNOWN` rights
 - Replacing Generate/Songs with a training dashboard
+- Building a separate training dashboard or training-first product surface
 
 ---
 
 ## Prerequisites (Phase 0 gates)
 
-Do not start subprocess training until these are stable:
+**Do not start `DatasetSlice` or `TrainingRun` work until all three hard gates below pass.** These are manual and contract preconditions, not optional polish.
+
+### Hard gates — block all training pipeline work (Phases 1–6)
+
+| # | Gate | How to verify |
+|---|---|---|
+| 1 | **Workbench manually tested with real audio** | Operator imports owned/reference WAVs, assigns categories/concepts, marks reviewed, selects tracks in Workbench, and confirms playback and selection behave correctly on real files — not fixtures alone. |
+| 2 | **Songs API v1 exists** | REST endpoints list generated songs, return audio URLs, expose Version Details, and accept review decisions (keeper, reject, reference, etc.). Contract tests cover the surface. |
+| 3 | **Songs UI v1 is usable** | `/songs/` lists generated songs, plays audio, shows Version Details, and accepts review decisions without leaving the page. |
+
+Until all three gates pass, the only Workbench training change allowed is honest copy on the current JSON export stub (rename or disable **Download training package**).
+
+### Additional gates — block subprocess training (Phases 4–6)
+
+Do not start real ACE LoRA subprocess training until these are also stable:
 
 | Gate | Rationale |
 |---|---|
@@ -75,7 +90,7 @@ Do not start subprocess training until these are stable:
 | `GenerationRequest` persists `concept_id`, category targets | Comparison runs need reproducible targets |
 | Rights status visible on media detail | Legal guardrail before train |
 
-**Exit criteria:** User can import 8 tracks, tag them to one concept, mark reviewed, generate one baseline ACE song, and review it in Songs.
+**Phase 0 exit criteria:** User imports 8 tracks, tags them to one concept, marks reviewed, generates one baseline ACE song, reviews it in Songs (list + play + Version Details + decision), and validates Workbench track selection against the same real audio set.
 
 ---
 
@@ -179,7 +194,7 @@ Implement Pydantic models in `app/domain/training.py` (new file):
 |---|---|
 | `id` | `style_{uuid}` |
 | `name`, `slug`, `version` | User-facing |
-| `training_run_id`, `dataset_slice_id` | Lineage |
+| `training_run_id`, `dataset_slice_id` | Version Details refs |
 | `artifact_path` | Relative to `data/` |
 | `status` | `CANDIDATE` → `PROMOTED` → `ARCHIVED` |
 | `backend` | `ACE_STEP` |
@@ -342,9 +357,11 @@ Extend `POST /api/generate`:
 
 ## Implementation phases
 
-Each phase is shippable and testable on its own.
+Each phase is shippable and testable on its own. **Phases 1–6 require Phase 0 hard gates (Workbench real-audio test, Songs API v1, Songs UI v1).**
 
 ### Phase 1 — Dataset slices (backend + minimal UI)
+
+**Prerequisite:** All three Phase 0 hard gates pass.
 
 **Goal:** Server-backed slice entity replaces JSON stub semantics.
 
@@ -378,6 +395,8 @@ Each phase is shippable and testable on its own.
 ---
 
 ### Phase 3 — Training run orchestration (skeleton)
+
+**Prerequisite:** Phase 1 complete; all Phase 0 hard gates still satisfied.
 
 **Goal:** Persistent run records and job lifecycle without GPU work yet.
 
@@ -430,9 +449,9 @@ Each phase is shippable and testable on its own.
 - Extend `GenerationRequest` with `style_version_id`
 - Pass LoRA path through `ACE_COMMAND_TEMPLATE` (new `$lora_path` token)
 - Generate UI: style version picker (Workbench-promoted versions first)
-- Version details include slice/run/style lineage
+- Version Details include `dataset_slice_id`, `training_run_id`, and `style_version_id` when applicable
 
-**Exit criteria:** User generates with promoted style version; output WAV differs from baseline on fixed prompt/seed; lineage visible in Songs.
+**Exit criteria:** User generates with promoted style version; output WAV differs from baseline on fixed prompt/seed; Version Details visible in Songs.
 
 ---
 
@@ -548,7 +567,7 @@ Minimum viable operator visibility (no real-time charts):
 | GPU OOM mid-run | Preset step limits; single-flight lock; clear error on run record |
 | Rights violations | Hard block `DO_NOT_TRAIN`; soft block `UNKNOWN` until confirmed |
 | Slice drift after media edits | Version slices; freeze copies audio at train time |
-| Workbench becomes training dashboard | Keep Generate/Songs as primary eval; training is one panel |
+| Workbench becomes a training dashboard | Training stays downstream 20%; one Workbench panel only; Generate/Songs remain primary eval surfaces |
 | Long runs block API process | Subprocess + poll model (same as generation); optional background worker later |
 
 ---
@@ -573,7 +592,7 @@ The training pipeline is **live** when:
 2. User starts a calibration training run and watches it complete with logs.
 3. System stores a model artifact and user promotes it to a style version.
 4. User generates baseline and style-version songs from the same prompt/seed.
-5. User reviews both in Songs with full version details lineage (`dataset_slice_id`, `training_run_id`, `style_version_id`).
+5. User reviews both in Songs with full Version Details (`dataset_slice_id`, `training_run_id`, `style_version_id`).
 6. Download package produces a real ZIP usable outside the app for audit/repro.
 
 ---
@@ -582,6 +601,7 @@ The training pipeline is **live** when:
 
 | Order | Phase | Est. effort | User-visible win |
 |---|---|---|---|
+| 0 | **Phase 0 hard gates** | 1–2 weeks | Workbench validated on real audio; Songs API + UI v1 live |
 | 1 | Phase 1 — Dataset slices | 3–5 days | Real slice save + preview |
 | 2 | Phase 2 — Package builder | 2–3 days | Meaningful Download package |
 | 3 | Phase 3 — Run skeleton | 2–3 days | Start/poll/cancel UX |
@@ -590,7 +610,7 @@ The training pipeline is **live** when:
 | 6 | Phase 5 — Style versions | 3–4 days | Generate with LoRA |
 | 7 | Phase 6 — Comparison loop | 3–5 days | Full closed loop |
 
-Total: roughly **3–5 weeks** focused work after Phase 0 gates pass.
+Total: roughly **3–5 weeks** focused work after all Phase 0 gates pass (hard gates first, then additional training gates before Phase 4).
 
 ---
 
@@ -608,9 +628,16 @@ Total: roughly **3–5 weeks** focused work after Phase 0 gates pass.
 
 ## Immediate next step
 
-Start **Phase 1** and the **ACE train CLI spike** in parallel:
+**Before any `DatasetSlice` or `TrainingRun` code:**
 
-1. Implement `DatasetSlice` + preview API + Workbench save flow.
-2. Operator runs spike doc in `docs/ACE_STEP_TRAINING.md` (to be written after spike) confirming train command, inputs, outputs, and VRAM.
+1. Manually test Workbench with real imported audio.
+2. Ship Songs API v1 (list, audio, Version Details, review decisions).
+3. Ship Songs UI v1 (list, play, Version Details panel, review decision bar).
 
-Until Phase 2 ships, change Workbench button label to **Download slice manifest (preview)** or disable it with honest copy — avoid implying fine-tune is ready when only JSON exports.
+In parallel (does not unblock Phase 1):
+
+- Run ACE train CLI spike; document results in `docs/ACE_STEP_TRAINING.md` (to be written after spike).
+
+Until Phase 0 hard gates pass, change Workbench button label to **Download slice manifest (preview)** or disable it with honest copy — avoid implying fine-tune is ready when only JSON exports.
+
+After hard gates pass, start **Phase 1** (Dataset slices). Do not start Phase 3 (`TrainingRun`) until Phase 1 is complete.
