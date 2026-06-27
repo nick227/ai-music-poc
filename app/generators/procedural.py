@@ -20,6 +20,7 @@ F2_BW = 72.0
 F3_BW = 155.0
 F4_BW = 250.0  # "singing formant" cluster ~3.2kHz adds brilliance
 
+LEAD_PORTAMENTO_SECONDS = 0.015
 
 class StyleProfile:
     __slots__ = (
@@ -495,7 +496,7 @@ class ProceduralGenerator:
                 _pad_rev_buf[_pad_rev_ptr] = pad * 0.40 + _pr_out * 0.48
                 _pad_rev_ptr = (_pad_rev_ptr + 1) % _pad_rev_len
                 pad += _pr_out * 0.14
-            lead = self._lead(profile, root, t, beat_pos, bar, section, section_gain)
+            lead = self._lead(profile, root, t, beat_pos, bar, section, section_gain, beat)
             if lead != 0.0 and profile.name not in ("ambient", "lofi"):
                 _lr_out = _lead_rev_buf[_lead_rev_ptr]
                 _lead_rev_buf[_lead_rev_ptr] = lead * 0.45 + _lr_out * 0.35
@@ -880,7 +881,7 @@ class ProceduralGenerator:
             ) * section_gain
         return pad
 
-    def _lead(self, profile: StyleProfile, root: float, t: float, beat_pos: float, bar: int, section: str, section_gain: float) -> float:
+    def _lead(self, profile: StyleProfile, root: float, t: float, beat_pos: float, bar: int, section: str, section_gain: float, beat: float) -> float:
         if profile.name == "ambient":
             phrase_speed = 0.5
         elif profile.name == "rap":
@@ -893,6 +894,14 @@ class ProceduralGenerator:
         octave = 1.0 if profile.name in ("rap", "ambient") else 2.0
         freq = _melody_freq(profile, root, bar, section, phrase_step, octave)
         frac = (beat_pos * max(1.0, phrase_speed)) % 1
+        
+        if phrase_step > 0:
+            time_in_note = frac * beat / max(1.0, phrase_speed)
+            port_frac = min(1.0, time_in_note / LEAD_PORTAMENTO_SECONDS)
+            if port_frac < 1.0:
+                prev_freq = _melody_freq(profile, root, bar, section, phrase_step - 1, octave)
+                freq = prev_freq + (freq - prev_freq) * port_frac
+
         if profile.name == "rap":
             return profile.lead_amp * _osc(freq * 0.5, t, "square") * _env(frac, 0.01, 0.42) * 0.55
         if profile.name == "ambient":
