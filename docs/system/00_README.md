@@ -12,6 +12,8 @@ This pack defines the product and implementation direction for building a full A
 6. `06_CODEX_INSTRUCTION.md` — focused prompt for Codex.
 7. `07_ANTIGRAVITY_INSTRUCTION.md` — focused prompt for Antigravity/Claude.
 8. `08_CURSOR_INSTRUCTION.md` — focused prompt for Cursor.
+9. `09_CONTRACT_CONVENTIONS.md` — **source of truth** for enums, casing, Energy dimension, current repo structure, and locked MVP direction decisions.
+10. `10_TRAINING_PIPELINE_ROADMAP.md` — phased plan to implement live dataset slices, training runs, and style versions in Workbench.
 
 ## Working product thesis
 
