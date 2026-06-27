@@ -29,6 +29,7 @@ def _detail(asset_payload: dict) -> MediaDetailResponse:
         updated_at=asset_payload["updated_at"],
         category_assignments=asset_payload.get("category_assignments") or [],
         concept_assignments=asset_payload.get("concept_assignments") or [],
+        category_assignment_count=asset_payload.get("category_assignment_count", 0),
     )
 
 
@@ -36,6 +37,7 @@ def _summary(asset_payload: dict) -> MediaDetailResponse:
     payload = dict(asset_payload)
     payload.setdefault("category_assignments", [])
     payload.setdefault("concept_assignments", [])
+    payload.setdefault("category_assignment_count", len(payload["category_assignments"]))
     return _detail(payload)
 
 
@@ -56,8 +58,8 @@ def list_media(
     limit: int = Query(default=50, ge=1, le=200),
     media_service: MediaService = Depends(get_media_service),
 ):
-    assets = media_service.list_media(review_status=review_status, kind=kind, limit=limit)
-    return MediaListResponse(media=[_summary(asset.model_dump(mode="json")) for asset in assets])
+    assets = media_service.list_media_summaries(review_status=review_status, kind=kind, limit=limit)
+    return MediaListResponse(media=[_detail(asset) for asset in assets])
 
 
 @router.get("/{media_id}/audio")

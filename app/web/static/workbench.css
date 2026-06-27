@@ -13,13 +13,19 @@
 .dropzone.dragover { border-color: #8b5cf6; background: rgba(139,92,246,0.1); }
 
 .queue-list { display: flex; flex-direction: column; gap: 10px; max-height: 600px; overflow-y: auto; padding-right: 5px; min-height: 40px; }
-.queue-item { display: flex; align-items: center; padding: 12px; border-radius: 12px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); cursor: pointer; transition: background 0.2s; }
+.queue-item { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px; border-radius: 12px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); cursor: pointer; transition: background 0.2s; }
+.queue-item-name { font-size: 13px; font-weight: 600; color: #e4e4e7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
+.queue-item-meta { flex-shrink: 0; font-size: 11px; font-weight: 700; color: #a1a1aa; background: rgba(255,255,255,0.06); padding: 2px 7px; border-radius: 10px; }
 .queue-item:hover { background: rgba(255,255,255,0.08); }
 .queue-item.active { background: rgba(139,92,246,0.15); border-color: rgba(139,92,246,0.4); }
-.queue-item-name { font-size: 13px; font-weight: 600; color: #e4e4e7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 250px; }
 
-.editor-panel { min-height: 600px; }
-.empty-state { display: flex; align-items: center; justify-content: center; height: 100%; min-height: 300px; }
+.workbench-layout { display: grid; grid-template-columns: minmax(280px, 380px) 1fr; gap: 24px; align-items: start; }
+.workbench-layout:not(.workbench-layout--editor-open) { grid-template-columns: 1fr; max-width: 480px; }
+
+.queue-item-meta.has-cats { color: #e4e4e7; background: rgba(139,92,246,0.2); }
+
+.editor-panel--idle { display: none; }
+.editor-panel:not(.editor-panel--idle) { min-height: 400px; }
 .editor-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px; }
 .editor-header h2 { margin: 0; font-size: 20px; color: #fafafa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 400px; }
 

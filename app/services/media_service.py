@@ -52,6 +52,23 @@ class MediaService:
     ) -> list[MediaAsset]:
         return self.media_store.list_filtered(review_status=review_status, kind=kind, limit=limit)
 
+    def list_media_summaries(
+        self,
+        review_status: Optional[ReviewStatus] = None,
+        kind: Optional[MediaKind] = None,
+        limit: int = 50,
+    ) -> list[dict]:
+        return [self._list_summary(asset) for asset in self.list_media(review_status=review_status, kind=kind, limit=limit)]
+
+    def _list_summary(self, asset: MediaAsset) -> dict:
+        category_assignments = self.assignment_store.list_category_assignments_for_media(asset.id)
+        return {
+            **asset.model_dump(mode="json"),
+            "category_assignments": [],
+            "concept_assignments": [],
+            "category_assignment_count": len(category_assignments),
+        }
+
     def get_with_assignments(self, media_id: str) -> dict:
         asset = self.media_store.get(media_id)
         if asset is None:
@@ -155,16 +172,13 @@ class MediaService:
         return asset
 
     def _with_assignments(self, asset: MediaAsset) -> dict:
+        category_assignments = self.assignment_store.list_category_assignments_for_media(asset.id)
+        concept_assignments = self.assignment_store.list_concept_assignments_for_media(asset.id)
         return {
             **asset.model_dump(mode="json"),
-            "category_assignments": [
-                item.model_dump(mode="json")
-                for item in self.assignment_store.list_category_assignments_for_media(asset.id)
-            ],
-            "concept_assignments": [
-                item.model_dump(mode="json")
-                for item in self.assignment_store.list_concept_assignments_for_media(asset.id)
-            ],
+            "category_assignments": [item.model_dump(mode="json") for item in category_assignments],
+            "concept_assignments": [item.model_dump(mode="json") for item in concept_assignments],
+            "category_assignment_count": len(category_assignments),
         }
 
 

@@ -73,6 +73,7 @@ class MediaDetailResponse(BaseModel):
     updated_at: str
     category_assignments: list[MediaCategoryAssignment]
     concept_assignments: list[MediaConceptAssignment]
+    category_assignment_count: int = 0
 
 
 class MediaImportResponse(BaseModel):

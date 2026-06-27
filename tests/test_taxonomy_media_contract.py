@@ -212,6 +212,28 @@ def test_create_category_inline(client):
     assert any(item["id"] == body["id"] for item in listed)
 
 
+def test_list_media_includes_category_assignment_count(client):
+    c, _ = client
+    categories = c.get("/api/categories").json()["categories"]
+    genre = next(item for item in categories if item["dimension"] == "GENRE")
+
+    import_res = c.post("/api/media/import", files=[wav_upload("count-me.wav")])
+    media_id = import_res.json()["media"][0]["id"]
+
+    listed = c.get("/api/media", params={"review_status": "NEEDS_REVIEW", "kind": "UPLOAD"}).json()["media"]
+    row = next(item for item in listed if item["id"] == media_id)
+    assert row["category_assignment_count"] == 0
+
+    c.put(
+        f"/api/media/{media_id}/assignments",
+        json={"categories": [{"category_id": genre["id"], "role": "REFERENCE"}], "concepts": []},
+    )
+
+    listed = c.get("/api/media", params={"review_status": "NEEDS_REVIEW", "kind": "UPLOAD"}).json()["media"]
+    row = next(item for item in listed if item["id"] == media_id)
+    assert row["category_assignment_count"] == 1
+
+
 def test_list_media_filters_review_status(client):
     c, data_dir = client
     c.post("/api/media/import", files=[wav_upload("inbox.wav")])
