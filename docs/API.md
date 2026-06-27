@@ -48,16 +48,30 @@ Runs subprocesses to probe the ACE venv. Returns the same shape as GET `/api/mod
 Also returns `"diagnostic"`, `"packages"`, `"dry_run"`, `"recommended_actions"` keys.
 **Does not run model inference.**
 
+## Studio job contract (v1, stable)
+
+The studio integrates with two endpoints that share the same **frozen** response shape. Do not rename or remove these fields; add new fields only on extended endpoints (e.g. `GET /api/jobs/{job_id}`).
+
+| Field | Type | Meaning |
+|---|---|---|
+| `job_id` | string | Opaque job identifier |
+| `status` | string | `QUEUED`, `RUNNING`, `SUCCEEDED`, `FAILED`, `TIMEOUT`, or `CANCELLED` |
+| `output_path` | string \| null | Relative path under `DATA_DIR` when `status` is `SUCCEEDED`, e.g. `outputs/{job_id}.wav`; otherwise `null` |
+
+Poll `GET /api/jobs/{job_id}/status` until `status` is terminal. Use `output_path` to locate the WAV on disk (or `GET /api/download/{job_id}` over HTTP).
+
 ## `POST /api/generate`
 
-Creates a background job.
+Creates a background job. Returns the studio contract immediately (`output_path` is always `null` on create).
+
+**Request** (all fields optional except where noted):
 
 ```json
 {
   "title": "Midnight Demo",
   "prompt": "dark french disco, emotional vocal",
   "lyrics": "I saw your shadow...",
-  "generator": "ace-step-local",
+  "generator": "ace-step-command",
   "duration_seconds": 45,
   "seed": 1234,
   "mode": "song",
@@ -67,7 +81,41 @@ Creates a background job.
   "quality": "draft",
   "guidance_scale": 7.5,
   "negative_prompt": "muddy mix",
-  "use_fallback": true
+  "allow_fallback": false
+}
+```
+
+**Response** (studio contract v1):
+
+```json
+{
+  "job_id": "abc123",
+  "status": "QUEUED",
+  "output_path": null
+}
+```
+
+## `GET /api/jobs/{job_id}/status`
+
+Returns the studio contract v1 for polling.
+
+**Response** (while running):
+
+```json
+{
+  "job_id": "abc123",
+  "status": "RUNNING",
+  "output_path": null
+}
+```
+
+**Response** (success):
+
+```json
+{
+  "job_id": "abc123",
+  "status": "SUCCEEDED",
+  "output_path": "outputs/abc123.wav"
 }
 ```
 
@@ -77,7 +125,7 @@ Lists recent jobs.
 
 ## `GET /api/jobs/{job_id}`
 
-Returns a persisted job record and download URL when successful.
+Extended job detail (download URLs, request echo, error text). Not part of the stable studio contract; fields may evolve.
 
 ## `GET /api/download/{job_id}`
 

@@ -94,9 +94,19 @@ class JobRecord(BaseModel):
 
 
 class GenerationResponse(BaseModel):
+    """Stable studio contract for POST /api/generate (v1)."""
+
     job_id: str
     status: JobStatus
-    status_url: str
+    output_path: Optional[str] = None
+
+
+class JobPollResponse(BaseModel):
+    """Stable studio contract for GET /api/jobs/{job_id}/status (v1)."""
+
+    job_id: str
+    status: JobStatus
+    output_path: Optional[str] = None
 
 
 class JobStatusResponse(BaseModel):
