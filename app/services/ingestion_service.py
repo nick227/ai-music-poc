@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from app.core.errors import ValidationAppError
 from app.domain.enums import IngestionStatus
 from app.domain.models import MediaAsset, RightsStatus
+from app.domain.tag_fingerprint import compute_tag_fingerprint
 from app.storage.assignment_store import AssignmentStore
 from app.storage.local_media_store import LocalMediaStore
 
@@ -102,12 +103,16 @@ class IngestionService:
             asset = self.media_store.get(media_id)
             if asset is None:
                 continue
+            categories = self.assignment_store.list_category_assignments_for_media(media_id)
+            concepts = self.assignment_store.list_concept_assignments_for_media(media_id)
+            fingerprint = compute_tag_fingerprint(categories, concepts)
             self.media_store.save(
                 asset.model_copy(
                     update={
                         "ingestion_status": IngestionStatus.INGESTED,
                         "last_training_run_id": run_id,
                         "ingested_at": now,
+                        "ingested_fingerprint": fingerprint or None,
                         "updated_at": now,
                     }
                 )

@@ -5,6 +5,7 @@ from datetime import datetime
 from app.core.errors import ValidationAppError
 from app.domain.enums import AssignmentRole, IngestionStatus
 from app.domain.models import MediaAsset, ReviewStatus, RightsStatus
+from app.domain.tag_fingerprint import already_ingested_with_fingerprint
 from app.domain.taxonomy import MediaCategoryAssignment, MediaConceptAssignment
 from app.services.category_service import CategoryService
 from app.services.concept_service import ConceptService
@@ -47,6 +48,13 @@ class ReadyAudioService:
         if not categories and not concepts:
             return False
         if asset.ingestion_status == IngestionStatus.INGESTING:
+            return False
+        if already_ingested_with_fingerprint(
+            asset.ingested_fingerprint,
+            asset.ingestion_status,
+            categories,
+            concepts,
+        ):
             return False
         return True
 

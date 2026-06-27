@@ -144,6 +144,7 @@ class MediaAsset(BaseModel):
     ingestion_status: IngestionStatus = IngestionStatus.PENDING
     last_training_run_id: Optional[str] = None
     ingested_at: Optional[datetime] = None
+    ingested_fingerprint: Optional[str] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 

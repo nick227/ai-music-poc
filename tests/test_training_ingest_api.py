@@ -100,7 +100,7 @@ def test_create_package_auto_trains_and_promotes_style_version(client):
     assert media["ingestion_status"] == "INGESTED"
 
     ready = c.get("/api/training/ready-audio").json()
-    assert any(item["id"] == tagged["id"] for item in ready["items"])
+    assert not any(item["id"] == tagged["id"] for item in ready["items"])
 
     packages = c.get("/api/training/packages").json()["packages"]
     assert any(item["id"] == body["package"]["id"] for item in packages)
@@ -141,6 +141,30 @@ def test_ready_audio_orders_by_role_when_concept_selected(client):
     body = c.get(f"/api/training/ready-audio?concept_id={concept['id']}").json()
     ids = [item["id"] for item in body["items"]]
     assert ids.index(gold["id"]) < ids.index(ref["id"])
+
+
+def test_ready_audio_returns_after_tag_change(client):
+    c, _ = client
+    categories = _seed_categories(client)
+    genre = next(item for item in categories if item["dimension"] == "GENRE")
+    mood = next(item for item in categories if item["dimension"] == "MOOD")
+    tagged = _import_and_tag(client, filename="retag.wav", category_id=genre["id"])
+
+    run = c.post("/api/training/packages", json={}).json()["run"]
+    _wait_for_terminal_status(client, run["id"])
+    assert not any(item["id"] == tagged["id"] for item in c.get("/api/training/ready-audio").json()["items"])
+
+    c.put(
+        f"/api/media/{tagged['id']}/assignments",
+        json={
+            "mark_reviewed": False,
+            "categories": [
+                {"category_id": mood["id"], "role": "TRAINING_CANDIDATE", "quality_score": 4, "fit_score": 4, "reviewed": False}
+            ],
+            "concepts": [],
+        },
+    )
+    assert any(item["id"] == tagged["id"] for item in c.get("/api/training/ready-audio").json()["items"])
 
 
 def test_generate_with_style_version_sets_version_details(client):
