@@ -75,6 +75,10 @@ class Settings(BaseSettings):
         return self.taxonomy_dir / "assignments"
 
     @property
+    def slices_dir(self) -> Path:
+        return self.data_dir / "slices"
+
+    @property
     def metadata_dir(self) -> Path:
         return self.data_dir / "outputs"
 

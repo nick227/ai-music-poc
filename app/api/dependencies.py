@@ -19,6 +19,9 @@ from app.storage.local_job_store import LocalJobStore
 from app.storage.local_media_store import LocalMediaStore
 from app.storage.log_store import LogStore
 from app.storage.metadata_store import MetadataStore
+from app.services.slice_package_service import SlicePackageService
+from app.services.slice_service import SliceService
+from app.storage.slice_store import SliceStore
 
 
 @lru_cache
@@ -122,6 +125,37 @@ def get_generation_service():
         log_store=get_log_store(),
         metadata_store=get_metadata_store(),
         settings=settings,
+    )
+
+
+@lru_cache
+def get_slice_store():
+    settings = get_settings()
+    ensure_app_dirs(settings.data_dir)
+    return SliceStore(settings.slices_dir)
+
+
+@lru_cache
+def get_slice_package_service():
+    settings = get_settings()
+    return SlicePackageService(
+        get_slice_store(),
+        get_media_store(),
+        get_assignment_store(),
+        get_category_service(),
+        settings,
+    )
+
+
+@lru_cache
+def get_slice_service():
+    return SliceService(
+        get_slice_store(),
+        get_media_store(),
+        get_assignment_store(),
+        get_category_service(),
+        get_concept_service(),
+        get_slice_package_service(),
     )
 
 

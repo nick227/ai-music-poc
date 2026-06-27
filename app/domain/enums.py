@@ -56,3 +56,9 @@ class ReviewDecision(str, Enum):
     USE_AS_REFERENCE = "USE_AS_REFERENCE"
     USE_AS_NEGATIVE = "USE_AS_NEGATIVE"
     REGENERATE = "REGENERATE"
+
+
+class DatasetSliceStatus(str, Enum):
+    DRAFT = "DRAFT"
+    READY = "READY"
+    ARCHIVED = "ARCHIVED"
