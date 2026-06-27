@@ -1,7 +1,7 @@
 from fastapi import APIRouter, BackgroundTasks, Depends, Query
 
 from app.api.dependencies import get_training_service
-from app.api.schemas.ingestion_api import IngestRequest, IngestionQueueResponse, IngestResponse, ingest_response
+from app.api.schemas.ingestion_api import IngestRequest, IngestResponse, ingest_response
 from app.api.schemas.training_api import (
     TrainingRunCreateRequest,
     TrainingRunListResponse,
@@ -9,17 +9,51 @@ from app.api.schemas.training_api import (
     TrainingRunResponse,
     training_run_to_response,
 )
+from app.api.schemas.training_package_api import (
+    CreatePackageRequest,
+    CreatePackageResponse,
+    ReadyAudioResponse,
+    TrainingPackageListResponse,
+    create_package_response,
+    package_to_response,
+)
 from app.services.training_service import TrainingService
 
 router = APIRouter(prefix="/api/training", tags=["training"])
 
 
-@router.get("/queue", response_model=IngestionQueueResponse)
-def get_ingestion_queue(training_service: TrainingService = Depends(get_training_service)):
-    return IngestionQueueResponse(
-        queue=training_service.list_queue(),
-        ingested=training_service.list_ingested(),
+@router.get("/ready-audio", response_model=ReadyAudioResponse)
+def get_ready_audio(
+    concept_id: str | None = Query(default=None),
+    training_service: TrainingService = Depends(get_training_service),
+):
+    return ReadyAudioResponse.model_validate(training_service.list_ready_audio(concept_id))
+
+
+@router.get("/packages", response_model=TrainingPackageListResponse)
+def list_training_packages(training_service: TrainingService = Depends(get_training_service)):
+    packages = [package_to_response(item) for item in training_service.list_packages()]
+    packages.sort(key=lambda item: item.updated_at, reverse=True)
+    return TrainingPackageListResponse(packages=packages)
+
+
+@router.post("/packages", response_model=CreatePackageResponse)
+def create_training_package(
+    request: CreatePackageRequest,
+    background_tasks: BackgroundTasks,
+    training_service: TrainingService = Depends(get_training_service),
+):
+    media_ids = request.media_ids or None
+    package, run = training_service.create_package(
+        concept_id=request.concept_id,
+        media_ids=media_ids,
+        name=request.name,
+        start_training=request.start_training,
+        config_preset=request.config_preset,
     )
+    if run is not None:
+        background_tasks.add_task(training_service.execute_run, run.id)
+    return create_package_response(package, run)
 
 
 @router.post("/ingest", response_model=IngestResponse)
@@ -33,6 +67,7 @@ def ingest_training_queue(
         media_ids=media_ids,
         name=request.name,
         config_preset=request.config_preset,
+        concept_id=request.concept_id,
     )
     background_tasks.add_task(training_service.execute_run, run.id)
     return ingest_response(run)

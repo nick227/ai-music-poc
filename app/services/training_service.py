@@ -8,7 +8,9 @@ from app.domain.enums import DatasetSliceStatus
 from app.domain.models import JobStatus
 from app.domain.training import TrainingRun
 from app.domain.training_presets import TRAINING_PRESETS, resolve_training_preset
+from app.domain.slices import DatasetSlice
 from app.services.ingestion_service import IngestionService
+from app.services.ready_audio_service import ReadyAudioService
 from app.services.slice_service import SliceService
 from app.services.style_version_service import StyleVersionService
 from app.storage.training_run_store import TrainingRunStore
@@ -22,6 +24,7 @@ class TrainingService:
         slice_service: SliceService,
         adapter: MockTrainingAdapter,
         ingestion_service: IngestionService,
+        ready_audio_service: ReadyAudioService,
         style_version_service: StyleVersionService,
         settings: Settings,
     ) -> None:
@@ -29,6 +32,7 @@ class TrainingService:
         self.slice_service = slice_service
         self.adapter = adapter
         self.ingestion_service = ingestion_service
+        self.ready_audio_service = ready_audio_service
         self.style_version_service = style_version_service
         self.settings = settings
 
@@ -41,34 +45,61 @@ class TrainingService:
             raise NotFoundError(f"Training run not found: {run_id}")
         return run
 
-    def list_queue(self) -> list[dict]:
-        return self.ingestion_service.list_queue()
+    def list_ready_audio(self, concept_id: str | None = None) -> dict:
+        return self.ready_audio_service.list_ready(concept_id)
 
-    def list_ingested(self) -> list[dict]:
-        return self.ingestion_service.list_ingested()
+    def list_packages(self) -> list[DatasetSlice]:
+        return [
+            item
+            for item in self.slice_service.list_slices()
+            if item.status == DatasetSliceStatus.READY and item.frozen_media_ids
+        ]
+
+    def create_package(
+        self,
+        concept_id: str | None = None,
+        media_ids: list[str] | None = None,
+        name: str | None = None,
+        start_training: bool = True,
+        config_preset: str = "calibration",
+    ) -> tuple[DatasetSlice, TrainingRun | None]:
+        if config_preset not in TRAINING_PRESETS:
+            raise ValidationAppError(f"Unknown config preset: {config_preset}")
+
+        resolved_ids = self.ready_audio_service.resolve_for_package(concept_id, media_ids)
+        package_name = (
+            name or f"Training package ({len(resolved_ids)} track{'s' if len(resolved_ids) != 1 else ''})"
+        ).strip()
+        frozen_slice = self.slice_service.create_and_freeze(package_name, resolved_ids)
+
+        if not start_training:
+            return frozen_slice, None
+
+        if not self.settings.training_enabled:
+            raise ValidationAppError("Training is disabled")
+        if self.store.find_active_run() is not None:
+            raise ValidationAppError("Another training run is already active")
+
+        run = self._create_run_record(package_name, frozen_slice.id, config_preset)
+        self.ingestion_service.mark_ingesting(resolved_ids, run.id)
+        return frozen_slice, run
 
     def ingest(
         self,
         media_ids: list[str] | None = None,
         name: str | None = None,
         config_preset: str = "calibration",
+        concept_id: str | None = None,
     ) -> TrainingRun:
-        if not self.settings.training_enabled:
+        _, run = self.create_package(
+            concept_id=concept_id,
+            media_ids=media_ids,
+            name=name,
+            start_training=True,
+            config_preset=config_preset,
+        )
+        if run is None:
             raise ValidationAppError("Training is disabled")
-
-        if config_preset not in TRAINING_PRESETS:
-            raise ValidationAppError(f"Unknown config preset: {config_preset}")
-
-        if self.store.find_active_run() is not None:
-            raise ValidationAppError("Another training run is already active")
-
-        resolved_ids = self.ingestion_service.resolve_media_ids(media_ids)
-        run_name = (name or f"Ingest {len(resolved_ids)} track{'s' if len(resolved_ids) != 1 else ''}").strip()
-        slice_name = f"{run_name} snapshot"
-
-        frozen_slice = self.slice_service.create_and_freeze(slice_name, resolved_ids)
-        run = self._create_run_record(run_name, frozen_slice.id, config_preset)
-        self.ingestion_service.mark_ingesting(resolved_ids, run.id)
         return run
 
     def create_run(self, name: str, dataset_slice_id: str, config_preset: str) -> TrainingRun:

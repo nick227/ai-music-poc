@@ -8,6 +8,7 @@ from app.services.category_service import CategoryService
 from app.services.concept_service import ConceptService
 from app.services.generation_service import GenerationService
 from app.services.ingestion_service import IngestionService
+from app.services.ready_audio_service import ReadyAudioService
 from app.services.style_version_service import StyleVersionService
 from app.services.job_service import JobService
 from app.services.media_service import MediaService
@@ -197,6 +198,16 @@ def get_ingestion_service():
 
 
 @lru_cache
+def get_ready_audio_service():
+    return ReadyAudioService(
+        get_media_store(),
+        get_assignment_store(),
+        get_concept_service(),
+        get_category_service(),
+    )
+
+
+@lru_cache
 def get_training_service():
     settings = get_settings()
     return TrainingService(
@@ -204,6 +215,7 @@ def get_training_service():
         get_slice_service(),
         get_mock_training_adapter(),
         get_ingestion_service(),
+        get_ready_audio_service(),
         get_style_version_service(),
         settings,
     )

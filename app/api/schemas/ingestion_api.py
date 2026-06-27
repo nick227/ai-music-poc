@@ -29,6 +29,7 @@ class IngestionQueueResponse(BaseModel):
 
 class IngestRequest(BaseModel):
     media_ids: list[str] = Field(default_factory=list)
+    concept_id: Optional[str] = None
     name: Optional[str] = Field(default=None, max_length=160)
     config_preset: str = Field(default="calibration", max_length=40)
 

@@ -86,7 +86,20 @@
 .panel-status.error,
 .slice-status.error { color: #fecaca; }
 
-.inbox-list {
+.audio-group { margin-bottom: 14px; }
+
+.audio-group-title {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #e4e4e7;
+}
+
+.package-actions {
+  margin-top: 10px;
+  margin-bottom: 0;
+}
+
   display: flex;
   flex-direction: column;
   gap: 8px;

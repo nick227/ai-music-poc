@@ -5,8 +5,8 @@ function renderModelCard() {
   const statusEl = document.getElementById('model-status-text');
   const message = modelStatus?.user_message || (ready ? 'Your model is ready to generate.' : 'Your model still needs setup.');
   statusEl.textContent = ready
-    ? `${message} Tag media in Media, then ingest from the queue below.`
-    : `${message} You can still queue and ingest tagged media while setup continues.`;
+    ? `${message} Curate audio in Media, then create a training package below.`
+    : `${message} You can still create training packages from ready audio while setup continues.`;
   statusEl.classList.toggle('ready', !!ready);
 
   const rows = [
@@ -22,7 +22,7 @@ function renderModelCard() {
 async function init() {
   modelStatus = await StudioApi.modelStatus();
   renderModelCard();
-  await WorkbenchInbox.init();
+  await WorkbenchPackages.init();
 }
 
 init();

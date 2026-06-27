@@ -14,8 +14,8 @@
 
       <section class="studio-hero">
         <p class="eyebrow">Workbench</p>
-        <h1>Training inbox</h1>
-        <p class="muted">Tagged uploads appear here automatically. Ingest adds them to the model — no manual slice setup.</p>
+        <h1>Training packages</h1>
+        <p class="muted">Admin-curated audio is ready to package. Create a training package, download it, and train your model in one flow.</p>
       </section>
 
       <section class="card model-card">
@@ -31,18 +31,25 @@
       <section class="card workbench-panel">
         <div class="panel-head">
           <div>
-            <h2>Ready to ingest</h2>
-            <p class="panel-lead muted">Uploads with at least one category and audio file. Already ingested tracks stay in history below.</p>
+            <h2>Ready Audio</h2>
+            <p class="panel-lead muted">Tracks with audio plus at least one category or concept. Rejected and do-not-train items are excluded automatically.</p>
           </div>
-          <p id="inbox-status" class="panel-status muted"></p>
+          <p id="package-status" class="panel-status muted"></p>
         </div>
 
-        <div id="queue-list" class="inbox-list"></div>
+        <label class="guided-field">
+          <span>Focus concept (optional)</span>
+          <select id="concept-filter">
+            <option value="">All ready audio</option>
+          </select>
+        </label>
+
+        <div id="ready-audio-list" class="inbox-list"></div>
 
         <div class="panel-actions">
-          <button type="button" id="ingest-btn" disabled>Ingest now</button>
+          <button type="button" id="create-package-btn" disabled>Create Package</button>
           <button type="button" id="cancel-run-btn" class="ghost hidden" disabled>Cancel run</button>
-          <p id="inbox-feedback" class="save-feedback" hidden aria-live="polite"></p>
+          <p id="package-feedback" class="save-feedback" hidden aria-live="polite"></p>
         </div>
       </section>
 
@@ -50,7 +57,7 @@
         <div class="panel-head">
           <div>
             <h2>Live training</h2>
-            <p class="panel-lead muted">Run progress updates automatically.</p>
+            <p class="panel-lead muted">Training progress updates automatically after you create a package.</p>
           </div>
           <span id="live-run-badge" class="status-pill running"></span>
         </div>
@@ -61,11 +68,11 @@
       <section class="card workbench-panel">
         <div class="panel-head">
           <div>
-            <h2>Ingested</h2>
-            <p class="panel-lead muted">Tracks already used in a successful training run.</p>
+            <h2>Training Packages</h2>
+            <p class="panel-lead muted">Frozen snapshots of ready audio. Download anytime or reuse for training runs.</p>
           </div>
         </div>
-        <div id="ingested-list" class="inbox-list"></div>
+        <div id="packages-list" class="history-list"></div>
       </section>
 
       <section class="card workbench-panel">
@@ -82,6 +89,6 @@
     <script src="/assets/js/studio-save.js"></script>
     <script src="/assets/js/studio-nav.js"></script>
     <script src="/assets/js/workbench.js"></script>
-    <script src="/assets/js/workbench-inbox.js"></script>
+    <script src="/assets/js/workbench-packages.js"></script>
   </body>
 </html>

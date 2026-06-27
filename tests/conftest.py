@@ -30,6 +30,7 @@ def clear_caches():
     dependencies.get_style_version_store.cache_clear()
     dependencies.get_style_version_service.cache_clear()
     dependencies.get_ingestion_service.cache_clear()
+    dependencies.get_ready_audio_service.cache_clear()
     dependencies.get_training_run_store.cache_clear()
     dependencies.get_mock_training_adapter.cache_clear()
     dependencies.get_training_service.cache_clear()

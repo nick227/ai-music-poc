@@ -83,8 +83,19 @@ window.StudioApi = {
   getTrainingRunLogs(id, maxChars = 4000) {
     return this.request(`/api/training/runs/${id}/logs?max_chars=${maxChars}`);
   },
-  getIngestionQueue() {
-    return this.request('/api/training/queue');
+  getReadyAudio(conceptId = null) {
+    const query = conceptId ? `?concept_id=${encodeURIComponent(conceptId)}` : '';
+    return this.request(`/api/training/ready-audio${query}`);
+  },
+  listTrainingPackages() {
+    return this.request('/api/training/packages').then((r) => r.packages || []);
+  },
+  createTrainingPackage(payload = {}) {
+    return this.request('/api/training/packages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
   },
   ingestTrainingQueue(payload = {}) {
     return this.request('/api/training/ingest', {

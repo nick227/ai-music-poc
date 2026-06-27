@@ -1,6 +1,8 @@
 import time
 
-from tests.test_slices_api import _import_and_tag, _seed_categories
+from app.domain.models import RightsStatus, ReviewStatus
+from app.storage.local_media_store import LocalMediaStore
+from tests.test_slices_api import _create_concept, _import_and_tag, _seed_categories, wav_upload
 
 
 def _wait_for_terminal_status(client, run_id: str, timeout_seconds: float = 2.0) -> dict:
@@ -13,7 +15,7 @@ def _wait_for_terminal_status(client, run_id: str, timeout_seconds: float = 2.0)
     return detail
 
 
-def _tagged_upload(client, *, filename: str = "inbox-track.wav", mark_reviewed: bool = False) -> dict:
+def _tagged_upload(client, *, filename: str = "ready-track.wav", mark_reviewed: bool = False) -> dict:
     categories = _seed_categories(client)
     genre = next(item for item in categories if item["dimension"] == "GENRE")
     return _import_and_tag(
@@ -24,55 +26,127 @@ def _tagged_upload(client, *, filename: str = "inbox-track.wav", mark_reviewed: 
     )
 
 
-def test_ingestion_queue_lists_tagged_media(client):
+def _concept_only_upload(client, *, filename: str = "concept-only.wav") -> dict:
+    c, _ = client
+    categories = _seed_categories(client)
+    genre = next(item for item in categories if item["dimension"] == "GENRE")
+    concept = _create_concept(client, [genre["id"]])
+    media = c.post("/api/media/import", files=[wav_upload(filename)]).json()["media"][0]
+    c.put(
+        f"/api/media/{media['id']}/assignments",
+        json={
+            "mark_reviewed": False,
+            "categories": [],
+            "concepts": [{"concept_id": concept["id"], "role": "TRAINING_CANDIDATE", "quality_score": 3, "fit_score": 3}],
+        },
+    )
+    return c.get(f"/api/media/{media['id']}").json()
+
+
+def test_ready_audio_lists_categorized_media(client):
     c, _ = client
     tagged = _tagged_upload(client)
 
-    res = c.get("/api/training/queue")
+    res = c.get("/api/training/ready-audio")
     assert res.status_code == 200
     body = res.json()
-    assert any(item["id"] == tagged["id"] for item in body["queue"])
-    assert body["queue"][0]["category_count"] >= 1
+    assert body["total"] >= 1
+    assert any(item["id"] == tagged["id"] for item in body["items"])
+    assert body["groups"]
 
 
-def test_ingest_auto_slice_marks_media_and_promotes_style_version(client):
+def test_ready_audio_includes_concept_only_without_review(client):
+    c, _ = client
+    tagged = _concept_only_upload(client)
+
+    body = c.get("/api/training/ready-audio").json()
+    assert any(item["id"] == tagged["id"] for item in body["items"])
+
+
+def test_ready_audio_excludes_rejected_and_do_not_train(client):
+    c, data_dir = client
+    tagged = _tagged_upload(client, filename="blocked-ready.wav")
+    store = LocalMediaStore(data_dir / "media")
+    asset = store.get(tagged["id"])
+    store.save(asset.model_copy(update={"review_status": ReviewStatus.REJECTED}))
+
+    body = c.get("/api/training/ready-audio").json()
+    assert not any(item["id"] == tagged["id"] for item in body["items"])
+
+    tagged2 = _tagged_upload(client, filename="dnt-ready.wav")
+    asset2 = store.get(tagged2["id"])
+    store.save(asset2.model_copy(update={"rights_status": RightsStatus.DO_NOT_TRAIN}))
+    body2 = c.get("/api/training/ready-audio").json()
+    assert not any(item["id"] == tagged2["id"] for item in body2["items"])
+
+
+def test_create_package_auto_trains_and_promotes_style_version(client):
     c, data_dir = client
     tagged = _tagged_upload(client)
 
-    create = c.post("/api/training/ingest", json={"config_preset": "calibration"})
+    create = c.post("/api/training/packages", json={"config_preset": "calibration"})
     assert create.status_code == 200
-    run = create.json()["run"]
+    body = create.json()
+    assert body["package"]["track_count"] == 1
+    assert body["package"]["download_url"].endswith("/package")
+    run = body["run"]
     assert run["status"] == "QUEUED"
 
     detail = _wait_for_terminal_status(client, run["id"])
     assert detail["status"] == "SUCCEEDED"
     assert detail["style_version_id"] is not None
-    assert detail["artifact_path"]
 
     media = c.get(f"/api/media/{tagged['id']}").json()
     assert media["ingestion_status"] == "INGESTED"
-    assert media["last_training_run_id"] == run["id"]
-    assert media["ingested_at"] is not None
 
-    queue = c.get("/api/training/queue").json()
-    assert not any(item["id"] == tagged["id"] for item in queue["queue"])
-    assert any(item["id"] == tagged["id"] for item in queue["ingested"])
+    ready = c.get("/api/training/ready-audio").json()
+    assert any(item["id"] == tagged["id"] for item in ready["items"])
 
-    styles = c.get("/api/style-versions").json()["style_versions"]
-    assert any(item["id"] == detail["style_version_id"] for item in styles)
+    packages = c.get("/api/training/packages").json()["packages"]
+    assert any(item["id"] == body["package"]["id"] for item in packages)
 
 
-def test_ingest_empty_queue_rejected(client):
+def test_create_package_empty_ready_audio_rejected(client):
     c, _ = client
-    res = c.post("/api/training/ingest", json={})
+    res = c.post("/api/training/packages", json={})
     assert res.status_code == 422
-    assert "queue" in res.json()["message"].lower()
+    assert "ready audio" in res.json()["message"].lower()
+
+
+def test_ready_audio_orders_by_role_when_concept_selected(client):
+    c, _ = client
+    categories = _seed_categories(client)
+    genre = next(item for item in categories if item["dimension"] == "GENRE")
+    concept = _create_concept(client, [genre["id"]])
+
+    gold = _import_and_tag(client, filename="gold.wav", category_id=genre["id"], role="GOLD_REFERENCE")
+    ref = _import_and_tag(client, filename="ref.wav", category_id=genre["id"], role="REFERENCE")
+    c.put(
+        f"/api/media/{gold['id']}/assignments",
+        json={
+            "mark_reviewed": False,
+            "categories": [{"category_id": genre["id"], "role": "GOLD_REFERENCE", "quality_score": 5, "fit_score": 5, "reviewed": False}],
+            "concepts": [{"concept_id": concept["id"], "role": "GOLD_REFERENCE", "quality_score": 5, "fit_score": 5}],
+        },
+    )
+    c.put(
+        f"/api/media/{ref['id']}/assignments",
+        json={
+            "mark_reviewed": False,
+            "categories": [{"category_id": genre["id"], "role": "REFERENCE", "quality_score": 5, "fit_score": 5, "reviewed": False}],
+            "concepts": [{"concept_id": concept["id"], "role": "REFERENCE", "quality_score": 5, "fit_score": 5}],
+        },
+    )
+
+    body = c.get(f"/api/training/ready-audio?concept_id={concept['id']}").json()
+    ids = [item["id"] for item in body["items"]]
+    assert ids.index(gold["id"]) < ids.index(ref["id"])
 
 
 def test_generate_with_style_version_sets_version_details(client):
     c, _ = client
     tagged = _tagged_upload(client, filename="style-gen.wav")
-    create = c.post("/api/training/ingest", json={}).json()["run"]
+    create = c.post("/api/training/packages", json={}).json()["run"]
     detail = _wait_for_terminal_status(client, create["id"])
     style_id = detail["style_version_id"]
 
