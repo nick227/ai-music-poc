@@ -19,6 +19,9 @@ from app.storage.local_job_store import LocalJobStore
 from app.storage.local_media_store import LocalMediaStore
 from app.storage.log_store import LogStore
 from app.storage.metadata_store import MetadataStore
+from app.services.training_service import TrainingService
+from app.storage.training_run_store import TrainingRunStore
+from app.training.mock_adapter import MockTrainingAdapter
 from app.services.slice_package_service import SlicePackageService
 from app.services.slice_service import SliceService
 from app.storage.slice_store import SliceStore
@@ -156,6 +159,30 @@ def get_slice_service():
         get_category_service(),
         get_concept_service(),
         get_slice_package_service(),
+    )
+
+
+@lru_cache
+def get_training_run_store():
+    settings = get_settings()
+    ensure_app_dirs(settings.data_dir)
+    return TrainingRunStore(settings.training_runs_dir)
+
+
+@lru_cache
+def get_mock_training_adapter():
+    settings = get_settings()
+    return MockTrainingAdapter(get_training_run_store(), step_delay_seconds=settings.training_mock_step_delay_seconds)
+
+
+@lru_cache
+def get_training_service():
+    settings = get_settings()
+    return TrainingService(
+        get_training_run_store(),
+        get_slice_service(),
+        get_mock_training_adapter(),
+        settings,
     )
 
 

@@ -33,6 +33,8 @@ class Settings(BaseSettings):
     hf_cache_dir: Path | None = Field(default=None, alias="HF_CACHE_DIR")
     save_full_lyrics: bool = Field(default=False, alias="SAVE_FULL_LYRICS")
     anthropic_api_key: str = Field(default="", alias="ANTHROPIC_API_KEY")
+    training_enabled: bool = Field(default=True, alias="TRAINING_ENABLED")
+    training_mock_step_delay_seconds: float = Field(default=0.05, alias="TRAINING_MOCK_STEP_DELAY_SECONDS")
 
     @property
     def job_dir(self) -> Path:
@@ -77,6 +79,10 @@ class Settings(BaseSettings):
     @property
     def slices_dir(self) -> Path:
         return self.data_dir / "slices"
+
+    @property
+    def training_runs_dir(self) -> Path:
+        return self.data_dir / "training_runs"
 
     @property
     def metadata_dir(self) -> Path:

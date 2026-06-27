@@ -27,6 +27,9 @@ def clear_caches():
     dependencies.get_slice_store.cache_clear()
     dependencies.get_slice_package_service.cache_clear()
     dependencies.get_slice_service.cache_clear()
+    dependencies.get_training_run_store.cache_clear()
+    dependencies.get_mock_training_adapter.cache_clear()
+    dependencies.get_training_service.cache_clear()
     dependencies.get_song_service.cache_clear()
     dependencies.get_registry.cache_clear()
     dependencies.get_preset_service.cache_clear()
@@ -39,6 +42,8 @@ def client(monkeypatch):
         monkeypatch.setenv("DEFAULT_GENERATOR", "procedural-v3")
         monkeypatch.setenv("ACE_ENABLED", "false")
         monkeypatch.setenv("ACE_COMMAND_TEMPLATE", "")
+        monkeypatch.setenv("TRAINING_ENABLED", "true")
+        monkeypatch.setenv("TRAINING_MOCK_STEP_DELAY_SECONDS", "0.01")
         clear_caches()
         app = create_app()
         with TestClient(app) as c:

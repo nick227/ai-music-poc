@@ -2,7 +2,7 @@ from pathlib import Path
 
 
 def ensure_app_dirs(data_dir: Path) -> None:
-    for child in ("jobs", "outputs", "media", "logs", "tmp", "uploads", "slices", "taxonomy/categories", "taxonomy/concepts", "taxonomy/assignments"):
+    for child in ("jobs", "outputs", "media", "logs", "tmp", "uploads", "slices", "training_runs", "taxonomy/categories", "taxonomy/concepts", "taxonomy/assignments"):
         (data_dir / child).mkdir(parents=True, exist_ok=True)
 
 
