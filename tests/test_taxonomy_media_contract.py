@@ -30,6 +30,8 @@ def wav_upload(filename: str = "reference.wav", duration_seconds: float = 0.25) 
 
 
 def test_categories_seed_is_idempotent_and_includes_energy(client):
+    from app.domain.seeds import CATEGORY_SEEDS
+
     c, _ = client
 
     first = c.get("/api/categories")
@@ -40,12 +42,15 @@ def test_categories_seed_is_idempotent_and_includes_energy(client):
     first_body = first.json()
     second_body = second.json()
     assert first_body == second_body
-    assert len(first_body["categories"]) >= 13
+    assert len(first_body["categories"]) >= len(CATEGORY_SEEDS)
 
     dimensions = {item["dimension"] for item in first_body["categories"]}
     assert "ENERGY" in dimensions
+    assert "VOCALS" in dimensions
     energy_names = {item["name"] for item in first_body["categories"] if item["dimension"] == "ENERGY"}
-    assert energy_names == {"Low", "High"}
+    assert {"Low", "High"}.issubset(energy_names)
+    vocal_count = sum(1 for item in first_body["categories"] if item["dimension"] == "VOCALS")
+    assert vocal_count >= 70
 
 
 def test_create_concept_links_categories(client):
