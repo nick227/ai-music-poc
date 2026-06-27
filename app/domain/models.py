@@ -72,6 +72,8 @@ class GenerationRequest(BaseModel):
     allow_fallback: bool = True
     include_lyrics_in_bundle: bool = True
     style_version_id: Optional[str] = Field(default=None, max_length=80)
+    lora_path: Optional[str] = Field(default=None, max_length=1000)
+    lora_scale: float = Field(default=1.0, ge=0.0, le=2.0)
 
     @field_validator("prompt", "lyrics", "title", "negative_prompt")
     @classmethod
@@ -222,6 +224,23 @@ class SongReviewRequest(BaseModel):
 
 class SongListResponse(BaseModel):
     songs: list[SongResponse]
+
+
+class SongCompareSharedSettings(BaseModel):
+    prompt: Optional[str] = None
+    seed: Optional[int] = None
+    duration_seconds: Optional[int] = None
+    mode: Optional[str] = None
+    quality: Optional[str] = None
+    generator: Optional[str] = None
+
+
+class SongCompareResponse(BaseModel):
+    baseline: SongResponse
+    styled: SongResponse
+    shared: SongCompareSharedSettings
+    style_version_id: Optional[str] = None
+    training_run_id: Optional[str] = None
 
 
 class GeneratorInfo(BaseModel):

@@ -34,6 +34,9 @@ function versionDetailRows(song) {
     ['Model version', vd.model_version || gen.model_version],
     ['Style version', vd.style_version_id],
     ['Training run', vd.training_run_id],
+    ['LoRA scale', vd.lora_scale],
+    ['LoRA loaded', vd.lora_load_succeeded === true ? 'yes' : vd.lora_load_attempted ? 'attempted' : null],
+    ['LoRA message', vd.lora_load_message],
     ['Dataset slice', vd.dataset_slice_id],
     ['Target concept', vd.target_concept_id],
     ['Target categories', vd.target_category_ids],
@@ -90,6 +93,33 @@ function renderDetail(song) {
   document.getElementById('review-score').value = song.review_score ?? '';
   document.getElementById('review-notes').value = song.review_notes || '';
   setActiveDecision(song.review_decision || null);
+
+  let compareLink = document.getElementById('compare-link');
+  if (!compareLink) {
+    compareLink = document.createElement('a');
+    compareLink.id = 'compare-link';
+    compareLink.className = 'button ghost small';
+    compareLink.style.marginTop = '12px';
+    document.getElementById('song-detail-body').appendChild(compareLink);
+  }
+  const vd = song.version_details || {};
+  if (vd.style_version_id) {
+    const baseline = songs.find((item) => {
+      const itemVd = item.version_details || {};
+      return !itemVd.style_version_id
+        && itemVd.prompt === vd.prompt
+        && (itemVd.seed == null || itemVd.seed === vd.seed);
+    });
+    if (baseline) {
+      compareLink.hidden = false;
+      compareLink.href = StudioRoutes.songCompare(baseline.id, song.id);
+      compareLink.textContent = 'Open baseline vs styled comparison';
+    } else {
+      compareLink.hidden = true;
+    }
+  } else {
+    compareLink.hidden = true;
+  }
 
   const feedback = document.getElementById('review-feedback');
   feedback.hidden = true;

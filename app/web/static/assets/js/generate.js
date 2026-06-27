@@ -9,6 +9,8 @@ const jobsEl = document.querySelector('#jobs');
 const generatorEl = document.querySelector('#generator');
 const presetEl = document.querySelector('#preset');
 const styleVersionEl = document.querySelector('#style_version');
+const loraScaleWrap = document.querySelector('#lora-scale-wrap');
+const loraScaleEl = document.querySelector('#lora_scale');
 const modelStatusEl = document.querySelector('#model-status');
 const metadataEl = document.querySelector('#metadata');
 const vocalIntensityEl = document.querySelector('#vocal_intensity');
@@ -43,7 +45,13 @@ function formPayload() {
     allow_fallback: document.querySelector('#fallback').checked,
     include_lyrics_in_bundle: document.querySelector('#lyrics_bundle').checked,
     style_version_id: styleVersionEl.value || null,
+    lora_scale: styleVersionEl.value ? Number(loraScaleEl.value) : 1.0,
   };
+}
+function syncLoraScaleVisibility() {
+  const styled = Boolean(styleVersionEl.value);
+  loraScaleWrap.hidden = !styled;
+  if (styled) document.querySelector('#fallback').checked = false;
 }
 async function api(url, options = {}) {
   const res = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...options });
@@ -55,10 +63,12 @@ async function api(url, options = {}) {
 async function loadStyleVersions() {
   const versions = await api('/api/style-versions').then((r) => r.style_versions || []);
   styleVersionEl.innerHTML = '<option value="">Base model (no style)</option>' + versions
-    .filter((v) => v.status === 'ACTIVE')
-    .map((v) => `<option value="${v.id}">${v.name}</option>`)
+    .filter((v) => v.status === 'ACTIVE' || v.status === 'CANDIDATE')
+    .map((v) => `<option value="${v.id}">${v.name} (${v.status.toLowerCase()})</option>`)
     .join('');
+  syncLoraScaleVisibility();
 }
+styleVersionEl.addEventListener('change', syncLoraScaleVisibility);
 async function loadGenerators() {
   const data = await api('/api/generators');
   generatorEl.innerHTML = data.generators.map(g => `<option value="${g.name}">${g.label} — ${g.status}</option>`).join('');
@@ -112,20 +122,92 @@ async function poll(jobId) {
   if (['FAILED', 'TIMEOUT', 'CANCELLED'].includes(job.status)) { await loadJobs(); return; }
   setTimeout(() => poll(jobId).catch(err => setError(err.message)), 1200);
 }
+let recentJobsCache = [];
+
 async function loadJobs() {
   const data = await api('/api/jobs');
-  if (!data.jobs.length) { jobsEl.textContent = 'No jobs found.'; return; }
+  if (!data.jobs.length) { jobsEl.textContent = 'No songs found.'; return; }
+  recentJobsCache = data.jobs;
   jobsEl.classList.remove('muted');
   jobsEl.innerHTML = data.jobs.map(job => {
     const ready = job.status === 'SUCCEEDED' && job.result;
-    return `<div class="job"><strong>${job.request.title}</strong><span>${job.status} · ${job.request.generator} · ${job.request.duration_seconds}s</span><small>${job.request.prompt.slice(0, 180)}</small><div class="actions">${ready ? `<a class="button ghost small" href="/api/download/${job.id}">WAV</a><a class="button ghost small" href="/api/download/${job.id}/bundle">Bundle</a>` : ''}<button class="small rerun" data-id="${job.id}" type="button">Rerun</button></div></div>`;
+    const req = job.request;
+    const meta = [
+      job.status,
+      req.generator,
+      `${req.duration_seconds}s`,
+      req.mode,
+      req.singing_voice,
+      req.vocal_intensity != null ? `vocal_intensity: ${req.vocal_intensity}` : null,
+      req.vocal_style,
+    ].filter(Boolean).join(' · ');
+    
+    const playBtn = ready ? `<button style="min-width: 90px;" class="button ghost small play-btn" data-url="/api/download/${job.id}" type="button">▶ Play</button>` : '';
+    const wavBtn = ready ? `<a class="button ghost small" href="/api/download/${job.id}">WAV</a>` : '';
+    const bundleBtn = ready ? `<a class="button ghost small" href="/api/download/${job.id}/bundle">Bundle</a>` : '';
+    
+    return `<div class="job"><strong>${req.title}</strong><span style="display: block; margin-bottom: 4px;">${meta}</span><small>${req.prompt.slice(0, 180)}</small><div class="actions">${playBtn}${wavBtn}${bundleBtn}<button class="small load-btn" data-id="${job.id}" type="button">Cover</button></div></div>`;
   }).join('');
-  document.querySelectorAll('.rerun').forEach(btn => btn.addEventListener('click', async () => {
-    setError('');
-    const data = await api(`/api/jobs/${btn.dataset.id}/rerun`, { method: 'POST' });
-    currentJobId = data.job_id; poll(currentJobId);
+  
+  document.querySelectorAll('.load-btn').forEach(btn => btn.addEventListener('click', () => {
+    const job = recentJobsCache.find(j => j.id === btn.dataset.id);
+    if (!job) return;
+    const req = job.request;
+    
+    document.querySelector('#title').value = req.title || '';
+    document.querySelector('#prompt').value = req.prompt || '';
+    document.querySelector('#lyrics').value = req.lyrics || '';
+    if (req.generator) document.querySelector('#generator').value = req.generator;
+    document.querySelector('#duration').value = req.duration_seconds || 60;
+    if (req.mode) document.querySelector('#mode').value = req.mode;
+    if (req.structure) document.querySelector('#structure').value = req.structure;
+    if (req.quality) document.querySelector('#quality').value = req.quality;
+    document.querySelector('#bpm').value = req.bpm || '';
+    document.querySelector('#key').value = req.key || '';
+    document.querySelector('#vocal_style').value = req.vocal_style || '';
+    if (req.singing_voice) document.querySelector('#singing_voice').value = req.singing_voice;
+    if (req.vocal_intensity != null) {
+      document.querySelector('#vocal_intensity').value = req.vocal_intensity;
+      vocalIntensityValueEl.textContent = Number(req.vocal_intensity).toFixed(2);
+    }
+    document.querySelector('#genre_tags').value = (req.genre_tags || []).join(', ');
+    document.querySelector('#mood_tags').value = (req.mood_tags || []).join(', ');
+    if (req.guidance_scale != null) document.querySelector('#guidance').value = req.guidance_scale;
+    document.querySelector('#seed').value = req.seed || '';
+    document.querySelector('#negative').value = req.negative_prompt || '';
+    if (req.allow_fallback != null) document.querySelector('#fallback').checked = req.allow_fallback;
+    if (req.include_lyrics_in_bundle != null) document.querySelector('#lyrics_bundle').checked = req.include_lyrics_in_bundle;
+    if (req.style_version_id) document.querySelector('#style_version').value = req.style_version_id;
+    else document.querySelector('#style_version').value = '';
+    if (req.lora_scale != null) loraScaleEl.value = req.lora_scale;
+    syncLoraScaleVisibility();
+    
+    document.querySelector('#preset').value = ''; // Reset preset since we loaded custom values
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }));
+  
+  document.querySelectorAll('.play-btn').forEach(btn => btn.addEventListener('click', () => {
+    if (playerEl.src.endsWith(btn.dataset.url)) {
+      if (playerEl.paused) playerEl.play();
+      else playerEl.pause();
+    } else {
+      playerEl.hidden = false;
+      playerEl.src = btn.dataset.url;
+      playerEl.play();
+    }
   }));
 }
+
+playerEl.addEventListener('play', () => {
+  document.querySelectorAll('.play-btn').forEach(b => {
+    b.textContent = playerEl.src.endsWith(b.dataset.url) ? '⏸ Pause' : '▶ Play';
+  });
+});
+
+playerEl.addEventListener('pause', () => {
+  document.querySelectorAll('.play-btn').forEach(b => b.textContent = '▶ Play');
+});
+
 form.addEventListener('submit', async (event) => {
   event.preventDefault(); setError('');
   document.querySelector('#submit').disabled = true;

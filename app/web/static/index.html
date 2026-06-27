@@ -38,6 +38,10 @@
               <option value="">Base model (no style)</option>
             </select>
           </label>
+          <label id="lora-scale-wrap" hidden>
+            LoRA scale
+            <input id="lora_scale" name="lora_scale" type="number" min="0" max="2" step="0.05" value="1" />
+          </label>
           <label>
             Title
             <input id="title" name="title" maxlength="120" value="Midnight Demo" />
@@ -95,8 +99,8 @@ Before the morning breaks again</textarea>
         </form>
 
         <section class="card">
-          <h2>Current job</h2>
-          <div id="status" class="status muted">No job yet.</div>
+          <h2>Current song</h2>
+          <div id="status" class="status muted">No song yet.</div>
           <progress id="progress" max="1" value="0"></progress>
           <audio id="player" controls hidden></audio>
           <div class="actions"><a id="download" class="button ghost" hidden>Download WAV</a><a id="bundle" class="button ghost" hidden>Download Bundle</a></div>
@@ -105,8 +109,8 @@ Before the morning breaks again</textarea>
       </section>
 
       <section class="card">
-        <div class="section-head"><h2>Recent jobs</h2><button id="refresh" class="small" type="button">Refresh</button></div>
-        <div id="jobs" class="jobs muted">No jobs found.</div>
+        <div class="section-head"><h2>Recent songs</h2><button id="refresh" class="small" type="button">Refresh</button></div>
+        <div id="jobs" class="jobs muted">No songs found.</div>
       </section>
 
       <section class="songs-combined">

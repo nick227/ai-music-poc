@@ -45,12 +45,24 @@ class GenerationService:
         generator_name = request.generator or self.settings.default_generator
         if generator_name not in self.registry.names():
             raise ValidationAppError(f"Unknown generator: {generator_name}")
+        if request.style_version_id and generator_name != "ace-step-command":
+            raise ValidationAppError("Style versions can only be used with the ACE-Step generator")
+        if request.style_version_id and request.allow_fallback:
+            raise ValidationAppError("Styled ACE generation requires allow_fallback=false")
+        if not request.style_version_id:
+            if request.lora_path:
+                raise ValidationAppError("lora_path requires a style_version_id")
+            if request.lora_scale != 1.0:
+                raise ValidationAppError("lora_scale requires a style_version_id")
+        lora_path = None
         if request.style_version_id:
             style = self.style_version_service.get_required(request.style_version_id)
-            if style.status != StyleVersionStatus.ACTIVE:
+            if style.status not in {StyleVersionStatus.ACTIVE, StyleVersionStatus.CANDIDATE}:
                 raise ValidationAppError("Style version is not active")
+            lora_path = self.style_version_service.resolve_load_path(style.id, self.settings.data_dir)
         data = request.model_dump()
         data["generator"] = generator_name
+        data["lora_path"] = lora_path
         return GenerationRequest.model_validate(data)
 
     def run_job(self, job_id: str) -> None:
@@ -101,12 +113,16 @@ class GenerationService:
         training_run_id = None
         dataset_slice_id = None
         model_artifact_id = None
+        lora_path = None
+        lora_scale = None
         if request.style_version_id:
             style = self.style_version_service.get_required(request.style_version_id)
             style_version_id = style.id
             training_run_id = style.training_run_id
             dataset_slice_id = style.dataset_slice_id
             model_artifact_id = style.artifact_path
+            lora_path = request.lora_path or self.style_version_service.resolve_load_path(style.id, self.settings.data_dir)
+            lora_scale = request.lora_scale
 
         return {
             "generationId": generation_id,
@@ -116,6 +132,8 @@ class GenerationService:
             "trainingRunId": training_run_id,
             "datasetSliceId": dataset_slice_id,
             "modelArtifactId": model_artifact_id,
+            "loraPath": lora_path,
+            "loraScale": lora_scale,
             "targetConceptId": None,
             "targetCategoryIds": [],
             "prompt": request.prompt,
@@ -148,5 +166,17 @@ class GenerationService:
         updated["modelVersion"] = metadata.get("engine") or metadata.get("model_version")
         updated["generatorName"] = result.generator_name
         updated["outputFile"] = result.file_name
+        if metadata.get("use_lora") or metadata.get("loraLoadAttempted"):
+            updated["loraPath"] = metadata.get("lora_path") or metadata.get("loraPath") or updated.get("loraPath")
+            updated["loraScale"] = metadata.get("lora_scale") or metadata.get("loraScale") or updated.get("loraScale")
+            if metadata.get("loraLoadAttempted"):
+                updated["useLora"] = bool(metadata.get("loraLoadSucceeded"))
+            else:
+                updated["useLora"] = bool(metadata.get("use_lora"))
+            updated["loraLoadAttempted"] = metadata.get("loraLoadAttempted")
+            updated["loraLoadSucceeded"] = metadata.get("loraLoadSucceeded")
+            updated["loraLoadMessage"] = metadata.get("loraLoadMessage")
+        elif updated.get("loraPath"):
+            updated["useLora"] = False
         updated["audio"] = metadata.get("audio")
         return updated

@@ -34,6 +34,8 @@ def ace_cli_script(step_dir: Path) -> Path:
 def resolve_optional_path(raw: str | None) -> Path | None:
     if not raw:
         return None
+    if raw.strip().lower() in {"__none__", "none", "null", "false"}:
+        return None
     return Path(raw).expanduser().resolve()
 
 
@@ -64,6 +66,117 @@ def toml_value(value: object) -> str:
 def write_config(path: Path, values: dict[str, object]) -> None:
     lines = [f"{key} = {toml_value(value)}" for key, value in values.items()]
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def write_lora_sitecustomize(path: Path) -> None:
+    path.write_text(
+        """
+import json
+import os
+from pathlib import Path
+
+from acestep.handler import AceStepHandler
+
+_original_initialize_service = AceStepHandler.initialize_service
+
+
+def _write_lora_meta(payload):
+    meta_path = os.environ.get("ACE_STUDIO_LORA_META_FILE", "").strip()
+    if not meta_path:
+        return
+    Path(meta_path).write_text(json.dumps(payload), encoding="utf-8")
+
+
+def _studio_initialize_service(self, *args, **kwargs):
+    result = _original_initialize_service(self, *args, **kwargs)
+    lora_path = os.environ.get("ACE_STUDIO_LORA_PATH", "").strip()
+    scale_raw = os.environ.get("ACE_STUDIO_LORA_SCALE", "1.0")
+    try:
+        scale = float(scale_raw)
+    except ValueError:
+        scale = 1.0
+    meta = {
+        "loraLoadAttempted": bool(lora_path),
+        "loraLoadSucceeded": False,
+        "loraLoadMessage": "",
+        "loraPath": lora_path,
+        "loraScale": scale if lora_path else None,
+    }
+    if lora_path:
+        try:
+            message = self.load_lora(lora_path)
+            meta["loraLoadMessage"] = str(message)
+            meta["loraLoadSucceeded"] = True
+            print(f"[ace_runner] load_lora: {message}", flush=True)
+            scale_message = self.set_lora_scale(scale)
+            print(f"[ace_runner] set_lora_scale: {scale_message}", flush=True)
+            toggle_message = self.set_use_lora(True)
+            print(f"[ace_runner] set_use_lora: {toggle_message}", flush=True)
+        except Exception as exc:
+            meta["loraLoadMessage"] = str(exc)
+            print(f"[ace_runner] load_lora: {exc}", flush=True)
+        _write_lora_meta(meta)
+    return result
+
+
+AceStepHandler.initialize_service = _studio_initialize_service
+""".lstrip(),
+        encoding="utf-8",
+    )
+
+
+def ace_meta_sidecar_path(output_path: Path) -> Path:
+    return output_path.with_name(f"{output_path.stem}.ace_meta.json")
+
+
+def build_lora_meta(
+    *,
+    use_lora: bool,
+    lora_path: Path | None,
+    lora_scale: float,
+    hook_meta: dict[str, object] | None = None,
+    stdout: str = "",
+    stderr: str = "",
+) -> dict[str, object]:
+    if hook_meta:
+        return {
+            "loraLoadAttempted": bool(hook_meta.get("loraLoadAttempted")),
+            "loraLoadSucceeded": bool(hook_meta.get("loraLoadSucceeded")),
+            "loraLoadMessage": str(hook_meta.get("loraLoadMessage") or ""),
+            "loraPath": str(hook_meta.get("loraPath") or ""),
+            "loraScale": hook_meta.get("loraScale"),
+        }
+    if use_lora:
+        message = ""
+        succeeded = False
+        for line in f"{stdout}\n{stderr}".splitlines():
+            if "[ace_runner] load_lora:" in line:
+                message = line.split("[ace_runner] load_lora:", 1)[1].strip()
+                succeeded = bool(message) and "error" not in message.lower() and "fail" not in message.lower()
+        return {
+            "loraLoadAttempted": True,
+            "loraLoadSucceeded": succeeded,
+            "loraLoadMessage": message,
+            "loraPath": str(lora_path) if lora_path else "",
+            "loraScale": lora_scale,
+        }
+    return {
+        "loraLoadAttempted": False,
+        "loraLoadSucceeded": False,
+        "loraLoadMessage": "",
+        "loraPath": "",
+        "loraScale": None,
+    }
+
+
+def write_ace_meta_sidecar(output_path: Path, payload: dict[str, object]) -> Path:
+    path = ace_meta_sidecar_path(output_path)
+    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    return path
+
+
+def emit_lora_meta_line(payload: dict[str, object]) -> None:
+    print(f"[ace_runner] lora_meta={json.dumps(payload, separators=(',', ':'))}", flush=True)
 
 
 def dry_run_lines(args: argparse.Namespace) -> list[str]:
@@ -102,6 +215,7 @@ def dry_run_lines(args: argparse.Namespace) -> list[str]:
         f"model_dir={model_dir} exists={model_dir.exists() if model_dir else False}",
         f"device={args.device}",
         f"duration={args.duration} seed={args.seed} quality={args.quality} guidance_scale={args.guidance_scale}",
+        f"use_lora={args.use_lora} lora_path={args.lora_path or '(not set)'} lora_scale={args.lora_scale}",
         "",
         "== Voice passthrough (app template only; ACE CLI ignores today) ==",
         f"singing_voice={args.singing_voice} vocal_intensity={args.vocal_intensity} vocal_style={args.vocal_style!r}",
@@ -149,6 +263,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--singing-voice", default="auto")
     parser.add_argument("--vocal-intensity", type=float, default=0.65)
     parser.add_argument("--vocal-style", default="")
+    parser.add_argument("--lora-path", default="")
+    parser.add_argument("--lora-scale", type=float, default=1.0)
+    parser.add_argument("--use-lora", default="false")
     parser.add_argument("--dry-run", action="store_true", help="Validate wiring without running ACE-Step inference")
     return parser
 
@@ -169,6 +286,17 @@ def main(argv: list[str] | None = None) -> int:
     caption = Path(args.prompt_file).read_text(encoding="utf-8").strip()
     lyrics_path = Path(args.lyrics_file).resolve()
     output_path = Path(args.output).resolve()
+    lora_path = resolve_optional_path(args.lora_path)
+    use_lora = str(args.use_lora).lower() in {"1", "true", "yes", "on"} and lora_path is not None
+    if use_lora:
+        missing = [
+            path.name
+            for path in [lora_path / "adapter_config.json", lora_path / "adapter_model.safetensors"]
+            if not path.is_file()
+        ]
+        if missing:
+            print(f"[ace_runner] ERROR: LoRA adapter is missing required files: {', '.join(missing)}", file=sys.stderr)
+            return 2
     lyrics_text = lyrics_path.read_text(encoding="utf-8").strip() if lyrics_path.exists() else ""
     if negative_file and Path(negative_file).exists():
         negative = Path(negative_file).read_text(encoding="utf-8").strip()
@@ -203,6 +331,9 @@ def main(argv: list[str] | None = None) -> int:
             "use_format": False,
             "instrumental": False,
             "task_type": "text2music",
+            "use_lora": use_lora,
+            "lora_path": str(lora_path) if use_lora else "",
+            "lora_scale": args.lora_scale if use_lora else 1.0,
         })
         cmd: list[str] = [
             str(venv_python),
@@ -215,25 +346,57 @@ def main(argv: list[str] | None = None) -> int:
         env = os.environ.copy()
         if args.model_dir:
             env["ACESTEP_CHECKPOINTS_DIR"] = str(Path(args.model_dir).expanduser().resolve())
+        meta_file = ace_meta_sidecar_path(output_path)
+        hook_meta: dict[str, object] | None = None
+        if use_lora:
+            hook_dir = Path(save_dir) / "studio_lora_hook"
+            hook_dir.mkdir(parents=True, exist_ok=True)
+            write_lora_sitecustomize(hook_dir / "sitecustomize.py")
+            env["ACE_STUDIO_LORA_PATH"] = str(lora_path)
+            env["ACE_STUDIO_LORA_SCALE"] = str(args.lora_scale)
+            env["ACE_STUDIO_LORA_META_FILE"] = str(meta_file)
+            env["PYTHONPATH"] = f"{hook_dir}{os.pathsep}{env.get('PYTHONPATH', '')}".rstrip(os.pathsep)
         print(f"[ace_runner] Running: {shlex.join(cmd)}", flush=True)
         result = subprocess.run(cmd, cwd=str(step_dir), text=True, capture_output=True, env=env)
-        if result.stdout:
-            print(result.stdout[-4000:], flush=True)
+        if use_lora and meta_file.is_file():
+            try:
+                hook_meta = json.loads(meta_file.read_text(encoding="utf-8"))
+            except json.JSONDecodeError:
+                hook_meta = None
+        lora_meta = build_lora_meta(
+            use_lora=use_lora,
+            lora_path=lora_path,
+            lora_scale=args.lora_scale,
+            hook_meta=hook_meta,
+            stdout=result.stdout,
+            stderr=result.stderr,
+        )
         if result.returncode != 0:
+            write_ace_meta_sidecar(output_path, lora_meta)
+            emit_lora_meta_line(lora_meta)
+            if result.stdout:
+                print(result.stdout[-4000:], flush=True)
             if result.stderr:
                 print(result.stderr[-4000:], file=sys.stderr)
             print(f"[ace_runner] ACE-Step exited with {result.returncode}", file=sys.stderr)
             return result.returncode
+        if result.stdout:
+            print(result.stdout[-4000:], flush=True)
         if result.stderr:
             print(result.stderr[-2000:], flush=True)
 
         wavs = list(Path(save_dir).glob("**/*.wav"))
         if not wavs:
+            lora_meta["loraLoadMessage"] = lora_meta.get("loraLoadMessage") or "No WAV output found"
+            write_ace_meta_sidecar(output_path, lora_meta)
+            emit_lora_meta_line(lora_meta)
             print("[ace_runner] ERROR: No WAV output found in save_dir", file=sys.stderr)
             return 1
         wavs.sort(key=lambda p: p.stat().st_mtime, reverse=True)
         output_path.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(str(wavs[0]), str(output_path))
+        write_ace_meta_sidecar(output_path, lora_meta)
+        emit_lora_meta_line(lora_meta)
         print(f"[ace_runner] Wrote {output_path} ({output_path.stat().st_size} bytes)", flush=True)
     return 0
 

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Query
 
 from app.api.dependencies import get_song_service
 from app.domain.enums import ReviewDecision
-from app.domain.models import ReviewStatus, SongListResponse, SongResponse, SongReviewRequest
+from app.domain.models import ReviewStatus, SongCompareResponse, SongListResponse, SongResponse, SongReviewRequest
 from app.services.song_service import SongService
 
 router = APIRouter(prefix="/api", tags=["songs"])
@@ -21,6 +21,15 @@ def list_songs(
         review_decision=review_decision,
     )
     return SongListResponse(songs=songs)
+
+
+@router.get("/songs/compare", response_model=SongCompareResponse)
+def compare_songs(
+    baseline_id: str = Query(..., min_length=1),
+    styled_id: str = Query(..., min_length=1),
+    song_service: SongService = Depends(get_song_service),
+):
+    return song_service.compare_songs(baseline_id, styled_id)
 
 
 @router.get("/songs/{song_id}", response_model=SongResponse)

@@ -1,7 +1,15 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 
-from app.api.dependencies import get_style_version_service
-from app.api.schemas.style_versions_api import StyleVersionListResponse, StyleVersionResponse, style_version_to_response
+from app.api.dependencies import get_song_service, get_style_version_service
+from app.api.schemas.style_versions_api import (
+    StyleVersionDetailResponse,
+    StyleVersionGeneratedSongSummary,
+    StyleVersionListResponse,
+    style_version_to_detail,
+    style_version_to_response,
+)
+from app.core.config import Settings, get_settings
+from app.services.song_service import SongService
 from app.services.style_version_service import StyleVersionService
 
 router = APIRouter(prefix="/api/style-versions", tags=["style-versions"])
@@ -13,9 +21,25 @@ def list_style_versions(style_service: StyleVersionService = Depends(get_style_v
     return StyleVersionListResponse(style_versions=versions)
 
 
-@router.get("/{version_id}", response_model=StyleVersionResponse)
+@router.get("/{version_id}", response_model=StyleVersionDetailResponse)
 def get_style_version(
     version_id: str,
     style_service: StyleVersionService = Depends(get_style_version_service),
+    song_service: SongService = Depends(get_song_service),
+    settings: Settings = Depends(get_settings),
 ):
-    return style_version_to_response(style_service.get_required(version_id))
+    record = style_service.get_required(version_id)
+    load_path = style_service.resolve_load_path(record.id, settings.data_dir)
+    songs = song_service.list_by_style_version(version_id, limit=50)
+    generated = [
+        StyleVersionGeneratedSongSummary(
+            id=song.id,
+            title=song.title,
+            generation_id=song.generation_id,
+            created_at=song.created_at.isoformat(),
+            audio_url=song.audio_url,
+        )
+        for song in songs
+    ]
+    return style_version_to_detail(record, load_path=load_path, generated_songs=generated)
+

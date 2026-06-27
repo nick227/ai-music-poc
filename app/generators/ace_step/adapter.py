@@ -11,6 +11,7 @@ from app.domain.models import GenerationRequest, GenerationResult, GeneratorInfo
 from app.generators.ace_step.command_builder import AceCommandBuilder
 from app.generators.ace_step.env import ace_subprocess_env
 from app.generators.ace_step.health import get_ace_status
+from app.generators.ace_step.lora_meta import lora_meta_from_sources
 from app.generators.procedural import ProceduralGenerator
 
 logger = logging.getLogger(__name__)
@@ -56,8 +57,9 @@ class AceStepCommandGenerator:
     def generate(self, request: GenerationRequest, output_path: Path) -> GenerationResult:
         status = get_ace_status(self.settings)
         fallback_allowed = request.allow_fallback and self.settings.ace_allow_fallback
+        lora_requested = bool(request.lora_path)
         if not status.can_generate:
-            if not fallback_allowed:
+            if lora_requested or not fallback_allowed:
                 raise RuntimeError("ACE-Step is not ready and fallback is disabled: " + "; ".join(status.warnings))
             result = self.fallback.generate(request, output_path)
             result.generator_name = self.name
@@ -88,9 +90,14 @@ class AceStepCommandGenerator:
         elapsed_seconds = round(time.monotonic() - started, 3)
         stdout_tail = completed.stdout[-4000:]
         stderr_tail = completed.stderr[-4000:]
+        lora_meta = lora_meta_from_sources(
+            output_path=output_path,
+            stdout=completed.stdout,
+            stderr=completed.stderr,
+        )
         if completed.returncode != 0:
             message = stderr_tail.strip() or stdout_tail.strip() or f"ACE-Step exited with {completed.returncode}"
-            if fallback_allowed:
+            if fallback_allowed and not lora_requested:
                 result = self.fallback.generate(request, output_path)
                 result.generator_name = self.name
                 result.metadata.update({
@@ -109,17 +116,15 @@ class AceStepCommandGenerator:
         command_preview = " ".join(cmd)
         if len(command_preview) > 480:
             command_preview = command_preview[:477] + "..."
-        return GenerationResult(
-            file_name=output_path.name,
-            duration_seconds=round(audio.duration_seconds),
-            sample_rate=audio.sample_rate,
-            generator_name=self.name,
-            metadata={
+        result_metadata: dict[str, object] = {
                 "engine": "ace-step-command-v3.4",
                 "backend": "external-command",
                 "device": self.settings.ace_device,
                 "model_dir": str(self.settings.ace_model_dir),
                 "hf_cache_dir": str(self.settings.hf_cache_dir) if self.settings.hf_cache_dir else None,
+                "lora_path": request.lora_path,
+                "lora_scale": request.lora_scale if request.lora_path else None,
+                "use_lora": bool(request.lora_path),
                 "command_preview": command_preview,
                 "ace_returncode": completed.returncode,
                 "ace_elapsed_seconds": elapsed_seconds,
@@ -134,5 +139,21 @@ class AceStepCommandGenerator:
                     "rms": audio.rms,
                     "warnings": audio.warnings,
                 },
-            },
+            }
+        if lora_meta:
+            result_metadata.update(lora_meta)
+        elif request.lora_path:
+            result_metadata.update({
+                "loraLoadAttempted": True,
+                "loraLoadSucceeded": False,
+                "loraLoadMessage": "LoRA metadata sidecar missing",
+                "loraPath": request.lora_path,
+                "loraScale": request.lora_scale,
+            })
+        return GenerationResult(
+            file_name=output_path.name,
+            duration_seconds=round(audio.duration_seconds),
+            sample_rate=audio.sample_rate,
+            generator_name=self.name,
+            metadata=result_metadata,
         )

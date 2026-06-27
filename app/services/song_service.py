@@ -11,6 +11,8 @@ from app.domain.models import (
     MediaAsset,
     MediaKind,
     ReviewStatus,
+    SongCompareResponse,
+    SongCompareSharedSettings,
     SongGenerationSummary,
     SongResponse,
 )
@@ -36,6 +38,43 @@ class SongService:
         if review_decision is not None:
             assets = [item for item in assets if item.review_decision == review_decision]
         return [self.to_response(asset) for asset in assets]
+
+    def list_by_style_version(self, style_version_id: str, limit: int = 50) -> list[SongResponse]:
+        assets = self.media_store.list_generated_songs(limit=500)
+        matched: list[SongResponse] = []
+        for asset in assets:
+            version_details = normalize_version_details(asset.version_details or {})
+            if version_details.get("style_version_id") == style_version_id:
+                matched.append(self.to_response(asset))
+        return matched[:limit]
+
+    def compare_songs(self, baseline_id: str, styled_id: str) -> SongCompareResponse:
+        baseline = self.get_song(baseline_id)
+        styled = self.get_song(styled_id)
+        baseline_vd = baseline.version_details or {}
+        styled_vd = styled.version_details or {}
+        baseline_settings = baseline_vd.get("settings") or {}
+        styled_settings = styled_vd.get("settings") or {}
+        generator_name = None
+        if baseline.generation_id:
+            job = self.job_service.get(baseline.generation_id)
+            if job is not None:
+                generator_name = job.request.generator
+        shared = SongCompareSharedSettings(
+            prompt=baseline_vd.get("prompt") or styled_vd.get("prompt") or (baseline.generation.prompt if baseline.generation else None),
+            seed=baseline_vd.get("seed") if baseline_vd.get("seed") is not None else styled_vd.get("seed"),
+            duration_seconds=baseline_vd.get("duration_seconds") or styled_vd.get("duration_seconds") or baseline.duration_seconds,
+            mode=baseline_settings.get("mode") or styled_settings.get("mode"),
+            quality=baseline_settings.get("quality") or styled_settings.get("quality"),
+            generator=generator_name,
+        )
+        return SongCompareResponse(
+            baseline=baseline,
+            styled=styled,
+            shared=shared,
+            style_version_id=styled_vd.get("style_version_id"),
+            training_run_id=styled_vd.get("training_run_id"),
+        )
 
     def get_song(self, song_id: str) -> SongResponse:
         asset = self._require_generated_song(song_id)

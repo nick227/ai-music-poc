@@ -10,5 +10,9 @@ window.StudioRoutes = {
     return `/?context_media=${encodeURIComponent(id)}`;
   },
   songs: '/songs/',
+  songCompare(baselineId, styledId) {
+    const query = new URLSearchParams({ baseline_id: baselineId, styled_id: styledId });
+    return `/songs/compare.html?${query}`;
+  },
   settings: '/settings/',
 };

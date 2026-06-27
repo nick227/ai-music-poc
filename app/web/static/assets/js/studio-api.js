@@ -144,6 +144,13 @@ window.StudioApi = {
   getSong(id) {
     return this.request(`/api/songs/${id}`);
   },
+  compareSongs(baselineId, styledId) {
+    const query = new URLSearchParams({ baseline_id: baselineId, styled_id: styledId });
+    return this.request(`/api/songs/compare?${query}`);
+  },
+  getStyleVersion(id) {
+    return this.request(`/api/style-versions/${id}`);
+  },
   reviewSong(id, payload) {
     return this.request(`/api/songs/${id}/review`, {
       method: 'POST',

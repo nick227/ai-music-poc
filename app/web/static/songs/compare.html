@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Compare songs - AI Music Studio</title>
+    <link rel="stylesheet" href="/assets/css/base.css" />
+    <link rel="stylesheet" href="/assets/css/studio.css" />
+    <link rel="stylesheet" href="/assets/css/songs.css" />
+  </head>
+  <body data-studio-tab="generate">
+    <main class="shell studio-shell">
+      <nav id="studio-nav" class="studio-nav"></nav>
+
+      <section class="studio-hero">
+        <p class="eyebrow">Songs</p>
+        <h1>Baseline vs styled comparison</h1>
+        <p class="muted">Listen to both outputs side by side, inspect shared settings, and record review decisions.</p>
+        <p id="compare-meta" class="table-meta"></p>
+      </section>
+
+      <section id="compare-shared" class="card compare-shared" hidden>
+        <h2>Shared settings</h2>
+        <dl id="compare-shared-details" class="detail-meta"></dl>
+      </section>
+
+      <div id="compare-grid" class="compare-grid"></div>
+      <p id="compare-error" class="error" hidden></p>
+    </main>
+    <script src="/assets/js/studio-routes.js"></script>
+    <script src="/assets/js/studio-api.js"></script>
+    <script src="/assets/js/studio-save.js"></script>
+    <script src="/assets/js/studio-nav.js"></script>
+    <script src="/assets/js/songs-compare.js"></script>
+  </body>
+</html>

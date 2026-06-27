@@ -25,6 +25,12 @@ _KEY_ALIASES: dict[str, str] = {
     "moodTags": "mood_tags",
     "guidanceScale": "guidance_scale",
     "allowFallback": "allow_fallback",
+    "loraLoadAttempted": "lora_load_attempted",
+    "loraLoadSucceeded": "lora_load_succeeded",
+    "loraLoadMessage": "lora_load_message",
+    "loraPath": "lora_path",
+    "loraScale": "lora_scale",
+    "useLora": "use_lora",
 }
 
 

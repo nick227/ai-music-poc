@@ -5,6 +5,7 @@ from typing import Optional
 from pydantic import BaseModel
 
 from app.domain.enums import StyleVersionStatus
+from app.domain.models import SongResponse
 from app.domain.style_versions import StyleVersion
 
 
@@ -18,6 +19,19 @@ class StyleVersionResponse(BaseModel):
     status: StyleVersionStatus
     created_at: str
     updated_at: str
+
+
+class StyleVersionGeneratedSongSummary(BaseModel):
+    id: str
+    title: str
+    generation_id: Optional[str] = None
+    created_at: str
+    audio_url: Optional[str] = None
+
+
+class StyleVersionDetailResponse(StyleVersionResponse):
+    load_path: str
+    generated_songs: list[StyleVersionGeneratedSongSummary]
 
 
 class StyleVersionListResponse(BaseModel):
@@ -35,4 +49,18 @@ def style_version_to_response(record: StyleVersion) -> StyleVersionResponse:
         status=record.status,
         created_at=record.created_at.isoformat(),
         updated_at=record.updated_at.isoformat(),
+    )
+
+
+def style_version_to_detail(
+    record: StyleVersion,
+    *,
+    load_path: str,
+    generated_songs: list[StyleVersionGeneratedSongSummary],
+) -> StyleVersionDetailResponse:
+    base = style_version_to_response(record)
+    return StyleVersionDetailResponse(
+        **base.model_dump(),
+        load_path=load_path,
+        generated_songs=generated_songs,
     )
