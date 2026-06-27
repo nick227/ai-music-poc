@@ -4,8 +4,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Settings - AI Music Studio</title>
-    <link rel="stylesheet" href="/styles.css" />
-    <link rel="stylesheet" href="/studio.css" />
+    <link rel="stylesheet" href="/assets/css/base.css" />
+    <link rel="stylesheet" href="/assets/css/studio.css" />
   </head>
   <body data-studio-tab="settings">
     <main class="shell studio-shell">
@@ -21,15 +21,9 @@
         <pre id="model-detail" class="metadata"></pre>
       </section>
     </main>
-    <script src="/studio-api.js"></script>
-    <script src="/studio-nav.js"></script>
-    <script>
-      StudioApi.modelStatus().then((s) => {
-        const el = document.getElementById('model-status');
-        el.textContent = s.user_message || (s.can_generate ? 'Ready to generate' : 'Not ready');
-        el.classList.toggle('ready', !!s.can_generate);
-        document.getElementById('model-detail').textContent = JSON.stringify(s, null, 2);
-      });
-    </script>
+    <script src="/assets/js/studio-routes.js"></script>
+    <script src="/assets/js/studio-api.js"></script>
+    <script src="/assets/js/studio-nav.js"></script>
+    <script src="/assets/js/settings.js"></script>
   </body>
 </html>

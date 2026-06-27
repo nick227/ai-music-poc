@@ -72,7 +72,7 @@ function renderPayload() {
   }
   tbody.innerHTML = items.map((item) => `
     <tr>
-      <td class="table-title"><a href="/media-detail.html?id=${item.id}">${item.title}</a></td>
+      <td class="table-title"><a href="${StudioRoutes.mediaDetail(item.id)}">${item.title}</a></td>
       <td class="table-meta">${roleLabel(item)}</td>
       <td><span class="count-pill ${catCount(item) ? 'has-value' : ''}">${catCount(item)}</span></td>
       <td class="table-meta">${item.review_status.replace(/_/g, ' ').toLowerCase()}</td>
@@ -98,7 +98,7 @@ function renderPool() {
   }
   tbody.innerHTML = pool.map((item) => `
     <tr>
-      <td class="table-title"><a href="/media-detail.html?id=${item.id}">${item.title}</a></td>
+      <td class="table-title"><a href="${StudioRoutes.mediaDetail(item.id)}">${item.title}</a></td>
       <td class="table-meta">${roleLabel(item)}</td>
       <td><span class="count-pill ${catCount(item) ? 'has-value' : ''}">${catCount(item)}</span></td>
       <td><button type="button" class="ghost small" data-add="${item.id}">Add</button></td>

@@ -1,10 +1,10 @@
 window.StudioNav = {
   tabs: [
-    { id: 'media', label: 'Media', href: '/media.html' },
-    { id: 'workbench', label: 'Workbench', href: '/workbench.html' },
-    { id: 'generate', label: 'Generate', href: '/' },
-    { id: 'songs', label: 'Songs', href: '/songs.html' },
-    { id: 'settings', label: 'Settings', href: '/settings.html' },
+    { id: 'media', label: 'Media', href: StudioRoutes.media },
+    { id: 'workbench', label: 'Workbench', href: StudioRoutes.workbench },
+    { id: 'generate', label: 'Generate', href: StudioRoutes.home },
+    { id: 'songs', label: 'Songs', href: StudioRoutes.songs },
+    { id: 'settings', label: 'Settings', href: StudioRoutes.settings },
   ],
   render(activeId) {
     const root = document.getElementById('studio-nav');

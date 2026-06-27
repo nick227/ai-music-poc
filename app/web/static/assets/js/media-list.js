@@ -55,7 +55,7 @@ function render() {
     return `
       <tr data-id="${row.id}">
         <td><button type="button" class="ghost small play-btn" data-id="${row.id}">▶</button></td>
-        <td class="table-title"><a href="/media-detail.html?id=${row.id}">${row.title}</a></td>
+        <td class="table-title"><a href="${StudioRoutes.mediaDetail(row.id)}">${row.title}</a></td>
         <td>${formatDuration(row.duration_seconds)}</td>
         <td><span class="${countClass}">${count}</span></td>
         <td class="table-meta">${roleLabel(row)}</td>
@@ -63,8 +63,8 @@ function render() {
         <td class="table-meta">${row.kind.replace(/_/g, ' ').toLowerCase()}</td>
         <td class="table-meta">${formatDate(row.created_at)}</td>
         <td class="table-actions">
-          <a class="button ghost small" href="/media-detail.html?id=${row.id}">Open</a>
-          <a class="button ghost small" href="/workbench.html?media_id=${row.id}">Session</a>
+          <a class="button ghost small" href="${StudioRoutes.mediaDetail(row.id)}">Open</a>
+          <a class="button ghost small" href="${StudioRoutes.workbenchWithMedia(row.id)}">Session</a>
         </td>
       </tr>
     `;

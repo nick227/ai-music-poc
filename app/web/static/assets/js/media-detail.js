@@ -49,14 +49,14 @@ function updatePipelineLinks() {
   const ids = WorkbenchTaxonomy.getSelectedCategoryIds();
   const wb = document.getElementById('workbench-link');
   const gen = document.getElementById('generate-link');
-  wb.href = `/workbench.html?media_id=${mediaId}`;
-  gen.href = `/?context_media=${mediaId}`;
+  wb.href = StudioRoutes.workbenchWithMedia(mediaId);
+  gen.href = StudioRoutes.generateWithContext(mediaId);
 }
 
 async function load() {
   mediaId = queryId();
   if (!mediaId) {
-    window.location.href = '/media.html';
+    window.location.href = StudioRoutes.media;
     return;
   }
   await WorkbenchTaxonomy.loadTaxonomy();
@@ -88,7 +88,7 @@ document.getElementById('editor-form').addEventListener('submit', async (e) => {
 
 document.getElementById('done-btn').addEventListener('click', async () => {
   media = await StudioApi.saveAssignments(mediaId, buildPayload(true));
-  window.location.href = '/media.html';
+  window.location.href = StudioRoutes.media;
 });
 
 load();

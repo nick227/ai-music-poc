@@ -1,4 +1,4 @@
-/* Workbench — fine-tuning sessions (taxonomy styles kept for media-detail) */
+/* Workbench — fine-tuning sessions */
 .workbench-shell { max-width: 1400px; }
 
 .workbench-layout {
@@ -95,31 +95,6 @@
 .session-empty { text-align: center; padding: 40px 24px; }
 
 .badge { background: #8b5cf6; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; }
-
-/* Taxonomy editor (media-detail) */
-.taxonomy-block { margin-bottom: 24px; }
-.search-wrap { position: relative; margin: 12px 0; }
-.search-results { position: absolute; top: 100%; left: 0; right: 0; background: #18181b; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; margin-top: 4px; max-height: 240px; overflow-y: auto; z-index: 10; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
-.search-results.hidden { display: none; }
-.search-result-item { padding: 10px 12px; cursor: pointer; color: #d4d4d8; font-size: 13px; }
-.search-result-item:hover { background: rgba(255,255,255,0.1); color: #fafafa; }
-.search-create { cursor: default; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.search-create:hover { background: transparent; }
-.browse-panel { margin-top: 12px; max-height: 280px; overflow-y: auto; }
-.browse-dimension { margin-bottom: 8px; border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; padding: 4px 10px; }
-.browse-dimension summary { cursor: pointer; font-weight: 600; font-size: 13px; padding: 6px 0; color: #e4e4e7; }
-.chips-container { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; margin-bottom: 6px; }
-.selected-chips { min-height: 28px; }
-.chip { display: inline-flex; align-items: center; border-radius: 16px; font-size: 12px; font-weight: 600; border: 1px solid transparent; }
-.chip-selected { background: rgba(139,92,246,0.25); border-color: rgba(139,92,246,0.5); color: #f4f4f5; padding: 4px 10px; }
-.chip-suggestion, .chip-browse { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.12); color: #d4d4d8; padding: 4px 10px; cursor: pointer; }
-.chip-suggestion:hover, .chip-browse:hover { background: rgba(139,92,246,0.15); border-color: rgba(139,92,246,0.35); color: #fafafa; }
-.chip-browse.chip-active { background: rgba(139,92,246,0.3); border-color: rgba(139,92,246,0.55); color: #fff; }
-.chip .remove { margin-left: 6px; cursor: pointer; font-weight: bold; opacity: 0.7; }
-.chip .remove:hover { opacity: 1; }
-.suggestion-chips { min-height: 24px; }
-.optional-details { margin: 16px 0; padding: 12px; border-radius: 12px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); }
-.optional-details summary { cursor: pointer; font-weight: 600; font-size: 13px; color: #a1a1aa; }
 
 @media (max-width: 1024px) {
   .workbench-layout { grid-template-columns: 1fr; }

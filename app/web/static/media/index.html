@@ -4,9 +4,9 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Media - AI Music Studio</title>
-    <link rel="stylesheet" href="/styles.css" />
-    <link rel="stylesheet" href="/studio.css" />
-    <link rel="stylesheet" href="/media.css" />
+    <link rel="stylesheet" href="/assets/css/base.css" />
+    <link rel="stylesheet" href="/assets/css/studio.css" />
+    <link rel="stylesheet" href="/assets/css/media.css" />
   </head>
   <body data-studio-tab="media">
     <main class="shell studio-shell">
@@ -35,28 +35,29 @@
       </div>
 
       <div id="dropzone" class="media-dropzone">
-      <div class="data-table-wrap">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th></th>
-              <th>Title</th>
-              <th>Duration</th>
-              <th>Cats</th>
-              <th>Role</th>
-              <th>Review</th>
-              <th>Kind</th>
-              <th>Added</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody id="media-rows"></tbody>
-        </table>
-      </div>
+        <div class="data-table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th></th>
+                <th>Title</th>
+                <th>Duration</th>
+                <th>Cats</th>
+                <th>Role</th>
+                <th>Review</th>
+                <th>Kind</th>
+                <th>Added</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="media-rows"></tbody>
+          </table>
+        </div>
       </div>
     </main>
-    <script src="/studio-api.js"></script>
-    <script src="/studio-nav.js"></script>
-    <script src="/media.js"></script>
+    <script src="/assets/js/studio-routes.js"></script>
+    <script src="/assets/js/studio-api.js"></script>
+    <script src="/assets/js/studio-nav.js"></script>
+    <script src="/assets/js/media-list.js"></script>
   </body>
 </html>

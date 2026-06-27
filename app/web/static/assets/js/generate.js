@@ -166,7 +166,7 @@ async function loadContextMedia() {
   const banner = document.querySelector('#context-banner');
   banner.hidden = false;
   document.querySelector('#context-title').textContent = media.title;
-  document.querySelector('#context-workbench').href = `/workbench.html?media_id=${mediaId}`;
+  document.querySelector('#context-workbench').href = StudioRoutes.workbenchWithMedia(mediaId);
   const cats = (media.category_assignments || []).map((a) => a.category_id);
   if (cats.length) {
     const taxonomy = await StudioApi.listCategories();

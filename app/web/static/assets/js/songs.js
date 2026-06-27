@@ -28,7 +28,7 @@ async function load() {
         <td><span class="${reviewClass}">${song.review_status.replace(/_/g, ' ').toLowerCase()}</span></td>
         <td>${formatDuration(song.duration_seconds)}</td>
         <td class="table-meta">${formatDate(song.created_at)}</td>
-        <td><a class="button ghost small" href="/media-detail.html?id=${song.id}">Open</a></td>
+        <td><a class="button ghost small" href="${StudioRoutes.mediaDetail(song.id)}">Open</a></td>
       </tr>
     `;
   }).join('');
