@@ -24,6 +24,7 @@
           <a class="button ghost small" href="/settings/">Settings</a>
         </div>
         <p id="model-status-text" class="model-status-text muted">Checking model…</p>
+        <p id="pipeline-status-text" class="panel-lead muted"></p>
         <dl id="model-details" class="model-details"></dl>
         <p id="active-style-line" class="active-style-line muted hidden"></p>
       </section>
@@ -32,7 +33,7 @@
         <div class="panel-head">
           <div>
             <h2>Ready Audio</h2>
-            <p class="panel-lead muted">Tracks with audio plus at least one category or concept. Already-ingested tracks with the same tags are skipped.</p>
+            <p class="panel-lead muted">Tracks with audio plus at least one category or concept. Rejected, do-not-train, and already-packaged tracks are skipped.</p>
           </div>
           <p id="package-status" class="panel-status muted"></p>
         </div>
@@ -56,8 +57,8 @@
       <section id="live-run-panel" class="card workbench-panel hidden">
         <div class="panel-head">
           <div>
-            <h2>Live training</h2>
-            <p class="panel-lead muted">Training progress updates automatically after you create a package.</p>
+            <h2>Training status</h2>
+            <p class="panel-lead muted">Package creation and training progress update automatically.</p>
           </div>
           <span id="live-run-badge" class="status-pill running"></span>
         </div>
@@ -69,7 +70,7 @@
         <div class="panel-head">
           <div>
             <h2>Training Packages</h2>
-            <p class="panel-lead muted">Frozen snapshots of ready audio. Download anytime or reuse for training runs.</p>
+            <p class="panel-lead muted">Frozen snapshots of ready audio. Download a training package anytime.</p>
           </div>
         </div>
         <div id="packages-list" class="history-list"></div>
@@ -88,6 +89,7 @@
     <script src="/assets/js/studio-api.js"></script>
     <script src="/assets/js/studio-save.js"></script>
     <script src="/assets/js/studio-nav.js"></script>
+    <script src="/assets/js/studio-training-status.js"></script>
     <script src="/assets/js/workbench.js"></script>
     <script src="/assets/js/workbench-packages.js"></script>
   </body>

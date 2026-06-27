@@ -9,6 +9,7 @@ from app.domain.models import JobStatus
 from app.domain.training import TrainingRun
 from app.domain.training_presets import TRAINING_PRESETS, resolve_training_preset
 from app.domain.slices import DatasetSlice
+from app.domain.training_status import describe_pipeline, describe_run, is_dry_run_backend
 from app.services.ingestion_service import IngestionService
 from app.services.ready_audio_service import ReadyAudioService
 from app.services.slice_service import SliceService
@@ -38,6 +39,12 @@ class TrainingService:
 
     def list_runs(self) -> list[TrainingRun]:
         return self.store.list_all()
+
+    def pipeline_status(self) -> dict:
+        return describe_pipeline(self.settings, self.adapter.name)
+
+    def run_status(self, run: TrainingRun) -> dict:
+        return describe_run(run, self.settings)
 
     def get_required(self, run_id: str) -> TrainingRun:
         run = self.store.get(run_id)
@@ -180,8 +187,13 @@ class TrainingService:
             style = self.style_version_service.create_from_run(run, slice_record.name)
             run = run.model_copy(update={"style_version_id": style.id, "updated_at": datetime.now(timezone.utc)})
             self.store.save(run)
-            self.store.append_log(run.id, f"promoted style version {style.id}")
+            self.store.append_log(run.id, f"mock artifact produced; promoted style version {style.id}")
             self.ingestion_service.finalize_success(media_ids, run.id)
+        elif run.status == JobStatus.SUCCEEDED and is_dry_run_backend(run.backend):
+            self.store.append_log(run.id, "dry run complete; ready audio unchanged")
+            self.ingestion_service.revert_ingesting(media_ids)
+        elif run.status == JobStatus.SUCCEEDED and not run.artifact_path:
+            self.ingestion_service.revert_ingesting(media_ids)
         elif run.status == JobStatus.FAILED:
             self.ingestion_service.finalize_failure(media_ids, run.id)
         elif run.status == JobStatus.CANCELLED:

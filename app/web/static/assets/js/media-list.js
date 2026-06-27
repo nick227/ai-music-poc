@@ -41,10 +41,7 @@ function filteredRows() {
 }
 
 function trainingStatus(row) {
-  if (row.ready_audio) return 'ready audio';
-  if ((row.ingestion_status || '') === 'INGESTING') return 'packaging';
-  if ((row.ingestion_status || '') === 'INGESTED') return 'packaged';
-  return 'pending';
+  return StudioTrainingStatus.mediaLabel(row);
 }
 
 function render() {

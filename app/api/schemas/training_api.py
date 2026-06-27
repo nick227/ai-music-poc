@@ -4,8 +4,10 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
+from app.core.config import Settings
 from app.domain.models import JobStatus
 from app.domain.training import TrainingRun
+from app.domain.training_status import describe_run
 
 
 class TrainingRunCreateRequest(BaseModel):
@@ -30,6 +32,12 @@ class TrainingRunResponse(BaseModel):
     finished_at: Optional[str] = None
     created_at: str
     updated_at: str
+    status_label: str
+    artifact_produced: bool
+    dry_run: bool
+    ace_training_enabled: bool
+    mock_training: bool
+    style_version_created: bool
 
 
 class TrainingRunListResponse(BaseModel):
@@ -41,7 +49,17 @@ class TrainingRunLogsResponse(BaseModel):
     log: str
 
 
-def training_run_to_response(run: TrainingRun) -> TrainingRunResponse:
+class TrainingPipelineStatusResponse(BaseModel):
+    adapter: str
+    adapter_label: str
+    training_enabled: bool
+    ace_training_enabled: bool
+    ace_command_configured: bool
+    message: str
+
+
+def training_run_to_response(run: TrainingRun, settings: Settings | None = None) -> TrainingRunResponse:
+    status = describe_run(run, settings or Settings())
     return TrainingRunResponse(
         id=run.id,
         name=run.name,
@@ -58,4 +76,5 @@ def training_run_to_response(run: TrainingRun) -> TrainingRunResponse:
         finished_at=run.finished_at.isoformat() if run.finished_at else None,
         created_at=run.created_at.isoformat(),
         updated_at=run.updated_at.isoformat(),
+        **status,
     )

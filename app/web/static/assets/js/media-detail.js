@@ -27,10 +27,7 @@ function formatReviewStatus(value) {
 }
 
 function trainingStatus(media) {
-  if (media.ready_audio) return 'ready audio';
-  if ((media.ingestion_status || '') === 'INGESTING') return 'packaging';
-  if ((media.ingestion_status || '') === 'INGESTED') return 'packaged';
-  return 'pending';
+  return StudioTrainingStatus.mediaLabel(media);
 }
 
 function renderMeta() {
@@ -38,6 +35,7 @@ function renderMeta() {
   const count = media.category_assignment_count ?? media.category_assignments?.length ?? 0;
   const rows = [
     ['Review', formatReviewStatus(media.review_status)],
+    ['Ready Audio', media.ready_audio ? 'Yes' : 'No'],
     ['Training', trainingStatus(media)],
     ['Duration', media.duration_seconds != null ? `${Math.round(media.duration_seconds)}s` : '—'],
     ['Categories', count],

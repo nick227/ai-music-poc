@@ -77,7 +77,7 @@ window.WorkbenchPackages = (() => {
         <div class="history-main">
           <span class="history-kind">Package</span>
           <span class="history-title">${pkg.name}</span>
-          <span class="status-pill ready">${pkg.status.toLowerCase()}</span>
+          <span class="status-pill ready">${StudioTrainingStatus.packageSummary(pkg)}</span>
         </div>
         <p class="history-meta">${pkg.track_count} track${pkg.track_count === 1 ? '' : 's'} · ${formatWhen(pkg.created_at)}</p>
         <div class="panel-actions package-actions">
@@ -93,30 +93,32 @@ window.WorkbenchPackages = (() => {
       list.innerHTML = '<p class="muted">No training runs yet.</p>';
       return;
     }
-    list.innerHTML = runs.slice(0, 12).map((run) => {
-      const style = run.style_version_id ? styleVersions.find((v) => v.id === run.style_version_id) : null;
-      return `
+    list.innerHTML = runs.slice(0, 12).map((run) => `
         <div class="history-row">
           <div class="history-main">
             <span class="history-kind">Run</span>
             <span class="history-title">${run.name}</span>
-            <span class="status-pill ${run.status === 'SUCCEEDED' ? 'ready' : run.status === 'FAILED' ? 'draft' : 'running'}">${run.status.toLowerCase()}</span>
+            <span class="status-pill ${StudioTrainingStatus.runBadgeClass(run)}">${StudioTrainingStatus.runSummary(run)}</span>
           </div>
-          <p class="history-meta">${formatWhen(run.created_at)}${style ? ` · style: ${style.name}` : ''}${run.error ? ` · ${run.error}` : ''}</p>
+          <p class="history-meta">${formatWhen(run.created_at)}${run.artifact_produced ? ' · artifact produced' : run.dry_run ? ' · no artifact' : ''}${run.error ? ` · ${run.error}` : ''}</p>
         </div>
-      `;
-    }).join('');
+      `).join('');
   }
 
   function renderActiveStyle() {
     const line = document.getElementById('active-style-line');
-    const active = styleVersions.filter((v) => v.status === 'ACTIVE');
-    if (!active.length) {
+    const mockStyles = styleVersions.filter((v) => v.status === 'ACTIVE');
+    const latestMock = runs.find((run) => run.mock_training && run.style_version_created);
+    if (!mockStyles.length && !latestMock) {
       line.classList.add('hidden');
       return;
     }
     line.classList.remove('hidden');
-    line.textContent = `Active style versions: ${active.map((v) => v.name).join(', ')} — use them on Generate.`;
+    if (mockStyles.length) {
+      line.textContent = `Mock style versions available from prior runs: ${mockStyles.map((v) => v.name).join(', ')}.`;
+      return;
+    }
+    line.textContent = 'Latest run produced a mock artifact only. Real ACE training is not enabled.';
   }
 
   function renderLiveRun(run, logText = '') {
@@ -127,8 +129,8 @@ window.WorkbenchPackages = (() => {
         if (run && run.status === 'SUCCEEDED') {
           panel.classList.remove('hidden');
           document.getElementById('live-run-name').textContent = run.name;
-          document.getElementById('live-run-badge').textContent = run.status.toLowerCase();
-          document.getElementById('live-run-badge').className = 'status-pill ready';
+          document.getElementById('live-run-badge').textContent = StudioTrainingStatus.runSummary(run);
+          document.getElementById('live-run-badge').className = `status-pill ${StudioTrainingStatus.runBadgeClass(run)}`;
           document.getElementById('live-run-log').textContent = logText;
         } else {
           panel.classList.add('hidden');
@@ -143,8 +145,8 @@ window.WorkbenchPackages = (() => {
     cancelBtn.disabled = false;
     document.getElementById('live-run-name').textContent = run.name;
     const badge = document.getElementById('live-run-badge');
-    badge.textContent = run.status.toLowerCase();
-    badge.className = 'status-pill running';
+    badge.textContent = StudioTrainingStatus.runSummary(run);
+    badge.className = `status-pill ${StudioTrainingStatus.runBadgeClass(run)}`;
     document.getElementById('live-run-log').textContent = logText || 'Waiting for logs…';
   }
 
@@ -208,7 +210,7 @@ window.WorkbenchPackages = (() => {
     activeRunId = run.id;
     await refreshAll();
     if (run.status === 'SUCCEEDED') {
-      setStatus(`Training complete. Style version ${run.style_version_id || 'pending'} ready for Generate.`);
+      setStatus(StudioTrainingStatus.completionMessage(run));
     } else {
       setStatus(`Run ${run.status.toLowerCase()}.`, run.status === 'FAILED');
     }

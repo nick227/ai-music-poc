@@ -83,6 +83,9 @@ window.StudioApi = {
   getTrainingRunLogs(id, maxChars = 4000) {
     return this.request(`/api/training/runs/${id}/logs?max_chars=${maxChars}`);
   },
+  getTrainingPipelineStatus() {
+    return this.request('/api/training/pipeline-status');
+  },
   getReadyAudio(conceptId = null) {
     const query = conceptId ? `?concept_id=${encodeURIComponent(conceptId)}` : '';
     return this.request(`/api/training/ready-audio${query}`);

@@ -3,6 +3,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, Query
 from app.api.dependencies import get_training_service
 from app.api.schemas.ingestion_api import IngestRequest, IngestResponse, ingest_response
 from app.api.schemas.training_api import (
+    TrainingPipelineStatusResponse,
     TrainingRunCreateRequest,
     TrainingRunListResponse,
     TrainingRunLogsResponse,
@@ -17,9 +18,17 @@ from app.api.schemas.training_package_api import (
     create_package_response,
     package_to_response,
 )
+from app.core.config import Settings, get_settings
 from app.services.training_service import TrainingService
 
 router = APIRouter(prefix="/api/training", tags=["training"])
+
+
+@router.get("/pipeline-status", response_model=TrainingPipelineStatusResponse)
+def get_training_pipeline_status(
+    training_service: TrainingService = Depends(get_training_service),
+):
+    return TrainingPipelineStatusResponse.model_validate(training_service.pipeline_status())
 
 
 @router.get("/ready-audio", response_model=ReadyAudioResponse)
@@ -42,6 +51,7 @@ def create_training_package(
     request: CreatePackageRequest,
     background_tasks: BackgroundTasks,
     training_service: TrainingService = Depends(get_training_service),
+    settings: Settings = Depends(get_settings),
 ):
     media_ids = request.media_ids or None
     package, run = training_service.create_package(
@@ -53,7 +63,7 @@ def create_training_package(
     )
     if run is not None:
         background_tasks.add_task(training_service.execute_run, run.id)
-    return create_package_response(package, run)
+    return create_package_response(package, run, settings)
 
 
 @router.post("/ingest", response_model=IngestResponse)
@@ -61,6 +71,7 @@ def ingest_training_queue(
     request: IngestRequest,
     background_tasks: BackgroundTasks,
     training_service: TrainingService = Depends(get_training_service),
+    settings: Settings = Depends(get_settings),
 ):
     media_ids = request.media_ids or None
     run = training_service.ingest(
@@ -70,12 +81,15 @@ def ingest_training_queue(
         concept_id=request.concept_id,
     )
     background_tasks.add_task(training_service.execute_run, run.id)
-    return ingest_response(run)
+    return ingest_response(run, settings)
 
 
 @router.get("/runs", response_model=TrainingRunListResponse)
-def list_training_runs(training_service: TrainingService = Depends(get_training_service)):
-    runs = [training_run_to_response(item) for item in training_service.list_runs()]
+def list_training_runs(
+    training_service: TrainingService = Depends(get_training_service),
+    settings: Settings = Depends(get_settings),
+):
+    runs = [training_run_to_response(item, settings) for item in training_service.list_runs()]
     return TrainingRunListResponse(runs=runs)
 
 
@@ -84,6 +98,7 @@ def create_training_run(
     request: TrainingRunCreateRequest,
     background_tasks: BackgroundTasks,
     training_service: TrainingService = Depends(get_training_service),
+    settings: Settings = Depends(get_settings),
 ):
     run = training_service.create_run(
         name=request.name,
@@ -91,23 +106,25 @@ def create_training_run(
         config_preset=request.config_preset,
     )
     background_tasks.add_task(training_service.execute_run, run.id)
-    return training_run_to_response(run)
+    return training_run_to_response(run, settings)
 
 
 @router.get("/runs/{run_id}", response_model=TrainingRunResponse)
 def get_training_run(
     run_id: str,
     training_service: TrainingService = Depends(get_training_service),
+    settings: Settings = Depends(get_settings),
 ):
-    return training_run_to_response(training_service.get_required(run_id))
+    return training_run_to_response(training_service.get_required(run_id), settings)
 
 
 @router.post("/runs/{run_id}/cancel", response_model=TrainingRunResponse)
 def cancel_training_run(
     run_id: str,
     training_service: TrainingService = Depends(get_training_service),
+    settings: Settings = Depends(get_settings),
 ):
-    return training_run_to_response(training_service.cancel_run(run_id))
+    return training_run_to_response(training_service.cancel_run(run_id), settings)
 
 
 @router.get("/runs/{run_id}/logs", response_model=TrainingRunLogsResponse)

@@ -38,5 +38,7 @@ class IngestResponse(BaseModel):
     run: TrainingRunResponse
 
 
-def ingest_response(run: TrainingRun) -> IngestResponse:
-    return IngestResponse(run=training_run_to_response(run))
+def ingest_response(run: TrainingRun, settings=None) -> IngestResponse:
+    from app.core.config import Settings
+
+    return IngestResponse(run=training_run_to_response(run, settings or Settings()))

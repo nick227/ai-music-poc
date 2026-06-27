@@ -4,9 +4,10 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
-from app.api.schemas.training_api import TrainingRunResponse, training_run_to_response
+from app.api.schemas.training_api import TrainingRunResponse, TrainingPipelineStatusResponse, training_run_to_response
 from app.domain.slices import DatasetSlice
 from app.domain.training import TrainingRun
+from app.domain.training_status import describe_package
 
 
 class ReadyAudioItem(BaseModel):
@@ -43,6 +44,8 @@ class TrainingPackageResponse(BaseModel):
     name: str
     track_count: int
     status: str
+    status_label: str
+    download_ready: bool
     created_at: str
     updated_at: str
     download_url: str
@@ -66,19 +69,22 @@ class CreatePackageResponse(BaseModel):
 
 
 def package_to_response(record: DatasetSlice) -> TrainingPackageResponse:
+    package_status = describe_package(record)
     return TrainingPackageResponse(
         id=record.id,
         name=record.name,
         track_count=record.asset_count,
         status=record.status.value,
+        status_label=package_status["status_label"],
+        download_ready=package_status["download_ready"],
         created_at=record.created_at.isoformat(),
         updated_at=record.updated_at.isoformat(),
         download_url=f"/api/slices/{record.id}/package",
     )
 
 
-def create_package_response(record: DatasetSlice, run: TrainingRun | None) -> CreatePackageResponse:
+def create_package_response(record: DatasetSlice, run: TrainingRun | None, settings=None) -> CreatePackageResponse:
     return CreatePackageResponse(
         package=package_to_response(record),
-        run=training_run_to_response(run) if run else None,
+        run=training_run_to_response(run, settings) if run else None,
     )
