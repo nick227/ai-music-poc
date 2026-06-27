@@ -26,12 +26,25 @@ function selectedCount() {
   return workspace.media_ids.filter((id) => eligibleMedia.some((m) => m.id === id)).length;
 }
 
-function renderModelLine() {
-  const el = document.getElementById('model-line');
+function renderModelCard() {
   const ready = modelStatus?.can_generate || modelStatus?.wiring_ok;
-  const base = modelStatus?.user_message || (ready ? 'Your model is ready to generate.' : 'Your model still needs setup.');
-  el.textContent = ready ? `${base} Selected tracks will be packaged for fine-tuning.` : `${base} You can still pick tracks — finish setup in Settings when you're ready to train.`;
-  el.classList.toggle('ready', !!ready);
+  const statusEl = document.getElementById('model-status-text');
+  const message = modelStatus?.user_message || (ready ? 'Your model is ready to generate.' : 'Your model still needs setup.');
+  statusEl.textContent = ready
+    ? `${message} Tracks you select below will be packaged for fine-tuning.`
+    : `${message} You can still pick tracks — finish setup in Settings when you're ready to train.`;
+  statusEl.classList.toggle('ready', !!ready);
+
+  const rows = [
+    ['Engine', 'ACE-Step'],
+    ['Ready to generate', ready ? 'Yes' : 'No'],
+    ['Model folder', modelStatus?.ace_model_dir || 'Not configured'],
+    ['Checkpoints cache', modelStatus?.hf_cache_exists ? 'Found' : (modelStatus?.hf_cache_configured ? 'Path set, not found' : 'Not configured')],
+    ['Fallback available', modelStatus?.fallback_enabled ? 'Yes' : 'No'],
+  ];
+  document.getElementById('model-details').innerHTML = rows
+    .map(([label, value]) => `<dt>${label}</dt><dd>${value}</dd>`)
+    .join('');
 }
 
 function renderSummary() {
@@ -163,7 +176,7 @@ async function init() {
     workspace = WorkbenchSessions.toggleMedia(mediaId, true);
   }
 
-  renderModelLine();
+  renderModelCard();
   renderAll();
 
   document.getElementById('select-all-btn').addEventListener('click', selectAllOrClear);

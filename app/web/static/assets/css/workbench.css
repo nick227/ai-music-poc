@@ -1,16 +1,50 @@
-/* Workbench — gentle training track picker */
-.workbench-shell { max-width: 720px; }
+/* Workbench — gentle training track picker (width via .studio-shell) */
 
-.model-line {
-  font-size: 14px;
-  margin: 0 0 20px;
-  padding: 12px 16px;
-  border-radius: 12px;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.08);
+.model-card { margin-bottom: 18px; }
+
+.model-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
 }
 
-.model-line.ready { color: #bbf7d0; border-color: rgba(34,197,94,0.25); }
+.model-card h2 { margin: 0; font-size: 16px; }
+
+.model-status-text {
+  font-size: 14px;
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  line-height: 1.5;
+}
+
+.model-status-text.ready { color: #bbf7d0; border-color: rgba(34,197,94,0.25); }
+
+.model-details {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px 24px;
+  margin: 0;
+  font-size: 13px;
+}
+
+.model-details dt {
+  color: #71717a;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0;
+}
+
+.model-details dd {
+  margin: 4px 0 0;
+  color: #e4e4e7;
+  word-break: break-word;
+}
 
 .tracks-toolbar {
   display: flex;

@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="/assets/css/workbench.css" />
   </head>
   <body data-studio-tab="workbench">
-    <main class="shell workbench-shell studio-shell">
+    <main class="shell studio-shell">
       <nav id="studio-nav" class="studio-nav"></nav>
 
       <section class="studio-hero">
@@ -18,7 +18,14 @@
         <p class="muted">Pick the tracks that represent your sound. We package them for fine-tuning against your current model.</p>
       </section>
 
-      <p id="model-line" class="model-line muted">Checking model…</p>
+      <section class="card model-card">
+        <div class="model-card-head">
+          <h2>Your model</h2>
+          <a class="button ghost small" href="/settings/">Settings</a>
+        </div>
+        <p id="model-status-text" class="model-status-text muted">Checking model…</p>
+        <dl id="model-details" class="model-details"></dl>
+      </section>
 
       <section class="card tracks-card">
         <div class="tracks-toolbar">
