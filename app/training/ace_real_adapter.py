@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import json
-import os
 import subprocess
+from app.training.ace_subprocess_env import ace_training_env
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -11,7 +11,6 @@ from app.domain.models import JobStatus
 from app.domain.training_status import real_training_gates_open
 from app.training.ace_train_commands import (
     adapter_artifacts_valid,
-    adapter_final_dir,
     build_preprocess_command,
     build_train_command,
     required_adapter_files,
@@ -128,23 +127,28 @@ class AceRealTrainingAdapter:
             "checkpoint_dir": str(checkpoint_dir),
             "preprocess_command": preprocess,
             "train_command": train,
-            "artifact_final_dir": str(adapter_final_dir(request.artifacts_dir)),
+            "artifact_final_dir": str(run_adapter_final_dir(request.run_dir)),
             "rendered_at": datetime.now(timezone.utc).isoformat(),
         }
 
     def _runner_command(self, request: TrainingRequest, *, dry_run: bool) -> list[str]:
         ace_step_dir = self._ace_step_dir()
+        project_root = self.settings.data_dir.resolve().parent
+        script = self.settings.ace_train_script.expanduser()
+        if not script.is_absolute():
+            script = (project_root / script).resolve()
+        python_bin = self._ace_python(ace_step_dir)
         cmd = [
-            str(self.settings.ace_train_python.expanduser().resolve()),
-            str(self.settings.ace_train_script.expanduser().resolve()),
+            str(python_bin),
+            str(script),
             "--package",
-            str(request.package_path),
+            str(request.package_path.resolve()),
             "--config",
-            str(request.config_path),
+            str(request.config_path.resolve()),
             "--output-dir",
-            str(request.run_dir),
+            str(request.run_dir.resolve()),
             "--log",
-            str(request.log_path),
+            str(request.log_path.resolve()),
             "--checkpoint-dir",
             str(self._checkpoint_dir(ace_step_dir)),
             "--device",
@@ -158,9 +162,8 @@ class AceRealTrainingAdapter:
 
     def _invoke_runner(self, request: TrainingRequest, command: list[str]) -> int:
         request.log_path.parent.mkdir(parents=True, exist_ok=True)
-        env = os.environ.copy()
         ace_step_dir = self._ace_step_dir()
-        env["ACE_STEP_DIR"] = str(ace_step_dir)
+        env = ace_training_env(ace_step_dir=ace_step_dir)
         with request.log_path.open("a", encoding="utf-8") as log_handle:
             log_handle.write(f"[runner] {' '.join(command)}\n")
             log_handle.flush()
@@ -194,6 +197,15 @@ class AceRealTrainingAdapter:
         manifest_path = artifacts_dir / "artifact_manifest.json"
         manifest_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
         return rel_artifact
+
+    def _ace_python(self, ace_step_dir: Path) -> Path:
+        configured = self.settings.ace_train_python.expanduser()
+        if configured.is_absolute() and configured.is_file():
+            return configured.resolve()
+        venv_python = ace_step_dir / ".venv" / "bin" / "python"
+        if venv_python.is_file():
+            return venv_python.resolve()
+        return configured.resolve()
 
     def _ace_step_dir(self) -> Path:
         if self.settings.ace_step_dir is not None:

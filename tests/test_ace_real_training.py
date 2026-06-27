@@ -121,7 +121,9 @@ def test_package_converter_emits_valid_ace_dataset_json(tmp_path):
     assert payload["metadata"]["custom_tag"] == "concept_night"
     assert len(payload["samples"]) == 1
     sample = payload["samples"][0]
-    assert sample["audio_path"] == "./tracks/media_1/audio.wav"
+    assert sample["audio_path"] == "./tracks/media_1/media_1.wav"
+    assert sample["filename"] == "media_1.wav"
+    assert (package_root / "tracks" / "media_1" / "media_1.wav").is_symlink()
     assert sample["caption"] == "Dreamy synthwave night drive"
     assert sample["lyrics"] == "[Instrumental]"
     assert sample["bpm"] == 118
@@ -162,7 +164,8 @@ def test_train_command_uses_train_py_fixed_with_dataset_and_output_dirs(tmp_path
     )
     assert cmd[0] == str(ACE_PYTHON)
     assert cmd[1] == str(TRAIN_SCRIPT)
-    assert cmd[2] == "fixed"
+    assert cmd[2] == "--yes"
+    assert cmd[3] == "fixed"
     assert cmd[cmd.index("--dataset-dir") + 1] == str(tmp_path / "tensors")
     assert cmd[cmd.index("--output-dir") + 1] == str(tmp_path / "ace_output")
     assert cmd[cmd.index("--model-variant") + 1] == "turbo"
@@ -194,7 +197,8 @@ def test_real_adapter_dry_run_never_starts_subprocess(tmp_path):
     command_path = request.run_dir / "ace_train_command.json"
     payload = json.loads(command_path.read_text(encoding="utf-8"))
     assert payload["preprocess_command"][1:3] == ["-m", "acestep.training_v2.cli.train_fixed"]
-    assert payload["train_command"][2] == "fixed"
+    assert payload["train_command"][2] == "--yes"
+    assert payload["train_command"][3] == "fixed"
     assert "--dry-run" in result.command
 
 

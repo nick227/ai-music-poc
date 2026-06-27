@@ -58,6 +58,7 @@ def build_train_command(
     return [
         str(ace_python),
         str(train_script),
+        "--yes",
         "fixed",
         "--checkpoint-dir",
         str(checkpoint_dir),
@@ -75,7 +76,6 @@ def build_train_command(
         str(learning_rate),
         "--device",
         device,
-        "--yes",
     ]
 
 
@@ -101,6 +101,22 @@ def run_adapter_final_dir(run_dir: Path) -> Path:
 
 def required_adapter_files(final_dir: Path) -> tuple[Path, Path]:
     return final_dir / "adapter_config.json", final_dir / "adapter_model.safetensors"
+
+
+def preprocess_command_with_shim(base_command: list[str], project_root: Path) -> list[str]:
+    """Swap ``-m acestep...train_fixed`` for the local shim entry script."""
+    shim = (project_root / "scripts" / "ace_train_fixed_shim.py").resolve()
+    if len(base_command) >= 3 and base_command[1:3] == ["-m", "acestep.training_v2.cli.train_fixed"]:
+        return [base_command[0], str(shim), *base_command[3:]]
+    return base_command
+
+
+def train_command_with_shim(base_command: list[str], project_root: Path) -> list[str]:
+    """Swap ``train.py`` for the local invoke shim (expanded path-safety root)."""
+    shim = (project_root / "scripts" / "ace_train_invoke.py").resolve()
+    if len(base_command) >= 2 and base_command[1].endswith("train.py"):
+        return [base_command[0], str(shim), *base_command[2:]]
+    return base_command
 
 
 def adapter_artifacts_valid(final_dir: Path) -> bool:

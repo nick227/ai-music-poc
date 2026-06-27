@@ -122,6 +122,25 @@ def build_ace_dataset(
     return {"metadata": metadata, "samples": samples}
 
 
+def ensure_unique_audio_filenames(package_root: Path, payload: dict[str, Any]) -> None:
+    """Symlink each track to a unique filename so ACE tensor outputs do not collide."""
+    tracks_root = package_root / "tracks"
+    for sample in payload.get("samples", []):
+        track_id = sample.get("id")
+        if not isinstance(track_id, str) or not track_id:
+            continue
+        track_dir = tracks_root / track_id
+        src = track_dir / "audio.wav"
+        if not src.is_file():
+            continue
+        unique_name = f"{track_id}.wav"
+        unique_path = track_dir / unique_name
+        if not unique_path.exists():
+            unique_path.symlink_to("audio.wav")
+        sample["audio_path"] = f"./tracks/{track_id}/{unique_name}"
+        sample["filename"] = unique_name
+
+
 def write_ace_dataset_json(
     package_root: Path,
     *,
@@ -129,6 +148,7 @@ def write_ace_dataset_json(
 ) -> Path:
     """Write ACE dataset.json beside the unpacked training-package root."""
     payload = build_ace_dataset(package_root, config=config)
+    ensure_unique_audio_filenames(package_root, payload)
     path = package_root / "dataset.json"
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     return path
