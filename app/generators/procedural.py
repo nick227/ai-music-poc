@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 import random
+import re
 import struct
 import wave
 from pathlib import Path
@@ -75,6 +76,15 @@ MINOR = [0, 2, 3, 5, 7, 8, 10]
 PENTATONIC_MINOR = [0, 3, 5, 7, 10]
 DORIAN = [0, 2, 3, 5, 7, 9, 10]
 
+# Precomputed semitone frequency ratios — avoids per-sample 2**(x/12) exponentiation
+_R_MAJ3 = 2 ** (4 / 12)   # major 3rd (≈1.260)
+_R_PERF4 = 2 ** (5 / 12)  # perfect 4th (≈1.335)
+_R_PERF5 = 2 ** (7 / 12)  # perfect 5th (≈1.498)
+_R_MAJ6 = 2 ** (9 / 12)   # major 6th (≈1.587)
+_R_MIN7 = 2 ** (10 / 12)  # minor 7th (≈1.782)
+_R_DET_UP = 2 ** (4 / 1200)   # +4 cents detune (≈1.00231) — pad chorus doubler
+_R_DET_DN = 2 ** (-4 / 1200)  # -4 cents detune (≈0.99769) — pad chorus doubler
+
 PROFILES: dict[str, StyleProfile] = {
     "disco": StyleProfile(
         "disco", 116, DORIAN, "four_floor",
@@ -108,8 +118,8 @@ PROFILES: dict[str, StyleProfile] = {
     ),
     "cinematic": StyleProfile(
         "cinematic", 92, MINOR, "pulse",
-        bass_amp=0.22, pad_amp=0.18, lead_amp=0.05, vocal_amp=0.065,
-        noise_amp=0.018, pluck_kind="sine", chorus_lift=1.35,
+        bass_amp=0.22, pad_amp=0.16, lead_amp=0.068, vocal_amp=0.065,
+        noise_amp=0.018, pluck_kind="pluck", chorus_lift=1.35,
     ),
     "pop": StyleProfile(
         "pop", 108, MAJOR, "pop",
@@ -215,8 +225,8 @@ CHORD_PROGRESSIONS: dict[str, dict[str, list[int]]] = {
         "outro": [0, 3, 6, 0],
     },
     "pop": {
-        "verse": [0, 5, 3, 4],
-        "chorus": [0, 5, 3, 4],
+        "verse": [0, 5, 3, 4],   # I-V-iii-IV (classic pop verse)
+        "chorus": [0, 3, 4, 5],  # I-iii-IV-V (lift: walks up to V for energy)
         "build": [3, 4, 5, 4],
         "intro": [0, 4, 5, 3],
         "hook": [0, 3, 5, 4],
@@ -286,7 +296,7 @@ def _melody_freq(profile: StyleProfile, root: float, bar: int, section: str, phr
 
 class ProceduralGenerator:
     name = "procedural-v3"
-    label = "Procedural V3.6 Fallback"
+    label = "Procedural V3.23 Fallback"
     supports_lyrics = True
     supports_seed = True
     supports_duration = True
@@ -315,6 +325,23 @@ class ProceduralGenerator:
         ]).lower()
         negative_text = request.negative_prompt.lower()
         profile = self._profile(positive_text, request.mode, negative_text)
+        # Mood-based scale override: "sad/dark/minor" → MINOR, "happy/bright/major" → MAJOR
+        if any(k in positive_text for k in ["sad", "melancholic", "dark", "gloomy", "somber", "depressing", "tragic", "heartbreak"]) or "minor" in positive_text:
+            if profile.scale != MINOR:
+                profile = StyleProfile(
+                    profile.name, profile.default_bpm, MINOR, profile.drum_pattern,
+                    profile.has_drums, profile.bass_amp, profile.pad_amp, profile.lead_amp,
+                    profile.vocal_amp, profile.noise_amp, profile.swing, profile.pluck_kind,
+                    profile.chorus_lift, profile.lowpass,
+                )
+        elif any(k in positive_text for k in ["happy", "joyful", "cheerful", "uplifting", "bright", "positive", "sunshine", "celebration"]) or "major" in positive_text:
+            if profile.scale != MAJOR:
+                profile = StyleProfile(
+                    profile.name, profile.default_bpm, MAJOR, profile.drum_pattern,
+                    profile.has_drums, profile.bass_amp, profile.pad_amp, profile.lead_amp,
+                    profile.vocal_amp, profile.noise_amp, profile.swing, profile.pluck_kind,
+                    profile.chorus_lift, profile.lowpass,
+                )
         quality = quality_for(request)
         rng = random.Random(request.seed if request.seed is not None else sum(ord(c) for c in request.prompt) % 2_147_483_647)
         duration = request.duration_seconds
@@ -326,6 +353,8 @@ class ProceduralGenerator:
 
         duration_beats = duration / beat
         lyric_events = build_lyric_timeline(request.lyrics, duration_beats)
+        lyric_idx_map: dict[int, int] = {id(ev): i for i, ev in enumerate(lyric_events)}
+        voice_profile = self._voice(request, positive_text)
 
         drums_enabled = profile.has_drums and request.mode != "instrumental"
         if profile.name in ("ambient",) or request.structure == "ambient_loop":
@@ -361,11 +390,56 @@ class ProceduralGenerator:
         _voc_rev_ptr = 0
         _voc_del_ptr = 0
 
+        # ADT (automatic double tracking) — 20ms delay, chorus-only
+        _adt_len = int(0.020 * SAMPLE_RATE)
+        _adt_buf = [0.0] * _adt_len
+        _adt_ptr = 0
+
+        # Section change tracking for crash cymbal at chorus entry
+        _prev_section = ""
+        _section_changed_t = -999.0
+
+        # Sidechain compressor: kick-triggered bass ducking (pumping/groove effect)
+        _sc_env = 0.0
+        _sc_coeff = 0.9994  # ~80ms half-life release at 44100 Hz
+        _sc_depth = {"club": 0.42, "disco": 0.38, "pop": 0.22}.get(profile.name, 0.0)
+
+        # Snare room reverb: 25ms comb filter gives natural room ambience
+        _sr_len = int(0.025 * SAMPLE_RATE)
+        _sr_buf = [0.0] * _sr_len
+        _sr_ptr = 0
+
+        # Pre-chorus snare fill zones: 16th-note roll in last 1.5 beats before chorus/hook
+        _fill_zones: list[tuple[float, float]] = []
+        for _fz_si in range(len(sections) - 1):
+            _, _fz_sn = sections[_fz_si]
+            _fz_nxt, _fz_nn = sections[_fz_si + 1]
+            if _fz_nn in ("chorus", "hook") and _fz_sn not in ("chorus", "hook", "build"):
+                _fill_zones.append((max(0.0, _fz_nxt - 1.5 * beat), _fz_nxt))
+
+        # Formant cache: maps (int_pitch, vowel_shift, harmonics) → (freqs, gains)
+        # Avoids recomputing 4×exp per harmonic on every sample — gains are stable within a note
+        _formant_cache: dict = {}
+
+        # Lead plate reverb: 50ms comb gives air and depth to the melody
+        _lead_rev_len = int(0.050 * SAMPLE_RATE)
+        _lead_rev_buf = [0.0] * _lead_rev_len
+        _lead_rev_ptr = 0
+
+        # Pad room reverb: 75ms gives the harmonic bed warmth and width
+        _pad_rev_len = int(0.075 * SAMPLE_RATE)
+        _pad_rev_buf = [0.0] * _pad_rev_len
+        _pad_rev_ptr = 0
+        _do_pad_rev = profile.name not in ("lofi",)
+
         for i in range(total_samples):
             t = i / SAMPLE_RATE
             beat_pos = t / beat
             bar = int(beat_pos // 4) + motif_shift
             section = self._section_at(t, sections)
+            if section != _prev_section:
+                _section_changed_t = t
+                _prev_section = section
 
             # Per-section mix automation
             if section in ("chorus", "hook"):
@@ -375,11 +449,13 @@ class ProceduralGenerator:
                 _rev_mult = 1.30
                 _pan_depth = 0.22
             elif section == "build":
-                section_gain = profile.chorus_lift * 0.72
-                _voc_sect = 1.05
-                _kick_sect = 1.10
-                _rev_mult = 1.12
-                _pan_depth = 0.18
+                _bst, _bnd = _sec_bounds.get("build", (t, t + 1.0))
+                _bp = (t - _bst) / max(1.0, _bnd - _bst)   # 0→1 through build
+                section_gain = profile.chorus_lift * (0.62 + 0.38 * _bp)
+                _voc_sect = 0.88 + 0.20 * _bp
+                _kick_sect = 0.90 + 0.38 * _bp
+                _rev_mult = 1.05 + 0.20 * _bp
+                _pan_depth = 0.16 + 0.06 * _bp
             elif section == "verse":
                 section_gain = 1.0
                 _voc_sect = 0.841      # verse vocal -1.5dB
@@ -393,15 +469,14 @@ class ProceduralGenerator:
                 _kick_sect = 0.72 * _ramp
                 _rev_mult = 0.70
                 _pan_depth = 0.14
-            elif section == "build":
-                _bst, _bnd = _sec_bounds.get("build", (t, t + 1.0))
-                _bp = (t - _bst) / max(1.0, _bnd - _bst)   # 0→1 through build
-                section_gain = profile.chorus_lift * (0.62 + 0.38 * _bp)
-                _voc_sect = 0.88 + 0.20 * _bp
-                _kick_sect = 0.90 + 0.38 * _bp
-                _rev_mult = 1.05 + 0.20 * _bp
-                _pan_depth = 0.16 + 0.06 * _bp
-            else:  # outro, hook
+            elif section == "outro":
+                _fade = max(0.0, 1.0 - (t - _outro_start) / max(1.0, float(duration) - _outro_start))
+                section_gain = _fade
+                _voc_sect = _fade * 0.9
+                _kick_sect = _fade
+                _rev_mult = 0.85 + 0.15 * _fade
+                _pan_depth = 0.14
+            else:  # hook or unrecognized
                 section_gain = 1.0
                 _voc_sect = 1.0
                 _kick_sect = 1.0
@@ -411,9 +486,22 @@ class ProceduralGenerator:
             chord_freq = _chord_freq(profile, root, bar, section)
 
             bass = self._bass(profile, chord_freq, t, beat_pos, section_gain)
-            pad = self._pad(profile, chord_freq, t, section_gain)
+            # Sub-bass layer in chorus for club/disco: deep sine at 2 octaves below root
+            if profile.name in ("disco", "club") and section in ("chorus", "hook"):
+                bass += profile.bass_amp * 0.32 * math.sin(2 * math.pi * (chord_freq / 4) * t) * section_gain
+            pad = self._pad(profile, chord_freq, t, section_gain, section)
+            if _do_pad_rev and pad != 0.0:
+                _pr_out = _pad_rev_buf[_pad_rev_ptr]
+                _pad_rev_buf[_pad_rev_ptr] = pad * 0.40 + _pr_out * 0.48
+                _pad_rev_ptr = (_pad_rev_ptr + 1) % _pad_rev_len
+                pad += _pr_out * 0.14
             lead = self._lead(profile, root, t, beat_pos, bar, section, section_gain)
-            vocal = self._sung_voice(profile, request, lyric_events, root, t, beat_pos, bar, section, quality.harmonics)
+            if lead != 0.0 and profile.name not in ("ambient", "lofi"):
+                _lr_out = _lead_rev_buf[_lead_rev_ptr]
+                _lead_rev_buf[_lead_rev_ptr] = lead * 0.45 + _lr_out * 0.35
+                _lead_rev_ptr = (_lead_rev_ptr + 1) % _lead_rev_len
+                lead += _lr_out * 0.22
+            vocal = self._sung_voice(profile, request, lyric_events, lyric_idx_map, voice_profile, root, t, beat_pos, bar, section, quality.harmonics, _formant_cache)
             if vocal != 0.0:
                 vocal *= _voc_sect
                 if quality.vocal_reverb > 0:
@@ -424,9 +512,14 @@ class ProceduralGenerator:
                     _voc_del_buf[_voc_del_ptr] = vocal * 0.40 + _del_out * 0.32
                     _voc_del_ptr = (_voc_del_ptr + 1) % _voc_del_len
                     vocal = vocal + _rev_out * quality.vocal_reverb * _rev_mult + _del_out * quality.vocal_delay_mix
+            _adt_out = _adt_buf[_adt_ptr]
+            _adt_buf[_adt_ptr] = vocal
+            _adt_ptr = (_adt_ptr + 1) % _adt_len
+            if section in ("chorus", "hook") and _adt_out != 0.0:
+                vocal += _adt_out * 0.48
             kick = hat = snare = perc = 0.0
             if drums_enabled:
-                kick, hat, snare, perc = self._drums(profile, rng, t, beat_pos)
+                kick, hat, snare, perc = self._drums(profile, rng, t, beat_pos, section)
                 kick *= _kick_sect
                 if quality.drum_sub_layer and kick != 0.0:
                     _bf = beat_pos % 1
@@ -461,6 +554,38 @@ class ProceduralGenerator:
                 elif _op > 0.38:
                     vocal *= max(0.0, 1.0 - (_op - 0.38) / 0.20)
 
+            # Ghost notes: quiet snare on off-beats for funk/groove feel (verse/build only)
+            if drums_enabled and section in ("verse", "build") and profile.name in ("pop", "disco", "club", "acoustic", "default"):
+                _g16 = beat_pos * 4
+                if int(_g16) % 4 not in (0,) and _g16 % 1 < 0.09 and int(beat_pos) % 4 not in (1, 3):
+                    snare += (rng.random() * 2 - 1) * 0.016 * math.exp(-(_g16 % 1) * 22)
+
+            # Sidechain: kick-triggered bass ducking for rhythmic groove
+            if _sc_depth > 0.0:
+                if kick != 0.0:
+                    _sc_env = 1.0
+                _sc_env *= _sc_coeff
+                bass *= (1.0 - _sc_env * _sc_depth)
+
+            # Pre-chorus snare fill: 16th-note roll in last 1.5 beats before chorus/hook
+            if drums_enabled and _fill_zones:
+                for _fz_s, _fz_e in _fill_zones:
+                    if _fz_s <= t < _fz_e:
+                        if (beat_pos * 4) % 1 < 0.14:
+                            _fz_frac = (t - _fz_s) / (_fz_e - _fz_s)
+                            snare += (rng.random() * 2 - 1) * (0.04 + 0.05 * _fz_frac)
+                        break
+
+            # Snare room reverb: 25ms comb for natural ambience
+            _sr_out = _sr_buf[_sr_ptr]
+            _sr_buf[_sr_ptr] = snare * 0.50 + _sr_out * 0.40
+            _sr_ptr = (_sr_ptr + 1) % _sr_len
+            snare = snare + _sr_out * 0.32
+
+            # Crash cymbal at chorus/hook entry (first beat, 1.2s slow decay)
+            if drums_enabled and section in ("chorus", "hook") and t - _section_changed_t < 1.2:
+                perc += (rng.random() * 2 - 1) * profile.noise_amp * 1.8 * math.exp(-(t - _section_changed_t) * 1.8)
+
             sample = bass + pad + lead + vocal + kick + hat + snare + perc
 
             if profile.name == "lofi":
@@ -473,11 +598,14 @@ class ProceduralGenerator:
                 sample *= max(0.0, 1.0 - _op2 * 0.55)  # gentle overall fade; per-instrument dropout above handles drama
 
             sample = math.tanh(sample * quality.mix_drive) * 0.84
-            pan = _pan_depth * math.sin(2 * math.pi * (0.045 if profile.name == "ambient" else 0.07) * t)
+            # Per-instrument stereo placement: pad sits left, lead sits right, hat/perc left
+            # Offset is derived from pre-tanh instrument levels so it tracks content, not clipping
+            _ster = pad * 0.30 - lead * 0.22 + (hat + perc) * 0.15
+            pan_lfo = _pan_depth * math.sin(2 * math.pi * (0.045 if profile.name == "ambient" else 0.07) * t)
             if profile.name in ("club", "disco") and section in ("chorus", "hook", "build"):
-                pan += 0.08
-            left = sample * (1 - pan * 0.42)
-            right = sample * (1 + pan * 0.42)
+                pan_lfo += 0.08
+            left = sample * (1.0 - pan_lfo * 0.42) - _ster
+            right = sample * (1.0 + pan_lfo * 0.42) + _ster
 
             prev_l = 0.90 * prev_l + 0.10 * left
             prev_r = 0.90 * prev_r + 0.10 * right
@@ -526,7 +654,7 @@ class ProceduralGenerator:
 
         voice = self._voice(request, positive_text)
         metadata: dict = {
-            "engine": "procedural-v3.6",
+            "engine": "procedural-v3.23",
             "style_profile": profile.name,
             "lyrics_behavior": "formant_singing" if request.mode in ("song", "vocal_demo") and lyric_events else "none",
             "singing_voice": voice.name,
@@ -564,6 +692,16 @@ class ProceduralGenerator:
             raw_l[i] = nl
             raw_r[i] = nr
 
+        # Presence boost: high-shelf +2.5dB above ~3kHz (LP coeff 0.65 → cutoff ≈3kHz)
+        _sh_c = 0.65
+        _sh_g = 0.35
+        _sh_l = _sh_r = 0.0
+        for i in range(n):
+            _sh_l = _sh_l * _sh_c + raw_l[i] * (1.0 - _sh_c)
+            _sh_r = _sh_r * _sh_c + raw_r[i] * (1.0 - _sh_c)
+            raw_l[i] += (raw_l[i] - _sh_l) * _sh_g
+            raw_r[i] += (raw_r[i] - _sh_r) * _sh_g
+
         # Stereo M/S widening: more width at higher quality
         width = 1.0 + quality.reverb_mix * 0.85  # 1.05 draft → 1.15 high
         for i in range(n):
@@ -572,23 +710,45 @@ class ProceduralGenerator:
             raw_l[i] = mid + side
             raw_r[i] = mid - side
 
-        # Peak normalization + soft limiting to -1dBFS
+        # Normalize to -6dBFS before compression to give compressor consistent input
         peak = max((max(abs(raw_l[i]), abs(raw_r[i])) for i in range(n)), default=0.001)
         if peak > 0.001:
-            gain = min(0.891 / peak, 2.0)   # max +6dB boost
-            _thr = 0.85
-            _inv = 1.0 / _thr
+            gain = min(0.50 / peak, 2.0)   # target -6dBFS, max +6dB boost
+            # 3:1 compressor: threshold -6dBFS (0.50), attack 10ms, release 120ms
+            _c_thr = 0.50
+            _c_atk = 0.9977   # 1 - exp(-1/(0.010*44100))
+            _c_rel = 0.9998   # 1 - exp(-1/(0.120*44100))
+            _c_env = 0.0
+            _lim_thr = 0.85
+            _lim_inv = 1.0 / _lim_thr
             for i in range(n):
                 l = raw_l[i] * gain
                 r = raw_r[i] * gain
-                if l > _thr:
-                    l = math.tanh(l * _inv) * _thr
-                elif l < -_thr:
-                    l = math.tanh(l * _inv) * _thr
-                if r > _thr:
-                    r = math.tanh(r * _inv) * _thr
-                elif r < -_thr:
-                    r = math.tanh(r * _inv) * _thr
+                level = l if l > -l else -l
+                r_abs = r if r > -r else -r
+                if r_abs > level:
+                    level = r_abs
+                # Envelope follower (one-pole IIR)
+                if level > _c_env:
+                    _c_env = _c_atk * _c_env + (1.0 - _c_atk) * level
+                else:
+                    _c_env = _c_rel * _c_env + (1.0 - _c_rel) * level
+                # Gain reduction: 3:1 above threshold
+                if _c_env > _c_thr:
+                    gr = 1.0 / (1.0 + (_c_env / _c_thr - 1.0) * (2.0 / 3.0))
+                else:
+                    gr = 1.0
+                l *= gr
+                r *= gr
+                # Soft limiter at -1.5dBFS
+                if l > _lim_thr:
+                    l = math.tanh(l * _lim_inv) * _lim_thr
+                elif l < -_lim_thr:
+                    l = math.tanh(l * _lim_inv) * _lim_thr
+                if r > _lim_thr:
+                    r = math.tanh(r * _lim_inv) * _lim_thr
+                elif r < -_lim_thr:
+                    r = math.tanh(r * _lim_inv) * _lim_thr
                 raw_l[i] = l
                 raw_r[i] = r
 
@@ -605,15 +765,13 @@ class ProceduralGenerator:
         return out
 
     def _profile(self, text: str, mode: str, negative_text: str) -> StyleProfile:
-        if "ambient" in text or (mode == "instrumental" and not any(k in text for k in ["cinematic", "trailer", "epic"])):
-            return PROFILES["ambient"]
         if any(k in text for k in ["rap", "trap", "mixtape", "808", "hip hop", "hiphop"]):
             return PROFILES["rap"]
         if any(k in text for k in ["lofi", "lo-fi", "lo fi", "dusty", "tape wobble", "chillhop"]):
             return PROFILES["lofi"]
         if any(k in text for k in ["acoustic", "guitar", "indie", "folk", "singer-songwriter"]):
             return PROFILES["acoustic"]
-        if any(k in text for k in ["club", "warehouse", "rave", "techno", "house", "edm"]):
+        if any(k in text for k in ["club", "warehouse", "rave", "techno", "house", "edm", "electro", "synthwave"]):
             return PROFILES["club"]
         if any(k in text for k in ["disco", "dance", "french", "funky", "funk"]):
             return PROFILES["disco"]
@@ -621,13 +779,17 @@ class ProceduralGenerator:
             return PROFILES["cinematic"]
         if any(k in text for k in ["pop", "hook", "radio", "chart", "mainstream"]):
             return PROFILES["pop"]
+        if "ambient" in text or (mode == "instrumental" and not any(k in text for k in ["cinematic", "trailer", "epic"])):
+            return PROFILES["ambient"]
         return PROFILES["default"]
 
     def _infer_bpm(self, text: str, mode: str, profile: StyleProfile) -> int:
-        if any(k in text for k in ["slow", "ballad", "lullaby", "meditation"]):
+        if any(k in text for k in ["slow", "ballad", "lullaby", "meditation", "chill", "mellow", "dreamy", "relaxed", "calm", "gentle"]):
             return min(profile.default_bpm, 78)
-        if any(k in text for k in ["fast", "punk", "energetic", "upbeat"]):
+        if any(k in text for k in ["fast", "punk", "energetic", "upbeat", "dance", "banger", "rave", "hyped", "rapid", "frantic", "intense"]):
             return min(max(profile.default_bpm, 120), 160)
+        if any(k in text for k in ["groove", "funk", "soul", "r&b", "rnb", "smooth"]):
+            return min(max(profile.default_bpm, 96), 114)
         if mode == "loop" and profile.name == "lofi":
             return 86
         return profile.default_bpm
@@ -643,6 +805,15 @@ class ProceduralGenerator:
             normalized = key.lower().replace("minor", "").replace("major", "").strip()
             if normalized in notes:
                 return notes[normalized]
+        # Detect key from prompt: "in C", "key of D", "C minor", "A major"
+        text = prompt.lower()
+        m = re.search(r'\b(?:in|key\s+of)\s+([a-g][b#]?)\b', text)
+        if not m:
+            m = re.search(r'\b([a-g][b#]?)\s+(?:major|minor|key)\b', text)
+        if m:
+            note = m.group(1)
+            if note in notes:
+                return notes[note]
         base = [261.63, 293.66, 329.63, 349.23, 392.0, 440.0]
         return base[sum(ord(c) for c in prompt.lower()) % len(base)]
 
@@ -676,25 +847,38 @@ class ProceduralGenerator:
             return profile.bass_amp * math.sin(2 * math.pi * (chord_freq / 2) * octave * fifth * t) * pulse * section_gain
         if profile.name == "ambient":
             return profile.bass_amp * math.sin(2 * math.pi * (chord_freq / 4) * t)
-        # Walking bass: root on beat 1, 5th on beat 3
-        fifth_hit = int(beat_pos) % 4 == 2
-        pitch = chord_freq / 2 * (1.5 if fifth_hit else 1.0)
+        # Walking bass: root → maj3 → perf5 → maj6 over 4 beats (lofi/acoustic feel)
+        if profile.name in ("lofi", "acoustic"):
+            _walk = (1.0, _R_MAJ3, _R_PERF5, _R_MAJ6)[int(beat_pos) % 4]
+            return profile.bass_amp * math.sin(2 * math.pi * (chord_freq / 2 * _walk) * t) * (0.8 + 0.2 * math.sin(2 * math.pi * beat_pos))
+        # Default: root on beats 1/2/4, 5th on beat 3
+        pitch = chord_freq / 2 * (_R_PERF5 if int(beat_pos) % 4 == 2 else 1.0)
         return profile.bass_amp * math.sin(2 * math.pi * pitch * t) * (0.75 + 0.25 * math.sin(2 * math.pi * beat_pos))
 
-    def _pad(self, profile: StyleProfile, chord_freq: float, t: float, section_gain: float) -> float:
+    def _pad(self, profile: StyleProfile, chord_freq: float, t: float, section_gain: float, section: str = "") -> float:
         slow = 0.7 + 0.3 * math.sin(2 * math.pi * 0.06 * t)
         if profile.name == "ambient":
             return profile.pad_amp * (
                 _osc(chord_freq / 2, t, "sine") + 0.6 * _osc(chord_freq * 0.75, t, "sine") + 0.4 * _osc(chord_freq, t, "sine")
             ) * slow
-        fifth_freq = chord_freq * 1.5
-        third_freq = chord_freq * (2 ** (4 / 12))  # major 3rd completes the triad
-        return profile.pad_amp * (
+        fifth_freq = chord_freq * _R_PERF5
+        third_freq = chord_freq * _R_MAJ3
+        seventh_freq = chord_freq * _R_MIN7  # dominant 7th — richens chorus harmony
+        pad = profile.pad_amp * (
             _osc(chord_freq, t, "sine")
             + _osc(third_freq, t, "sine") * 0.28
             + _osc(fifth_freq, t, "sine") * 0.35
             + _osc(chord_freq * 2, t, "sine") * 0.14
         ) * section_gain
+        if section in ("chorus", "hook"):
+            pad += profile.pad_amp * _osc(seventh_freq, t, "sine") * 0.20 * section_gain
+            # Detuned doubler: ±4 cents beating at ~1Hz creates lush chorus-pad width
+            pad += profile.pad_amp * (
+                _osc(chord_freq * _R_DET_UP, t, "sine") * 0.18
+                + _osc(chord_freq * _R_DET_DN, t, "sine") * 0.18
+                + _osc(fifth_freq * _R_DET_UP, t, "sine") * 0.10
+            ) * section_gain
+        return pad
 
     def _lead(self, profile: StyleProfile, root: float, t: float, beat_pos: float, bar: int, section: str, section_gain: float) -> float:
         if profile.name == "ambient":
@@ -705,7 +889,7 @@ class ProceduralGenerator:
             phrase_speed = 4.0
         else:
             phrase_speed = 2.0
-        phrase_step = int(beat_pos * phrase_speed)
+        phrase_step = int(beat_pos * phrase_speed) + (bar // 8) % 2
         octave = 1.0 if profile.name in ("rap", "ambient") else 2.0
         freq = _melody_freq(profile, root, bar, section, phrase_step, octave)
         frac = (beat_pos * max(1.0, phrase_speed)) % 1
@@ -713,7 +897,16 @@ class ProceduralGenerator:
             return profile.lead_amp * _osc(freq * 0.5, t, "square") * _env(frac, 0.01, 0.42) * 0.55
         if profile.name == "ambient":
             return profile.lead_amp * _osc(freq, t, "sine") * (0.5 + 0.5 * math.sin(2 * math.pi * 0.04 * t))
-        return profile.lead_amp * _osc(freq, t, profile.pluck_kind) * _env(frac, 0.01, 0.28) * section_gain
+        # Melody rest: skip every 8th phrase step in verse sections for breathing room
+        if section == "verse" and phrase_step % 8 == 7 and profile.name not in ("rap", "ambient", "disco", "club"):
+            return 0.0
+        # Vibrato: ramps in over first 25% of note so the attack stays clean
+        freq *= 1.0 + 0.011 * min(1.0, frac / 0.25) * math.sin(2 * math.pi * 5.5 * t)
+        base = profile.lead_amp * _osc(freq, t, profile.pluck_kind) * _env(frac, 0.01, 0.28) * section_gain
+        if section in ("chorus", "hook"):
+            harm_freq = freq * _R_PERF4  # perfect 4th above — classic harmony doubling
+            base += profile.lead_amp * 0.28 * _osc(harm_freq, t, profile.pluck_kind) * _env(frac, 0.01, 0.28) * section_gain
+        return base
 
     def _voice(self, request: GenerationRequest, text: str) -> VoiceProfile:
         requested = request.singing_voice
@@ -733,10 +926,9 @@ class ProceduralGenerator:
                 requested = "female"
         return VOICE_PROFILES.get(requested, VOICE_PROFILES["female"])
 
-    def _sung_voice(self, profile: StyleProfile, request: GenerationRequest, lyric_events: list, root: float, t: float, beat_pos: float, bar: int, section: str, max_harmonics_cap: int = 22) -> float:
+    def _sung_voice(self, profile: StyleProfile, request: GenerationRequest, lyric_events: list, lyric_idx_map: dict, voice: "VoiceProfile", root: float, t: float, beat_pos: float, bar: int, section: str, max_harmonics_cap: int = 22, formant_cache: dict | None = None) -> float:
         if request.mode not in ("song", "vocal_demo") or not lyric_events or profile.vocal_amp <= 0 or request.vocal_intensity <= 0:
             return 0.0
-        voice = self._voice(request, " ".join([request.prompt, request.vocal_style or ""]).lower())
 
         # Verse: slower phrase speed (lyrical, each word held longer)
         # Chorus: faster phrase speed (hook-like repetition)
@@ -754,7 +946,7 @@ class ProceduralGenerator:
             return 0.0
         word = event.word.lower()
         syllable_x = max(0.0, min(1.0, (phrase_pos - event.beat_start) / max(event.beat_duration, 0.001)))
-        word_idx = lyric_events.index(event)
+        word_idx = lyric_idx_map.get(id(event), 0)
 
         # Phrase variation: 4-cycle pattern to break repetition
         phrase_cycle = (word_idx // 4) % 4
@@ -781,7 +973,7 @@ class ProceduralGenerator:
         if phrase_cycle == 3 and syllable_x > 0.45:
             envelope *= 1.0 + 0.28 * ((syllable_x - 0.45) / 0.55)
 
-        vowel = self._dominant_vowel(word)
+        vowel = self._vowel_at(word, syllable_x)
         vowel_shift = VOWEL_FORMANT_SHIFTS[vowel]
 
         # Vibrato: cycle 3 gets stronger vibrato; onset delay + rate modulation
@@ -798,19 +990,47 @@ class ProceduralGenerator:
             scoop = max(0.0, 1.0 - syllable_x / 0.12) * (1.0 - 2 ** (-1.2 / 12))
             pitch = pitch * (1.0 - scoop)
 
+        # Formant basis: fetch or build per-note (freq, gain) pairs.
+        # Gains depend only on pitch+vowel, not on t — cache them to avoid 4×exp per harmonic per sample.
+        _fc_key = (int(pitch), vowel_shift, max_harmonics_cap)
+        _cached = formant_cache.get(_fc_key) if formant_cache is not None else None
+        if _cached is None:
+            _cached = self._formant_basis(pitch, voice, vowel_shift, max_harmonics_cap)
+            if formant_cache is not None:
+                formant_cache[_fc_key] = _cached
+        _h_freqs, _h_gains = _cached
+        _pi2t = 6.283185307179586 * t
+
         voiced = 0.0
         for singer in range(voice.blend_count):
             detune = (singer - (voice.blend_count - 1) / 2) * 0.011
-            singer_pitch = pitch * (1.0 + detune + vibrato + jitter)
-            shimmer = 1.0 + 0.04 * math.sin(2 * math.pi * 6.1 * t + singer * 1.2)
-            voiced += self._formant_tone(singer_pitch, t + singer * 0.003, voice, vowel_shift, max_harmonics_cap) * shimmer
+            ps = 1.0 + detune + vibrato + jitter   # pitch scale vs. cached basis
+            ts_offset = singer * 0.003
+            shimmer = 1.0 + 0.04 * math.sin(6.283185307179586 * 6.1 * t + singer * 1.2)
+            tone = math.tanh(
+                sum(math.sin(_pi2t * f * ps + 6.283185307179586 * f * ps * ts_offset) * g
+                    for f, g in zip(_h_freqs, _h_gains)) * 0.48
+            )
+            voiced += tone * shimmer
         voiced /= voice.blend_count
 
         # Chorus/hook: add a harmony voice (perfect 5th) for a bigger, richer sound
         if section in ("chorus", "hook"):
-            harmony_pitch = pitch * (2 ** (7 / 12)) * (1.0 + vibrato * 0.7 + jitter * 0.5)
-            harmony = self._formant_tone(harmony_pitch, t + 0.006, voice, vowel_shift, max(6, max_harmonics_cap - 4))
-            harmony_shimmer = 1.0 + 0.03 * math.sin(2 * math.pi * 5.3 * t)
+            _hm_base = pitch * 1.4983070768766815   # 2^(7/12) = perfect 5th
+            _hm_cap = max(6, max_harmonics_cap - 4)
+            _hfc_key = (int(_hm_base), vowel_shift, _hm_cap)
+            _hcached = formant_cache.get(_hfc_key) if formant_cache is not None else None
+            if _hcached is None:
+                _hcached = self._formant_basis(_hm_base, voice, vowel_shift, _hm_cap)
+                if formant_cache is not None:
+                    formant_cache[_hfc_key] = _hcached
+            _hh_freqs, _hh_gains = _hcached
+            hm_ps = 1.0 + vibrato * 0.7 + jitter * 0.5
+            harmony = math.tanh(
+                sum(math.sin(6.283185307179586 * f * hm_ps * (t + 0.006)) * g
+                    for f, g in zip(_hh_freqs, _hh_gains)) * 0.48
+            )
+            harmony_shimmer = 1.0 + 0.03 * math.sin(6.283185307179586 * 5.3 * t)
             voiced = voiced * 0.82 + harmony * 0.28 * harmony_shimmer
 
         consonant = self._consonant_noise(word, syllable_x, t)
@@ -833,11 +1053,13 @@ class ProceduralGenerator:
             level *= 0.82
         return level * envelope * (0.80 * voiced + breath_noise + consonant)
 
-    def _dominant_vowel(self, word: str) -> str:
-        for char in word:
-            if char in VOWEL_FORMANT_SHIFTS:
-                return char
-        return "a"
+    def _vowel_at(self, word: str, syllable_x: float) -> str:
+        """Return the active vowel at position syllable_x (0→1) through the word.
+        Multi-vowel words (e.g. 'shadow' a→o, 'emotional' e→o→i→o→a) transition naturally."""
+        vowels = [c for c in word.lower() if c in VOWEL_FORMANT_SHIFTS]
+        if not vowels:
+            return "a"
+        return vowels[min(int(syllable_x * len(vowels)), len(vowels) - 1)]
 
     def _formant_tone(self, pitch: float, t: float, voice: VoiceProfile, vowel_shift: tuple[float, float, float, float], max_harmonics_cap: int = 22) -> float:
         tone = 0.0
@@ -867,6 +1089,31 @@ class ProceduralGenerator:
             tone += math.sin(2 * math.pi * freq * t) * tilt * source * (0.28 + formant_gain * 0.72)
 
         return math.tanh(tone * 0.48)
+
+    def _formant_basis(self, pitch: float, voice: "VoiceProfile", vowel_shift: tuple, max_harmonics_cap: int) -> tuple[list[float], list[float]]:
+        """Precompute per-harmonic (freq, gain) pairs that don't depend on t.
+        The per-sample hot path only needs to evaluate math.sin(2π * freq * pitch_scale * t) * gain.
+        """
+        freqs: list[float] = []
+        gains: list[float] = []
+        bandwidths = (F1_BW, F2_BW, F3_BW, F4_BW)
+        max_h = min(max_harmonics_cap, int(NYQUIST / max(pitch, 1.0)))
+        for h in range(1, max_h + 1):
+            freq = pitch * h
+            if freq >= NYQUIST:
+                break
+            fg = 0.0
+            for i, (formant, shift) in enumerate(zip(voice.formants, vowel_shift)):
+                center = formant * shift
+                bw = bandwidths[i]
+                d = (freq - center) / bw
+                w = 0.75 if i == 3 else 1.0
+                fg += w * math.exp(-d * d * 0.5)
+            tilt = 1.0 / (h ** (1.1 - voice.brightness * 0.4))
+            src = 1.0 if h % 2 == 1 else (0.55 + 0.45 * voice.brightness)
+            freqs.append(freq)
+            gains.append(tilt * src * (0.28 + fg * 0.72))
+        return freqs, gains
 
     def _consonant_noise(self, word: str, syllable_x: float, t: float) -> float:
         if syllable_x > 0.20 or not word:
@@ -935,11 +1182,16 @@ class ProceduralGenerator:
         burst = math.exp(-syllable_x * 22.0)
         return burst * 0.012 * math.sin(2 * math.pi * (3_600 + ord(c) % 800) * t)
 
-    def _drums(self, profile: StyleProfile, rng: random.Random, t: float, beat_pos: float) -> tuple[float, float, float, float]:
-        beat_frac = beat_pos % 1
+    def _drums(self, profile: StyleProfile, rng: random.Random, t: float, beat_pos: float, section: str = "") -> tuple[float, float, float, float]:
+        # Swing: delay off-beat 8th notes by profile.swing beats (lofi=0.08, acoustic=0.04, cinematic=0.06)
+        if profile.swing > 0.0 and int(beat_pos * 2) % 2 == 1:
+            drum_bp = beat_pos - profile.swing
+        else:
+            drum_bp = beat_pos
+        beat_frac = drum_bp % 1
         kick = hat = snare = perc = 0.0
         pat = profile.drum_pattern
-        bar_beat = int(beat_pos) % 4
+        bar_beat = int(drum_bp) % 4
         velocity = 1.0 if bar_beat == 0 else (0.82 if bar_beat == 2 else 0.68)
 
         if pat == "four_floor":
@@ -947,52 +1199,61 @@ class ProceduralGenerator:
                 kick_body = math.sin(2 * math.pi * (52 + 90 * math.exp(-beat_frac * 24)) * t) * math.exp(-beat_frac * 14)
                 kick_click = math.sin(2 * math.pi * 2_200 * t) * math.exp(-beat_frac * 80)
                 kick = (0.55 * kick_body + 0.08 * kick_click) * velocity
-            hat_step = int(beat_pos * 2) % 2
+            hat_step = int(drum_bp * 2) % 2
             if hat_step == 1:
-                hat_vel = 0.90 if int(beat_pos * 4) % 4 == 2 else 0.60
-                hat = (rng.random() * 2 - 1) * profile.noise_amp * hat_vel
-            if int(beat_pos) % 4 in (1, 3) and beat_frac < 0.10:
+                # Open hihat on "and of beat 4" in chorus (slower decay = open sound)
+                if section in ("chorus", "hook") and int(drum_bp * 4) % 8 == 7:
+                    hat = (rng.random() * 2 - 1) * profile.noise_amp * 1.10 * math.exp(-beat_frac * 3.2)
+                else:
+                    hat_vel = 0.90 if int(drum_bp * 4) % 4 == 2 else 0.60
+                    hat = (rng.random() * 2 - 1) * profile.noise_amp * hat_vel
+            if int(drum_bp) % 4 in (1, 3) and beat_frac < 0.10:
                 snare_body = (rng.random() * 2 - 1) * 0.06 * math.exp(-beat_frac * 22)
                 snare_tone = math.sin(2 * math.pi * 280 * t) * math.exp(-beat_frac * 18) * 0.025
                 snare = (snare_body + snare_tone) * velocity
-            if int(beat_pos * 8) % 8 == 6 and beat_frac > 0.85:
+            if int(drum_bp * 8) % 8 == 6 and beat_frac > 0.85:
                 hat += (rng.random() * 2 - 1) * profile.noise_amp * 0.30
+            # Conga hit on "and of beat 3": adds Latin percussion texture
+            if int(drum_bp * 4) % 8 == 5 and beat_frac < 0.07:
+                perc = math.sin(2 * math.pi * 235 * t) * math.exp(-beat_frac * 30) * 0.038
 
         elif pat == "half_time":
-            half = int(beat_pos * 2) % 8
+            half = int(drum_bp * 2) % 8
             if half in (0, 6) and beat_frac < 0.18:
                 kick_body = math.sin(2 * math.pi * (44 + 68 * math.exp(-beat_frac * 20)) * t) * math.exp(-beat_frac * 9)
                 kick = 0.62 * kick_body * velocity
-            if int(beat_pos * 8) % 3 == 0:
+            if int(drum_bp * 8) % 3 == 0:
                 hat = (rng.random() * 2 - 1) * profile.noise_amp * 0.82
-            if int(beat_pos) % 4 == 2 and beat_frac < 0.20:
+            if int(drum_bp) % 4 == 2 and beat_frac < 0.20:
                 snare_noise = (rng.random() * 2 - 1) * 0.12 * math.exp(-beat_frac * 12)
                 snare_crack = math.sin(2 * math.pi * 320 * t) * math.exp(-beat_frac * 25) * 0.035
                 snare = (snare_noise + snare_crack) * velocity
 
         elif pat == "pulse":
-            if int(beat_pos * 2) % 2 == 0 and beat_frac < 0.16:
+            if int(drum_bp * 2) % 2 == 0 and beat_frac < 0.16:
                 kick = 0.34 * math.sin(2 * math.pi * (50 + 55 * math.exp(-beat_frac * 10)) * t) * math.exp(-beat_frac * 7)
-            if int(beat_pos * 4) % 8 == 7:
+            if int(drum_bp * 4) % 8 == 7:
                 perc = (rng.random() * 2 - 1) * profile.noise_amp * 0.55
 
         elif pat == "pop":
             if beat_frac < 0.11:
                 kick_body = math.sin(2 * math.pi * (56 + 78 * math.exp(-beat_frac * 20)) * t) * math.exp(-beat_frac * 12)
                 kick = 0.42 * kick_body * velocity
-            if int(beat_pos) % 4 in (1, 3) and beat_frac < 0.16:
+            if int(drum_bp) % 4 in (1, 3) and beat_frac < 0.16:
                 snare = (rng.random() * 2 - 1) * 0.11 * math.exp(-beat_frac * 17) * velocity
                 snare += math.sin(2 * math.pi * 300 * t) * math.exp(-beat_frac * 22) * 0.028
-            hat_vel = 0.75 if int(beat_pos * 4) % 4 % 2 == 1 else 0.45
-            if int(beat_pos * 4) % 2 == 1:
+            hat_vel = 0.75 if int(drum_bp * 4) % 4 % 2 == 1 else 0.45
+            if int(drum_bp * 4) % 2 == 1:
                 hat = (rng.random() * 2 - 1) * profile.noise_amp * hat_vel
 
         elif pat == "soft_backbeat":
-            if int(beat_pos) % 4 in (0, 2) and beat_frac < 0.10:
+            if int(drum_bp) % 4 in (0, 2) and beat_frac < 0.10:
                 kick = 0.25 * math.sin(2 * math.pi * (60 + 45 * math.exp(-beat_frac * 16)) * t) * math.exp(-beat_frac * 11)
-            if int(beat_pos) % 4 in (1, 3) and beat_frac < 0.12:
+            if int(drum_bp) % 4 in (1, 3) and beat_frac < 0.12:
                 snare = (rng.random() * 2 - 1) * 0.055 * math.exp(-beat_frac * 15)
-            if int(beat_pos * 2) % 2 == 1:
+                if beat_frac < 0.035:
+                    perc = math.sin(2 * math.pi * 1100 * t) * math.exp(-beat_frac * 60) * 0.030
+            if int(drum_bp * 2) % 2 == 1:
                 hat = (rng.random() * 2 - 1) * profile.noise_amp * 0.42
 
         return kick, hat, snare, perc

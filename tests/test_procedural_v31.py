@@ -38,6 +38,25 @@ def test_procedural_v34_reports_style_profiles(tmp_path: Path):
         assert result.metadata["singing_voice"] in {"female", "male", "choir", "robot", "whisper"}
 
 
+def test_phase2_preset_profile_routing(tmp_path: Path):
+    """Phase 2 style packs must resolve to the intended profile — not ambient/default."""
+    generator = ProceduralGenerator()
+    cases = [
+        # (prompt_snippet, expected_profile, mode)
+        ("dark cinematic piano, minor key, close felt piano, low pulses", "cinematic", "song"),
+        ("French disco, glossy drums, analog bass, bittersweet vocal", "disco", "song"),
+        ("heavy rap mixtape, hard drums, low 808, ominous sample, confident hook", "rap", "song"),
+        ("ambient post-indie, hazy guitars, soft drums, washed synth pads", "acoustic", "song"),
+        ("retro electro, analog arpeggios, punchy drum machine, neon bass", "club", "song"),
+        ("cinematic trailer cue, rising tension, low pulses, dramatic hit", "cinematic", "instrumental"),
+    ]
+    for index, (prompt, expected, mode) in enumerate(cases):
+        result = generator.generate(_request(prompt, mode=mode), tmp_path / f"p2_{index}.wav")
+        assert result.metadata["style_profile"] == expected, (
+            f"Expected '{expected}' for prompt '{prompt}' but got '{result.metadata['style_profile']}'"
+        )
+
+
 def test_negative_prompt_does_not_select_style(tmp_path: Path):
     generator = ProceduralGenerator()
     result = generator.generate(
