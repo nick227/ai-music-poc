@@ -33,7 +33,9 @@ def _detail(asset_payload: dict) -> MediaDetailResponse:
         category_assignments=asset_payload.get("category_assignments") or [],
         concept_assignments=asset_payload.get("concept_assignments") or [],
         category_assignment_count=asset_payload.get("category_assignment_count", 0),
+        concept_assignment_count=asset_payload.get("concept_assignment_count", 0),
         primary_role=asset_payload.get("primary_role"),
+        ready_audio=asset_payload.get("ready_audio", False),
     )
 
 

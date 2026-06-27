@@ -25,6 +25,7 @@ from app.storage.metadata_store import MetadataStore
 from app.storage.style_version_store import StyleVersionStore
 from app.services.training_service import TrainingService
 from app.storage.training_run_store import TrainingRunStore
+from app.training.ace_adapter import AceTrainingAdapter
 from app.training.mock_adapter import MockTrainingAdapter
 from app.services.slice_package_service import SlicePackageService
 from app.services.slice_service import SliceService
@@ -98,6 +99,7 @@ def get_media_service():
         assignment_store=get_assignment_store(),
         category_service=get_category_service(),
         concept_service=get_concept_service(),
+        ready_audio_service=get_ready_audio_service(),
         settings=settings,
     )
 
@@ -181,6 +183,20 @@ def get_mock_training_adapter():
 
 
 @lru_cache
+def get_ace_training_adapter():
+    settings = get_settings()
+    return AceTrainingAdapter(settings)
+
+
+@lru_cache
+def get_training_adapter():
+    settings = get_settings()
+    if settings.training_adapter == "ace-step-dry-run":
+        return get_ace_training_adapter()
+    return get_mock_training_adapter()
+
+
+@lru_cache
 def get_style_version_store():
     settings = get_settings()
     ensure_app_dirs(settings.data_dir)
@@ -213,7 +229,7 @@ def get_training_service():
     return TrainingService(
         get_training_run_store(),
         get_slice_service(),
-        get_mock_training_adapter(),
+        get_training_adapter(),
         get_ingestion_service(),
         get_ready_audio_service(),
         get_style_version_service(),

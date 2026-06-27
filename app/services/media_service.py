@@ -14,6 +14,7 @@ from app.domain.models import MediaAsset, MediaKind, MediaSource, ReviewStatus
 from app.domain.taxonomy import MediaCategoryAssignment, MediaConceptAssignment
 from app.services.category_service import CategoryService
 from app.services.concept_service import ConceptService
+from app.services.ready_audio_service import ReadyAudioService
 from app.storage.assignment_store import AssignmentStore
 from app.storage.local_media_store import LocalMediaStore
 
@@ -27,12 +28,14 @@ class MediaService:
         assignment_store: AssignmentStore,
         category_service: CategoryService,
         concept_service: ConceptService,
+        ready_audio_service: ReadyAudioService,
         settings: Settings,
     ) -> None:
         self.media_store = media_store
         self.assignment_store = assignment_store
         self.category_service = category_service
         self.concept_service = concept_service
+        self.ready_audio_service = ready_audio_service
         self.settings = settings
 
     def import_files(self, uploads: list[tuple[str, BinaryIO]]) -> list[MediaAsset]:
@@ -62,14 +65,21 @@ class MediaService:
 
     def _list_summary(self, asset: MediaAsset) -> dict:
         category_assignments = self.assignment_store.list_category_assignments_for_media(asset.id)
+        concept_assignments = self.assignment_store.list_concept_assignments_for_media(asset.id)
         primary = category_assignments[0] if category_assignments else None
-        return {
-            **asset.model_dump(mode="json"),
-            "category_assignments": [],
-            "concept_assignments": [],
-            "category_assignment_count": len(category_assignments),
-            "primary_role": primary.role.value if primary else None,
-        }
+        return self._with_training_state(
+            asset,
+            category_assignments,
+            concept_assignments,
+            {
+                **asset.model_dump(mode="json"),
+                "category_assignments": [],
+                "concept_assignments": [],
+                "category_assignment_count": len(category_assignments),
+                "concept_assignment_count": len(concept_assignments),
+                "primary_role": primary.role.value if primary else None,
+            },
+        )
 
     def get_with_assignments(self, media_id: str) -> dict:
         asset = self.media_store.get(media_id)
@@ -126,11 +136,7 @@ class MediaService:
         updated_asset = asset.model_copy(update=update_fields)
         self.media_store.save(updated_asset)
 
-        return {
-            **updated_asset.model_dump(mode="json"),
-            "category_assignments": [item.model_dump(mode="json") for item in category_assignments],
-            "concept_assignments": [item.model_dump(mode="json") for item in concept_assignments],
-        }
+        return self._with_assignments(updated_asset)
 
     def get_audio_path(self, media_id: str) -> Path:
         asset = self.media_store.get(media_id)
@@ -177,13 +183,29 @@ class MediaService:
         category_assignments = self.assignment_store.list_category_assignments_for_media(asset.id)
         concept_assignments = self.assignment_store.list_concept_assignments_for_media(asset.id)
         primary = category_assignments[0] if category_assignments else None
-        return {
-            **asset.model_dump(mode="json"),
-            "category_assignments": [item.model_dump(mode="json") for item in category_assignments],
-            "concept_assignments": [item.model_dump(mode="json") for item in concept_assignments],
-            "category_assignment_count": len(category_assignments),
-            "primary_role": primary.role.value if primary else None,
-        }
+        return self._with_training_state(
+            asset,
+            category_assignments,
+            concept_assignments,
+            {
+                **asset.model_dump(mode="json"),
+                "category_assignments": [item.model_dump(mode="json") for item in category_assignments],
+                "concept_assignments": [item.model_dump(mode="json") for item in concept_assignments],
+                "category_assignment_count": len(category_assignments),
+                "concept_assignment_count": len(concept_assignments),
+                "primary_role": primary.role.value if primary else None,
+            },
+        )
+
+    def _with_training_state(
+        self,
+        asset: MediaAsset,
+        category_assignments: list[MediaCategoryAssignment],
+        concept_assignments: list[MediaConceptAssignment],
+        payload: dict,
+    ) -> dict:
+        payload["ready_audio"] = self.ready_audio_service.is_ready(asset, category_assignments, concept_assignments)
+        return payload
 
 
 def _probe_audio(path: Path, extension: str) -> tuple[Optional[float], Optional[int], Optional[int]]:

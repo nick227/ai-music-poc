@@ -40,6 +40,13 @@ function filteredRows() {
   });
 }
 
+function trainingStatus(row) {
+  if (row.ready_audio) return 'ready audio';
+  if ((row.ingestion_status || '') === 'INGESTING') return 'packaging';
+  if ((row.ingestion_status || '') === 'INGESTED') return 'packaged';
+  return 'pending';
+}
+
 function render() {
   const rows = filteredRows();
   document.getElementById('table-count').textContent = `${rows.length} items`;
@@ -51,11 +58,11 @@ function render() {
   tbody.innerHTML = rows.map((row) => {
     const count = row.category_assignment_count ?? 0;
     const reviewLabel = row.review_status.replace(/_/g, ' ').toLowerCase();
-    const ingestion = (row.ingestion_status || 'pending').replace(/_/g, ' ').toLowerCase();
+    const training = trainingStatus(row);
     const meta = [
       formatDuration(row.duration_seconds),
       `${count} tag${count === 1 ? '' : 's'}`,
-      ingestion,
+      training,
       reviewLabel,
       formatDate(row.created_at),
     ].join(' · ');
