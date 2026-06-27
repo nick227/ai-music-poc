@@ -71,7 +71,7 @@ def test_dry_run_adapter_renders_command_without_artifact_or_ingest(client, monk
     detail = _wait_for_terminal_status(client, run_id)
 
     assert detail["status"] == "SUCCEEDED"
-    assert detail["status_label"] == "ACE command rendered · real training not enabled"
+    assert detail["status_label"] == "ACE command rendered · subprocess not started"
     assert detail["artifact_produced"] is False
     assert detail["dry_run"] is True
     assert detail["style_version_created"] is False

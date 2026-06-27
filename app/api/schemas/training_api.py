@@ -14,6 +14,7 @@ class TrainingRunCreateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=160)
     dataset_slice_id: str
     config_preset: str = Field(default="calibration", max_length=40)
+    confirm_real_training: bool = False
 
 
 class TrainingRunResponse(BaseModel):

@@ -61,6 +61,7 @@ class CreatePackageRequest(BaseModel):
     name: Optional[str] = Field(default=None, max_length=160)
     start_training: bool = True
     config_preset: str = Field(default="calibration", max_length=40)
+    confirm_real_training: bool = False
 
 
 class CreatePackageResponse(BaseModel):

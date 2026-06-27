@@ -60,6 +60,7 @@ def create_training_package(
         name=request.name,
         start_training=request.start_training,
         config_preset=request.config_preset,
+        confirm_real_training=request.confirm_real_training,
     )
     if run is not None:
         background_tasks.add_task(training_service.execute_run, run.id)
@@ -104,6 +105,7 @@ def create_training_run(
         name=request.name,
         dataset_slice_id=request.dataset_slice_id,
         config_preset=request.config_preset,
+        confirm_real_training=request.confirm_real_training,
     )
     background_tasks.add_task(training_service.execute_run, run.id)
     return training_run_to_response(run, settings)

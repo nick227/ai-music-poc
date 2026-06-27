@@ -9,7 +9,7 @@ from app.domain.models import JobStatus
 from app.domain.training import TrainingRun
 from app.domain.training_presets import TRAINING_PRESETS, resolve_training_preset
 from app.domain.slices import DatasetSlice
-from app.domain.training_status import describe_pipeline, describe_run, is_dry_run_backend
+from app.domain.training_status import describe_pipeline, describe_run, is_dry_run_backend, is_mock_backend, is_real_ace_backend
 from app.services.ingestion_service import IngestionService
 from app.services.ready_audio_service import ReadyAudioService
 from app.services.slice_service import SliceService
@@ -69,6 +69,7 @@ class TrainingService:
         name: str | None = None,
         start_training: bool = True,
         config_preset: str = "calibration",
+        confirm_real_training: bool = False,
     ) -> tuple[DatasetSlice, TrainingRun | None]:
         if config_preset not in TRAINING_PRESETS:
             raise ValidationAppError(f"Unknown config preset: {config_preset}")
@@ -87,7 +88,12 @@ class TrainingService:
         if self.store.find_active_run() is not None:
             raise ValidationAppError("Another training run is already active")
 
-        run = self._create_run_record(package_name, frozen_slice.id, config_preset)
+        run = self._create_run_record(
+            package_name,
+            frozen_slice.id,
+            config_preset,
+            confirm_real_training=confirm_real_training,
+        )
         self.ingestion_service.mark_ingesting(resolved_ids, run.id)
         return frozen_slice, run
 
@@ -109,7 +115,13 @@ class TrainingService:
             raise ValidationAppError("Training is disabled")
         return run
 
-    def create_run(self, name: str, dataset_slice_id: str, config_preset: str) -> TrainingRun:
+    def create_run(
+        self,
+        name: str,
+        dataset_slice_id: str,
+        config_preset: str,
+        confirm_real_training: bool = False,
+    ) -> TrainingRun:
         if not self.settings.training_enabled:
             raise ValidationAppError("Training is disabled")
 
@@ -129,10 +141,24 @@ class TrainingService:
         if self.store.find_active_run() is not None:
             raise ValidationAppError("Another training run is already active")
 
-        return self._create_run_record(clean_name, dataset_slice_id, config_preset)
+        return self._create_run_record(
+            clean_name,
+            dataset_slice_id,
+            config_preset,
+            confirm_real_training=confirm_real_training,
+        )
 
-    def _create_run_record(self, name: str, dataset_slice_id: str, config_preset: str) -> TrainingRun:
+    def _create_run_record(
+        self,
+        name: str,
+        dataset_slice_id: str,
+        config_preset: str,
+        *,
+        confirm_real_training: bool = False,
+    ) -> TrainingRun:
         config = resolve_training_preset(config_preset)
+        if confirm_real_training:
+            config["confirm_real_training"] = True
         now = datetime.now(timezone.utc)
         run = TrainingRun(
             name=name,
@@ -160,8 +186,7 @@ class TrainingService:
             finished = result.run if isinstance(result, TrainingAdapterResult) else result
             self.store.save(finished)
             if isinstance(result, TrainingAdapterResult) and result.dry_run:
-                self.store.append_log(run_id, "ACE command rendered to ace_train_command.json")
-                self.store.append_log(run_id, "Real ACE training is not enabled; no subprocess was launched")
+                self.store.append_log(run_id, "ACE command rendered; subprocess not started")
             elif isinstance(result, TrainingAdapterResult) and result.command:
                 self.store.append_log(run_id, f"command: {' '.join(result.command)}")
         except Exception as exc:
@@ -183,12 +208,16 @@ class TrainingService:
     def _finalize_run(self, run: TrainingRun) -> TrainingRun:
         media_ids = self._run_media_ids(run)
         if run.status == JobStatus.SUCCEEDED and run.artifact_path and not run.style_version_id:
-            slice_record = self.slice_service.get_required(run.dataset_slice_id)
-            style = self.style_version_service.create_from_run(run, slice_record.name)
-            run = run.model_copy(update={"style_version_id": style.id, "updated_at": datetime.now(timezone.utc)})
-            self.store.save(run)
-            self.store.append_log(run.id, f"mock artifact produced; promoted style version {style.id}")
-            self.ingestion_service.finalize_success(media_ids, run.id)
+            if is_mock_backend(run.backend):
+                slice_record = self.slice_service.get_required(run.dataset_slice_id)
+                style = self.style_version_service.create_from_run(run, slice_record.name)
+                run = run.model_copy(update={"style_version_id": style.id, "updated_at": datetime.now(timezone.utc)})
+                self.store.save(run)
+                self.store.append_log(run.id, f"mock artifact produced; promoted style version {style.id}")
+                self.ingestion_service.finalize_success(media_ids, run.id)
+            elif is_real_ace_backend(run.backend):
+                self.store.append_log(run.id, "ACE adapter artifact produced; style version promotion skipped")
+                self.ingestion_service.finalize_success(media_ids, run.id)
         elif run.status == JobStatus.SUCCEEDED and is_dry_run_backend(run.backend):
             self.store.append_log(run.id, "dry run complete; ready audio unchanged")
             self.ingestion_service.revert_ingesting(media_ids)

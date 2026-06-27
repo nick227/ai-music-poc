@@ -40,6 +40,9 @@ class Settings(BaseSettings):
     ace_train_script: Path = Field(default=Path("./scripts/ace_train_runner.py"), alias="ACE_TRAIN_SCRIPT")
     ace_train_command_template: str = Field(default="", alias="ACE_TRAIN_COMMAND_TEMPLATE")
     ace_train_timeout_seconds: int = Field(default=7200, alias="ACE_TRAIN_TIMEOUT_SECONDS")
+    ace_real_training_enabled: bool = Field(default=False, alias="ACE_REAL_TRAINING_ENABLED")
+    ace_train_dry_run: bool = Field(default=True, alias="ACE_TRAIN_DRY_RUN")
+    ace_train_checkpoint_dir: Path | None = Field(default=None, alias="ACE_TRAIN_CHECKPOINT_DIR")
 
     @property
     def job_dir(self) -> Path:

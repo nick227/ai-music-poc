@@ -26,6 +26,7 @@ from app.storage.style_version_store import StyleVersionStore
 from app.services.training_service import TrainingService
 from app.storage.training_run_store import TrainingRunStore
 from app.training.ace_adapter import AceTrainingAdapter
+from app.training.ace_real_adapter import AceRealTrainingAdapter
 from app.training.mock_adapter import MockTrainingAdapter
 from app.services.slice_package_service import SlicePackageService
 from app.services.slice_service import SliceService
@@ -189,10 +190,18 @@ def get_ace_training_adapter():
 
 
 @lru_cache
+def get_ace_real_training_adapter():
+    settings = get_settings()
+    return AceRealTrainingAdapter(settings)
+
+
+@lru_cache
 def get_training_adapter():
     settings = get_settings()
     if settings.training_adapter == "ace-step-dry-run":
         return get_ace_training_adapter()
+    if settings.training_adapter == "ace-step-real":
+        return get_ace_real_training_adapter()
     return get_mock_training_adapter()
 
 
