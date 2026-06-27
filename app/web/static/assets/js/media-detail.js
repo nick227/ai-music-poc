@@ -31,26 +31,25 @@ function buildPayload(markReviewed) {
   };
 }
 
+function formatReviewStatus(value) {
+  return (value || '').replace(/_/g, ' ').toLowerCase();
+}
+
 function renderMeta() {
   const list = document.getElementById('meta-list');
   const rows = [
-    ['Kind', media.kind],
-    ['Source', media.source],
-    ['Review', media.review_status],
+    ['Review', formatReviewStatus(media.review_status)],
     ['Duration', media.duration_seconds != null ? `${Math.round(media.duration_seconds)}s` : '—'],
-    ['Sample rate', media.sample_rate || '—'],
-    ['Categories', media.category_assignment_count ?? media.category_assignments?.length ?? 0],
+    ['Tags', media.category_assignment_count ?? media.category_assignments?.length ?? 0],
+    ['Kind', (media.kind || '').replace(/_/g, ' ').toLowerCase()],
     ['Added', new Date(media.created_at).toLocaleString()],
   ];
   list.innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
 }
 
-function updatePipelineLinks() {
-  const ids = WorkbenchTaxonomy.getSelectedCategoryIds();
-  const wb = document.getElementById('workbench-link');
-  const gen = document.getElementById('generate-link');
-  wb.href = StudioRoutes.workbenchWithMedia(mediaId);
-  gen.href = StudioRoutes.generateWithContext(mediaId);
+function setPipelineLinks() {
+  document.getElementById('workbench-link').href = StudioRoutes.workbench;
+  document.getElementById('generate-link').href = StudioRoutes.generateWithContext(mediaId);
 }
 
 async function load() {
@@ -60,7 +59,7 @@ async function load() {
     return;
   }
   await WorkbenchTaxonomy.loadTaxonomy();
-  WorkbenchTaxonomy.init(updatePipelineLinks);
+  WorkbenchTaxonomy.init();
   media = await StudioApi.getMedia(mediaId);
 
   document.getElementById('page-title').textContent = media.title;
@@ -75,7 +74,7 @@ async function load() {
 
   WorkbenchTaxonomy.setSelectionFromMedia(media);
   renderMeta();
-  updatePipelineLinks();
+  setPipelineLinks();
 }
 
 document.getElementById('editor-form').addEventListener('submit', async (e) => {

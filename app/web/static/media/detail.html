@@ -7,9 +7,10 @@
     <link rel="stylesheet" href="/assets/css/base.css" />
     <link rel="stylesheet" href="/assets/css/studio.css" />
     <link rel="stylesheet" href="/assets/css/taxonomy.css" />
+    <link rel="stylesheet" href="/assets/css/media.css" />
   </head>
   <body data-studio-tab="media">
-    <main class="shell studio-shell">
+    <main class="shell studio-shell media-detail-shell">
       <nav id="studio-nav" class="studio-nav"></nav>
 
       <section class="studio-hero">
@@ -17,52 +18,81 @@
         <h1 id="page-title">—</h1>
       </section>
 
-      <div class="detail-grid">
-        <section class="card">
-          <audio id="media-player" controls></audio>
-          <dl class="detail-meta" id="meta-list"></dl>
-          <div class="actions">
-            <a id="workbench-link" class="button ghost" href="#">Add to session</a>
-            <a id="generate-link" class="button ghost" href="/">Generate</a>
-          </div>
-        </section>
+      <section class="card media-player-card">
+        <audio id="media-player" controls></audio>
+        <dl class="detail-meta detail-meta-inline" id="meta-list"></dl>
+        <div class="pipeline-actions">
+          <a id="workbench-link" class="button ghost" href="/workbench/">Open Workbench</a>
+          <a id="generate-link" class="button ghost" href="/">Generate baseline from tags</a>
+        </div>
+        <p class="pipeline-hint muted">Workbench uses reviewed tracks for training sets. Generate prefills tags from this track — it does not use the audio file directly.</p>
+      </section>
 
-        <section class="card">
-          <form id="editor-form">
-            <div id="cat-chips" class="chips-container selected-chips"></div>
-            <div id="cat-suggestions" class="chips-container suggestion-chips"></div>
+      <section class="card tagging-card">
+        <div class="tagging-head">
+          <h2>Tags &amp; review</h2>
+          <p class="muted">Categories control where this track shows up in Workbench filters and what Generate prefills.</p>
+        </div>
+
+        <form id="editor-form" class="tagging-form">
+          <div class="taxonomy-section search-section">
+            <label class="section-label" for="cat-search">Search categories</label>
             <div class="search-wrap">
-              <input type="text" id="cat-search" placeholder="Search categories..." autocomplete="off" />
+              <input type="text" id="cat-search" placeholder="Search by name or type…" autocomplete="off" />
               <div id="cat-results" class="search-results hidden"></div>
             </div>
+          </div>
+
+          <div class="taxonomy-section">
+            <p class="section-label">Selected tags</p>
+            <div id="cat-chips" class="chips-container selected-chips"></div>
+            <p id="cat-chips-empty" class="section-empty muted hidden">No tags yet — search or pick from recently used.</p>
+          </div>
+
+          <div class="taxonomy-section">
+            <p class="section-label">Recently used</p>
+            <div id="cat-recent" class="chips-container recent-chips"></div>
+            <p id="cat-recent-empty" class="section-empty muted hidden">Tags you assign will appear here for quick reuse.</p>
+          </div>
+
+          <div class="taxonomy-section">
+            <p class="section-label">Suggested from title</p>
+            <div id="cat-suggestions" class="chips-container suggestion-chips"></div>
+            <p id="cat-suggestions-empty" class="section-empty muted hidden">No title matches — browse by type below.</p>
+          </div>
+
+          <div class="taxonomy-section browse-section">
+            <p class="section-label">Browse by type</p>
             <div id="cat-browse" class="browse-panel"></div>
+          </div>
 
-            <details class="optional-details">
-              <summary>Scores &amp; role</summary>
-              <div class="row">
-                <label>Quality <input type="number" id="quality-score" min="1" max="5" /></label>
-                <label>Fit <input type="number" id="fit-score" min="1" max="5" /></label>
-                <label>Role
-                  <select id="role-select">
-                    <option value="REFERENCE" selected>Reference</option>
-                    <option value="GOLD_REFERENCE">Gold Reference</option>
-                    <option value="TRAINING_CANDIDATE">Training Candidate</option>
-                    <option value="NEGATIVE_EXAMPLE">Negative Example</option>
-                    <option value="REJECT">Reject</option>
-                  </select>
-                </label>
-              </div>
-            </details>
-
-            <label>Notes <textarea id="notes-input" rows="2"></textarea></label>
-
-            <div class="actions">
-              <button type="submit">Save</button>
-              <button type="button" id="done-btn" class="ghost">Mark reviewed</button>
+          <details class="optional-details">
+            <summary>Quality, fit &amp; role</summary>
+            <div class="row scores-row">
+              <label>Quality (1–5) <input type="number" id="quality-score" min="1" max="5" /></label>
+              <label>Fit (1–5) <input type="number" id="fit-score" min="1" max="5" /></label>
+              <label>Training role
+                <select id="role-select">
+                  <option value="REFERENCE" selected>Reference</option>
+                  <option value="GOLD_REFERENCE">Gold reference</option>
+                  <option value="TRAINING_CANDIDATE">Training candidate</option>
+                  <option value="NEGATIVE_EXAMPLE">Negative example</option>
+                  <option value="REJECT">Reject</option>
+                </select>
+              </label>
             </div>
-          </form>
-        </section>
-      </div>
+          </details>
+
+          <label class="notes-label">Notes
+            <textarea id="notes-input" rows="2" placeholder="Optional notes for reviewers"></textarea>
+          </label>
+
+          <div class="form-actions">
+            <button type="submit">Save tags</button>
+            <button type="button" id="done-btn" class="ghost">Save &amp; mark reviewed</button>
+          </div>
+        </form>
+      </section>
     </main>
     <script src="/assets/js/studio-routes.js"></script>
     <script src="/assets/js/studio-api.js"></script>

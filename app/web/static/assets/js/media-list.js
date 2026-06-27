@@ -10,7 +10,7 @@ function formatDuration(seconds) {
 
 function formatDate(value) {
   if (!value) return '—';
-  return new Date(value).toLocaleString();
+  return new Date(value).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
 function roleLabel(item) {
@@ -45,26 +45,32 @@ function render() {
   document.getElementById('table-count').textContent = `${rows.length} items`;
   const tbody = document.getElementById('media-rows');
   if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="9" class="table-meta">No media</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="2" class="table-meta">No media</td></tr>';
     return;
   }
   tbody.innerHTML = rows.map((row) => {
     const count = row.category_assignment_count ?? 0;
-    const countClass = count > 0 ? 'count-pill has-value' : 'count-pill';
-    const reviewClass = row.review_status === 'NEEDS_REVIEW' ? 'status-pill needs-review' : 'status-pill reviewed';
+    const reviewLabel = row.review_status.replace(/_/g, ' ').toLowerCase();
+    const kindLabel = row.kind.replace(/_/g, ' ').toLowerCase();
+    const meta = [
+      formatDuration(row.duration_seconds),
+      `${count} tag${count === 1 ? '' : 's'}`,
+      roleLabel(row),
+      reviewLabel,
+      kindLabel,
+      formatDate(row.created_at),
+    ].join(' · ');
     return `
       <tr data-id="${row.id}">
-        <td><button type="button" class="ghost small play-btn" data-id="${row.id}">▶</button></td>
-        <td class="table-title"><a href="${StudioRoutes.mediaDetail(row.id)}">${row.title}</a></td>
-        <td>${formatDuration(row.duration_seconds)}</td>
-        <td><span class="${countClass}">${count}</span></td>
-        <td class="table-meta">${roleLabel(row)}</td>
-        <td><span class="${reviewClass}">${row.review_status.replace(/_/g, ' ').toLowerCase()}</span></td>
-        <td class="table-meta">${row.kind.replace(/_/g, ' ').toLowerCase()}</td>
-        <td class="table-meta">${formatDate(row.created_at)}</td>
-        <td class="table-actions">
+        <td>
+          <div class="media-row-main">
+            <button type="button" class="ghost small play-btn" data-id="${row.id}" aria-label="Play">▶</button>
+            <a class="media-row-title" href="${StudioRoutes.mediaDetail(row.id)}">${row.title}</a>
+          </div>
+          <div class="media-row-meta">${meta}</div>
+        </td>
+        <td class="media-row-actions">
           <a class="button ghost small" href="${StudioRoutes.mediaDetail(row.id)}">Open</a>
-          <a class="button ghost small" href="${StudioRoutes.workbenchWithMedia(row.id)}">Session</a>
         </td>
       </tr>
     `;

@@ -7,3 +7,133 @@
   box-shadow: inset 0 0 0 2px rgba(139,92,246,0.5);
   background: rgba(139,92,246,0.06);
 }
+
+.media-detail-shell {
+  width: min(820px, calc(100% - 32px));
+}
+
+.media-player-card {
+  margin-bottom: 18px;
+}
+
+.media-player-card audio {
+  width: 100%;
+  margin-bottom: 14px;
+}
+
+.detail-meta-inline {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px 18px;
+  margin: 0 0 16px;
+  padding: 14px;
+  border-radius: 12px;
+  background: rgba(0,0,0,0.18);
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+.detail-meta-inline dt {
+  margin: 0;
+}
+
+.detail-meta-inline dd {
+  margin: 2px 0 0;
+  font-weight: 600;
+  color: #fafafa;
+}
+
+.pipeline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.pipeline-hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.tagging-card { margin-bottom: 24px; }
+
+.tagging-head {
+  margin-bottom: 20px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.tagging-head h2 {
+  margin: 0 0 6px;
+  font-size: 18px;
+}
+
+.tagging-head p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.tagging-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.notes-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 18px;
+  font-size: 13px;
+  color: #d4d4d8;
+}
+
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+
+/* Compact two-row media list rows */
+.media-table .data-table th:last-child,
+.media-table .data-table td:last-child {
+  width: 72px;
+  text-align: right;
+}
+
+.media-row-title {
+  font-weight: 700;
+  font-size: 14px;
+  color: #fafafa;
+  text-decoration: none;
+}
+
+.media-row-title:hover { color: #c4b5fd; }
+
+.media-row-meta {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #a1a1aa;
+  line-height: 1.5;
+}
+
+.media-row-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.media-row-main .media-row-title {
+  flex: 1;
+  min-width: 0;
+}
+
+.media-row-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}

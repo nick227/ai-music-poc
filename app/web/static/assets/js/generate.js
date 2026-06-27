@@ -96,7 +96,9 @@ async function poll(jobId) {
     playerEl.hidden = false; playerEl.src = data.download_url;
     downloadEl.hidden = false; downloadEl.href = data.download_url;
     bundleEl.hidden = false; bundleEl.href = data.bundle_url;
-    await loadJobs(); return;
+    await loadJobs();
+    if (typeof window.loadSongs === 'function') await window.loadSongs();
+    return;
   }
   if (['FAILED', 'TIMEOUT', 'CANCELLED'].includes(job.status)) { await loadJobs(); return; }
   setTimeout(() => poll(jobId).catch(err => setError(err.message)), 1200);
@@ -166,7 +168,7 @@ async function loadContextMedia() {
   const banner = document.querySelector('#context-banner');
   banner.hidden = false;
   document.querySelector('#context-title').textContent = media.title;
-  document.querySelector('#context-workbench').href = StudioRoutes.workbenchWithMedia(mediaId);
+  document.querySelector('#context-workbench').href = StudioRoutes.workbench;
   const cats = (media.category_assignments || []).map((a) => a.category_id);
   if (cats.length) {
     const taxonomy = await StudioApi.listCategories();

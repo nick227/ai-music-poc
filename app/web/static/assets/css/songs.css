@@ -1,3 +1,21 @@
+.context-hint {
+  font-size: 12px;
+  margin: 8px 0 0;
+  line-height: 1.5;
+}
+
+  margin-top: 18px;
+}
+
+.songs-combined > .section-head {
+  margin-bottom: 12px;
+}
+
+.songs-combined > .section-head select {
+  width: auto;
+  min-width: 180px;
+}
+
 .songs-layout {
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.9fr);

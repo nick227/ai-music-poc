@@ -10,6 +10,8 @@ window.WorkbenchTaxonomy = (() => {
     TRAINING_ROLE: 'Training Role',
   };
   const RECENT_KEY = 'workbench_recent_categories';
+  const RECENT_MAX = 6;
+  const SUGGESTION_MAX = 6;
 
   let allCategories = [];
   let selectedCategoryIds = [];
@@ -39,38 +41,50 @@ window.WorkbenchTaxonomy = (() => {
 
   function rememberRecent(categoryIds) {
     const merged = [...categoryIds, ...loadRecent()].filter((id, index, arr) => arr.indexOf(id) === index);
-    localStorage.setItem(RECENT_KEY, JSON.stringify(merged.slice(0, 12)));
+    localStorage.setItem(RECENT_KEY, JSON.stringify(merged.slice(0, RECENT_MAX)));
   }
 
   function tokenize(text) {
     return (text || '').toLowerCase().split(/[^a-z0-9]+/).filter((t) => t.length > 2);
   }
 
-  function buildCategorySuggestions() {
+  function buildTitleSuggestions() {
     const scores = new Map();
+    const recentIds = new Set(loadRecent());
     tokenize(activeTitle).forEach((token) => {
       allCategories.forEach((cat) => {
         const hay = `${cat.name} ${cat.slug} ${cat.dimension}`.toLowerCase();
         if (hay.includes(token)) scores.set(cat.id, (scores.get(cat.id) || 0) + 3);
       });
     });
-    loadRecent().forEach((catId) => {
-      if (categoryById(catId)) scores.set(catId, (scores.get(catId) || 0) + 1);
-    });
     return [...scores.entries()]
-      .filter(([id]) => !selectedCategoryIds.includes(id))
+      .filter(([id]) => !selectedCategoryIds.includes(id) && !recentIds.has(id))
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 10)
+      .slice(0, SUGGESTION_MAX)
       .map(([id]) => categoryById(id))
       .filter(Boolean);
+  }
+
+  function buildRecentItems() {
+    return loadRecent()
+      .filter((id) => categoryById(id) && !selectedCategoryIds.includes(id))
+      .slice(0, RECENT_MAX)
+      .map((id) => categoryById(id));
+  }
+
+  function toggleEmpty(id, hasItems) {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('hidden', hasItems);
   }
 
   function renderSelectedChips() {
     const el = document.getElementById('cat-chips');
     if (!selectedCategoryIds.length) {
       el.innerHTML = '';
+      toggleEmpty('cat-chips-empty', false);
       return;
     }
+    toggleEmpty('cat-chips-empty', true);
     el.innerHTML = selectedCategoryIds.map((id) => `
       <span class="chip chip-selected">${categoryLabel(id)}
         <span class="remove" data-id="${id}">×</span>
@@ -81,9 +95,27 @@ window.WorkbenchTaxonomy = (() => {
     });
   }
 
+  function renderRecentChips() {
+    const el = document.getElementById('cat-recent');
+    if (!el) return;
+    const items = buildRecentItems();
+    toggleEmpty('cat-recent-empty', items.length > 0);
+    if (!items.length) {
+      el.innerHTML = '';
+      return;
+    }
+    el.innerHTML = items.map((item) => `
+      <button type="button" class="chip chip-recent" data-id="${item.id}">${dimensionLabel(item.dimension)} / ${item.name}</button>
+    `).join('');
+    el.querySelectorAll('.chip-recent').forEach((btn) => {
+      btn.addEventListener('click', () => addCategory(btn.dataset.id));
+    });
+  }
+
   function renderSuggestionChips() {
     const el = document.getElementById('cat-suggestions');
-    const items = buildCategorySuggestions();
+    const items = buildTitleSuggestions();
+    toggleEmpty('cat-suggestions-empty', items.length > 0);
     if (!items.length) {
       el.innerHTML = '';
       return;
@@ -109,7 +141,7 @@ window.WorkbenchTaxonomy = (() => {
         const selected = selectedCategoryIds.includes(cat.id) ? ' chip-active' : '';
         return `<button type="button" class="chip chip-browse${selected}" data-id="${cat.id}">${cat.name}</button>`;
       }).join('');
-      return `<details class="browse-dimension" open><summary>${dimensionLabel(dimension)}</summary><div class="chips-container">${chips}</div></details>`;
+      return `<details class="browse-dimension"><summary>${dimensionLabel(dimension)}</summary><div class="chips-container">${chips}</div></details>`;
     }).join('');
     browse.querySelectorAll('.chip-browse').forEach((btn) => {
       btn.addEventListener('click', () => toggleCategory(btn.dataset.id));
@@ -136,6 +168,7 @@ window.WorkbenchTaxonomy = (() => {
 
   function refresh() {
     renderSelectedChips();
+    renderRecentChips();
     renderSuggestionChips();
     renderBrowse();
     if (onChange) onChange();
@@ -146,7 +179,7 @@ window.WorkbenchTaxonomy = (() => {
     return allCategories.filter((cat) => {
       const hay = `${cat.name} ${cat.slug} ${cat.dimension} ${dimensionLabel(cat.dimension)}`.toLowerCase();
       return hay.includes(q);
-    }).slice(0, 12);
+    }).slice(0, 10);
   }
 
   async function onCreateSubmit(name, dimension) {

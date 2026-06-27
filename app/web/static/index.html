@@ -6,20 +6,22 @@
     <title>Generate - AI Music Studio</title>
     <link rel="stylesheet" href="/assets/css/base.css" />
     <link rel="stylesheet" href="/assets/css/studio.css" />
+    <link rel="stylesheet" href="/assets/css/songs.css" />
   </head>
   <body data-studio-tab="generate">
     <main class="shell studio-shell">
       <nav id="studio-nav" class="studio-nav"></nav>
       <section class="studio-hero">
-        <p class="eyebrow">Generate</p>
-        <h1>Local song drafts with synthetic singing voices</h1>
+        <p class="eyebrow">Songs</p>
+        <h1>Generate and review songs</h1>
         <p class="muted">Line-aware formant vocals, chorus harmony, and optional vocal stems in balanced/high quality. Wire ACE-Step for neural singing.</p>
       </section>
 
       <section id="context-banner" class="card" hidden>
-        <p class="muted">Generating with media context: <strong id="context-title"></strong></p>
+        <p class="muted">Baseline from reference track: <strong id="context-title"></strong></p>
         <p id="context-cats" class="table-meta"></p>
-        <a id="context-workbench" class="button ghost small" href="#">Open in Workbench</a>
+        <p class="context-hint muted">Tags prefilled from categories — audio is not sent to the generator.</p>
+        <a id="context-workbench" class="button ghost small" href="/workbench/">Open Workbench</a>
       </section>
 
       <section id="model-status" class="status-strip muted">Loading model status…</section>
@@ -100,10 +102,88 @@ Before the morning breaks again</textarea>
         <div class="section-head"><h2>Recent jobs</h2><button id="refresh" class="small" type="button">Refresh</button></div>
         <div id="jobs" class="jobs muted">No jobs found.</div>
       </section>
+
+      <section class="songs-combined">
+        <div class="section-head">
+          <h2>Songs</h2>
+          <select id="filter-review">
+            <option value="">All review</option>
+            <option value="NEEDS_REVIEW">Needs review</option>
+            <option value="REVIEWED">Reviewed</option>
+            <option value="REJECTED">Rejected</option>
+          </select>
+        </div>
+
+        <div class="songs-layout">
+          <section class="songs-list-panel">
+            <div class="data-table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Title</th>
+                    <th>Backend</th>
+                    <th>Review</th>
+                    <th>Decision</th>
+                    <th>Duration</th>
+                  </tr>
+                </thead>
+                <tbody id="song-rows"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <aside class="card songs-detail-panel" id="song-detail">
+            <p class="empty-detail muted">Select a song to play audio, view Version Details, and submit a review decision.</p>
+
+            <div id="song-detail-body" hidden>
+              <div class="songs-detail-head">
+                <h2 id="detail-title">—</h2>
+                <span id="detail-review-pill" class="status-pill">—</span>
+              </div>
+
+              <audio id="detail-player" controls preload="metadata"></audio>
+
+              <section class="version-details-card">
+                <h3>Version Details</h3>
+                <dl id="version-details" class="detail-meta"></dl>
+              </section>
+
+              <section class="review-card">
+                <h3>Review decision</h3>
+                <div class="review-actions" id="review-actions">
+                  <button type="button" class="ghost small" data-decision="KEEPER">Keeper</button>
+                  <button type="button" class="ghost small" data-decision="REJECT">Reject</button>
+                  <button type="button" class="ghost small" data-decision="USE_AS_REFERENCE">Use as reference</button>
+                  <button type="button" class="ghost small" data-decision="USE_AS_NEGATIVE">Use as negative</button>
+                  <button type="button" class="ghost small" data-decision="COMPARE">Compare</button>
+                  <button type="button" class="ghost small" data-decision="REGENERATE">Regenerate</button>
+                </div>
+                <label class="review-score-label">
+                  Overall score
+                  <select id="review-score">
+                    <option value="">—</option>
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                    <option value="5">5</option>
+                  </select>
+                </label>
+                <label class="review-notes-label">
+                  Notes
+                  <textarea id="review-notes" rows="3" placeholder="Optional review notes"></textarea>
+                </label>
+                <p id="review-feedback" class="review-feedback muted" hidden></p>
+              </section>
+            </div>
+          </aside>
+        </div>
+      </section>
     </main>
     <script src="/assets/js/studio-routes.js"></script>
     <script src="/assets/js/studio-api.js"></script>
     <script src="/assets/js/studio-nav.js"></script>
     <script src="/assets/js/generate.js"></script>
+    <script src="/assets/js/songs.js"></script>
   </body>
 </html>
