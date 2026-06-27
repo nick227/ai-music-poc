@@ -7,6 +7,7 @@ Dry-run mode validates wiring only — no torch/transformers/diffusers imports.
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import shlex
 import shutil
@@ -23,7 +24,7 @@ def ace_step_dir() -> Path:
 
 
 def ace_venv_python(step_dir: Path) -> Path:
-    return (step_dir / ".venv" / "bin" / "python").resolve()
+    return step_dir / ".venv" / "bin" / "python"
 
 
 def ace_cli_script(step_dir: Path) -> Path:
@@ -48,6 +49,21 @@ def file_summary(path: Path | None) -> str:
         except OSError:
             return f"{path} exists=True bytes={path.stat().st_size}"
     return f"{path} exists=True"
+
+
+def toml_value(value: object) -> str:
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, int | float):
+        return str(value)
+    if value is None:
+        return '""'
+    return json.dumps(str(value))
+
+
+def write_config(path: Path, values: dict[str, object]) -> None:
+    lines = [f"{key} = {toml_value(value)}" for key, value in values.items()]
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 def dry_run_lines(args: argparse.Namespace) -> list[str]:
@@ -151,38 +167,65 @@ def main(argv: list[str] | None = None) -> int:
 
     negative_file = args.negative_prompt_file or args.negative_file
     caption = Path(args.prompt_file).read_text(encoding="utf-8").strip()
-    lyrics_path = Path(args.lyrics_file)
-    output_path = Path(args.output)
+    lyrics_path = Path(args.lyrics_file).resolve()
+    output_path = Path(args.output).resolve()
+    lyrics_text = lyrics_path.read_text(encoding="utf-8").strip() if lyrics_path.exists() else ""
     if negative_file and Path(negative_file).exists():
         negative = Path(negative_file).read_text(encoding="utf-8").strip()
         if negative:
             caption = f"{caption}\n\nAvoid: {negative}"
 
     with tempfile.TemporaryDirectory(prefix="ace_out_") as save_dir:
+        config_path = Path(save_dir) / "ace_config.toml"
+        quality_steps = {"draft": 8, "balanced": 24, "high": 50}
+        seed = args.seed if args.seed is not None and args.seed >= 0 else -1
+        write_config(config_path, {
+            "project_root": str(step_dir),
+            "checkpoint_dir": str(Path(args.model_dir).expanduser().resolve()) if args.model_dir else os.environ.get("ACESTEP_CHECKPOINTS_DIR", ""),
+            "backend": "pt",
+            "device": args.device,
+            "save_dir": save_dir,
+            "audio_format": "wav",
+            "caption": caption,
+            "lyrics": lyrics_text,
+            "duration": args.duration,
+            "seed": seed,
+            "use_random_seed": seed < 0,
+            "guidance_scale": args.guidance_scale,
+            "inference_steps": quality_steps.get(args.quality, 24),
+            "batch_size": 1,
+            "thinking": False,
+            "use_cot_metas": False,
+            "use_cot_caption": False,
+            "use_cot_lyrics": False,
+            "use_cot_language": False,
+            "sample_mode": False,
+            "use_format": False,
+            "instrumental": False,
+            "task_type": "text2music",
+        })
         cmd: list[str] = [
             str(venv_python),
             str(cli_script),
-            "--caption", caption,
-            "--lyrics", str(lyrics_path),
-            "--save_dir", save_dir,
-            "--audio_format", "wav",
-            "--duration", str(args.duration),
-            "--guidance_scale", str(args.guidance_scale),
-            "--device", args.device,
-            "--no_thinking",
+            "--config", str(config_path),
+            "--backend", "pt",
+            "--log-level", "WARNING",
         ]
-        if args.seed is not None and args.seed >= 0:
-            cmd += ["--seed", str(args.seed)]
-        if args.model_dir:
-            cmd += ["--checkpoint_dir", args.model_dir]
-        steps_map = {"draft": 25, "balanced": 50, "high": 100}
-        cmd += ["--inference_steps", str(steps_map.get(args.quality, 50))]
 
+        env = os.environ.copy()
+        if args.model_dir:
+            env["ACESTEP_CHECKPOINTS_DIR"] = str(Path(args.model_dir).expanduser().resolve())
         print(f"[ace_runner] Running: {shlex.join(cmd)}", flush=True)
-        result = subprocess.run(cmd, cwd=str(step_dir), text=True)
+        result = subprocess.run(cmd, cwd=str(step_dir), text=True, capture_output=True, env=env)
+        if result.stdout:
+            print(result.stdout[-4000:], flush=True)
         if result.returncode != 0:
+            if result.stderr:
+                print(result.stderr[-4000:], file=sys.stderr)
             print(f"[ace_runner] ACE-Step exited with {result.returncode}", file=sys.stderr)
             return result.returncode
+        if result.stderr:
+            print(result.stderr[-2000:], flush=True)
 
         wavs = list(Path(save_dir).glob("**/*.wav"))
         if not wavs:
