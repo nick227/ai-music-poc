@@ -14,80 +14,26 @@
 
       <section class="studio-hero">
         <p class="eyebrow">Workbench</p>
-        <h1>Fine-tuning &amp; model versions</h1>
-        <p class="muted">The cross-section between your categorized media library and the target generation model.</p>
+        <h1>Teach your model</h1>
+        <p class="muted">Pick the tracks that represent your sound. We package them for fine-tuning against your current model.</p>
       </section>
 
-      <section class="card model-card">
-        <h2>Target model</h2>
-        <div id="model-summary" class="model-summary muted">Loading…</div>
-        <dl id="model-meta" class="model-meta"></dl>
-        <a class="button ghost small" href="/settings/">Full runtime details</a>
-      </section>
+      <p id="model-line" class="model-line muted">Checking model…</p>
 
-      <section class="card process-guide">
-        <h2>How this works</h2>
-        <ol class="process-steps">
-          <li><strong>Media</strong> — import audio, assign categories, set training roles, mark reviewed.</li>
-          <li><strong>Workbench</strong> — reviewed categorized tracks appear below; include them in a session slice.</li>
-          <li><strong>Export payload</strong> — download the slice (media + categories + roles) for fine-tuning.</li>
-          <li><strong>Generate / Songs</strong> — compare outputs once a new model version is active.</li>
-        </ol>
-      </section>
-
-      <section class="card session-workspace">
-        <header class="session-toolbar">
-          <div class="session-toolbar-left">
-            <label class="session-select-label">
-              Session
-              <select id="session-select"></select>
-            </label>
-            <button type="button" id="new-session-btn" class="ghost small">New session</button>
-          </div>
+      <section class="card tracks-card">
+        <div class="tracks-toolbar">
+          <p id="tracks-summary" class="tracks-summary">Loading tracks…</p>
           <div class="actions">
-            <button type="button" id="sync-eligible-btn" class="ghost small">Include all eligible</button>
-            <button type="button" id="mark-ready-btn" class="ghost small">Mark ready</button>
-            <button type="button" id="export-payload-btn" class="small">Export payload</button>
+            <button type="button" id="select-all-btn" class="ghost">Select all</button>
+            <button type="button" id="download-btn">Download training package</button>
           </div>
-        </header>
-
-        <div class="session-header">
-          <input type="text" id="session-name" class="session-name-input" placeholder="Session name" />
-          <span id="session-status" class="status-pill">draft</span>
         </div>
 
-        <div class="session-stats" id="session-stats"></div>
+        <div id="tracks-list" class="tracks-list"></div>
 
-        <label class="session-notes-label">
-          Session notes
-          <textarea id="session-notes" rows="2" placeholder="Training goals, target style, version notes…"></textarea>
-        </label>
-
-        <div class="slice-header">
-          <h3>Training slice <span id="slice-count" class="badge">0</span></h3>
-          <p id="slice-hint" class="table-meta">Tracks from Media with categories and review status. Toggle inclusion to build the payload sent toward the target model.</p>
-        </div>
-
-        <div class="data-table-wrap">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>In slice</th>
-                <th>Title</th>
-                <th>Role</th>
-                <th>Categories</th>
-                <th>Review</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody id="training-rows"></tbody>
-          </table>
-        </div>
-
-        <details class="history-panel">
-          <summary>Session history</summary>
-          <ul id="history-list" class="history-list"></ul>
-        </details>
+        <p id="empty-hint" class="empty-hint muted" hidden>
+          No tracks are ready yet. Import audio in <a href="/media/">Media</a>, add categories, and mark them reviewed — then come back here.
+        </p>
       </section>
     </main>
     <script src="/assets/js/studio-routes.js"></script>
