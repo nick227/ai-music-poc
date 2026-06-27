@@ -302,6 +302,8 @@ def test_package_download_contains_manifest_audio_and_labels(client):
     assert "training-package/manifest.json" in names
     assert f"training-package/tracks/{tagged['id']}/audio.wav" in names
     assert f"training-package/tracks/{tagged['id']}/labels.json" in names
+    assert f"training-package/tracks/{tagged['id']}/caption.txt" in names
+    assert f"training-package/tracks/{tagged['id']}/annotation.json" in names
     assert "training-package/rights.json" in names
     assert "training-package/captions.csv" in names
 
@@ -312,6 +314,16 @@ def test_package_download_contains_manifest_audio_and_labels(client):
     labels = json.loads(zf.read(f"training-package/tracks/{tagged['id']}/labels.json"))
     assert labels["media_id"] == tagged["id"]
     assert labels["categories"]
+    assert labels["tags"]
+
+    caption = zf.read(f"training-package/tracks/{tagged['id']}/caption.txt").decode()
+    assert caption
+
+    annotation = json.loads(zf.read(f"training-package/tracks/{tagged['id']}/annotation.json"))
+    assert annotation["media_id"] == tagged["id"]
+    assert annotation["caption"] == caption
+    assert annotation["taxonomy"]["categories"]
+    assert annotation["signals"]["rights_status"] == "CONFIRMED"
 
     rights = json.loads(zf.read("training-package/rights.json"))
     assert rights[0]["rights_status"] == "CONFIRMED"

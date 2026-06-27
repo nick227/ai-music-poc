@@ -7,16 +7,20 @@ from pathlib import Path
 from app.domain.models import JobStatus
 from app.domain.training import TrainingRun
 from app.storage.training_run_store import TrainingRunStore
+from app.training.adapter import TrainingAdapterResult, TrainingRequest
 
 
 class MockTrainingAdapter:
     name = "mock-training"
+    supports_lora = True
 
     def __init__(self, store: TrainingRunStore, step_delay_seconds: float = 0.05) -> None:
         self.store = store
         self.step_delay_seconds = step_delay_seconds
 
-    def run(self, run_id: str) -> TrainingRun:
+    def run(self, request: TrainingRequest | str) -> TrainingAdapterResult | TrainingRun:
+        legacy_return = isinstance(request, str)
+        run_id = request if isinstance(request, str) else request.run.id
         run = self.store.get(run_id)
         if run is None:
             raise RuntimeError(f"Training run not found: {run_id}")
@@ -26,13 +30,15 @@ class MockTrainingAdapter:
         time.sleep(self.step_delay_seconds)
 
         if self._is_cancelled(run_id):
-            return self._mark_cancelled(run_id)
+            cancelled = self._mark_cancelled(run_id)
+            return cancelled if legacy_return else TrainingAdapterResult(run=cancelled)
 
         self.store.append_log(run_id, "mock adapter: running epoch 1/1")
         time.sleep(self.step_delay_seconds)
 
         if self._is_cancelled(run_id):
-            return self._mark_cancelled(run_id)
+            cancelled = self._mark_cancelled(run_id)
+            return cancelled if legacy_return else TrainingAdapterResult(run=cancelled)
 
         artifact_path = self._write_artifact(run_id)
         self.store.append_log(run_id, f"mock adapter: wrote artifact {artifact_path.name}")
@@ -49,8 +55,8 @@ class MockTrainingAdapter:
             }
         )
         self.store.save(finished)
-        self.store.append_log(run_id, "mock adapter: succeeded")
-        return finished
+        self.store.append_log(run_id, "mock adapter: succeeded (artifact produced)")
+        return finished if legacy_return else TrainingAdapterResult(run=finished)
 
     def _write_artifact(self, run_id: str) -> Path:
         run = self.store.get(run_id)

@@ -34,7 +34,12 @@ class Settings(BaseSettings):
     save_full_lyrics: bool = Field(default=False, alias="SAVE_FULL_LYRICS")
     anthropic_api_key: str = Field(default="", alias="ANTHROPIC_API_KEY")
     training_enabled: bool = Field(default=True, alias="TRAINING_ENABLED")
+    training_adapter: str = Field(default="mock-training", alias="TRAINING_ADAPTER")
     training_mock_step_delay_seconds: float = Field(default=0.05, alias="TRAINING_MOCK_STEP_DELAY_SECONDS")
+    ace_train_python: Path = Field(default=Path("python"), alias="ACE_TRAIN_PYTHON")
+    ace_train_script: Path = Field(default=Path("./scripts/ace_train_runner.py"), alias="ACE_TRAIN_SCRIPT")
+    ace_train_command_template: str = Field(default="", alias="ACE_TRAIN_COMMAND_TEMPLATE")
+    ace_train_timeout_seconds: int = Field(default=7200, alias="ACE_TRAIN_TIMEOUT_SECONDS")
 
     @property
     def job_dir(self) -> Path:

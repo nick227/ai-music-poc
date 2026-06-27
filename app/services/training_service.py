@@ -14,7 +14,7 @@ from app.services.ready_audio_service import ReadyAudioService
 from app.services.slice_service import SliceService
 from app.services.style_version_service import StyleVersionService
 from app.storage.training_run_store import TrainingRunStore
-from app.training.mock_adapter import MockTrainingAdapter
+from app.training.adapter import TrainingAdapter, TrainingAdapterResult, TrainingRequest
 
 
 class TrainingService:
@@ -22,7 +22,7 @@ class TrainingService:
         self,
         store: TrainingRunStore,
         slice_service: SliceService,
-        adapter: MockTrainingAdapter,
+        adapter: TrainingAdapter,
         ingestion_service: IngestionService,
         ready_audio_service: ReadyAudioService,
         style_version_service: StyleVersionService,
@@ -130,6 +130,7 @@ class TrainingService:
         run = TrainingRun(
             name=name,
             dataset_slice_id=dataset_slice_id,
+            backend=self.adapter.name,
             config_preset=config_preset,
             config=config,
             created_at=now,
@@ -147,7 +148,15 @@ class TrainingService:
 
         media_ids = self._run_media_ids(run)
         try:
-            finished = self.adapter.run(run_id)
+            training_request = self._training_request(run)
+            result = self.adapter.run(training_request)
+            finished = result.run if isinstance(result, TrainingAdapterResult) else result
+            self.store.save(finished)
+            if isinstance(result, TrainingAdapterResult) and result.dry_run:
+                self.store.append_log(run_id, "ACE command rendered to ace_train_command.json")
+                self.store.append_log(run_id, "Real ACE training is not enabled; no subprocess was launched")
+            elif isinstance(result, TrainingAdapterResult) and result.command:
+                self.store.append_log(run_id, f"command: {' '.join(result.command)}")
         except Exception as exc:
             failed = run.model_copy(
                 update={
@@ -203,3 +212,15 @@ class TrainingService:
     def _run_media_ids(self, run: TrainingRun) -> list[str]:
         slice_record = self.slice_service.get_required(run.dataset_slice_id)
         return list(slice_record.frozen_media_ids or slice_record.media_ids)
+
+    def _training_request(self, run: TrainingRun) -> TrainingRequest:
+        package_path = self.slice_service.build_package_path(run.dataset_slice_id)
+        run_dir = self.store.run_dir(run.id)
+        return TrainingRequest(
+            run=run,
+            package_path=package_path,
+            run_dir=run_dir,
+            config_path=run_dir / "config.json",
+            log_path=self.store.log_path(run.id),
+            artifacts_dir=self.store.artifacts_dir(run.id),
+        )

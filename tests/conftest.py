@@ -33,6 +33,8 @@ def clear_caches():
     dependencies.get_ready_audio_service.cache_clear()
     dependencies.get_training_run_store.cache_clear()
     dependencies.get_mock_training_adapter.cache_clear()
+    dependencies.get_ace_training_adapter.cache_clear()
+    dependencies.get_training_adapter.cache_clear()
     dependencies.get_training_service.cache_clear()
     dependencies.get_song_service.cache_clear()
     dependencies.get_registry.cache_clear()
