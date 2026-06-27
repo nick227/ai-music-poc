@@ -8,6 +8,7 @@ const bundleEl = document.querySelector('#bundle');
 const jobsEl = document.querySelector('#jobs');
 const generatorEl = document.querySelector('#generator');
 const presetEl = document.querySelector('#preset');
+const styleVersionEl = document.querySelector('#style_version');
 const modelStatusEl = document.querySelector('#model-status');
 const metadataEl = document.querySelector('#metadata');
 const vocalIntensityEl = document.querySelector('#vocal_intensity');
@@ -41,6 +42,7 @@ function formPayload() {
     negative_prompt: document.querySelector('#negative').value,
     allow_fallback: document.querySelector('#fallback').checked,
     include_lyrics_in_bundle: document.querySelector('#lyrics_bundle').checked,
+    style_version_id: styleVersionEl.value || null,
   };
 }
 async function api(url, options = {}) {
@@ -49,6 +51,13 @@ async function api(url, options = {}) {
   const data = text ? JSON.parse(text) : null;
   if (!res.ok) throw new Error(data?.message || data?.detail?.[0]?.msg || 'Request failed');
   return data;
+}
+async function loadStyleVersions() {
+  const versions = await api('/api/style-versions').then((r) => r.style_versions || []);
+  styleVersionEl.innerHTML = '<option value="">Base model (no style)</option>' + versions
+    .filter((v) => v.status === 'ACTIVE')
+    .map((v) => `<option value="${v.id}">${v.name}</option>`)
+    .join('');
 }
 async function loadGenerators() {
   const data = await api('/api/generators');
@@ -188,4 +197,4 @@ async function loadContextMedia() {
   }
 }
 
-Promise.all([loadGenerators(), loadPresets(), loadModelStatus(), loadJobs(), loadContextMedia()]).catch(err => setError(err.message));
+Promise.all([loadGenerators(), loadPresets(), loadStyleVersions(), loadModelStatus(), loadJobs(), loadContextMedia()]).catch(err => setError(err.message));

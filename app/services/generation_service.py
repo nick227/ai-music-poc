@@ -7,9 +7,11 @@ from typing import Any
 from app.core.audio_validation import validate_wav_output
 from app.core.config import Settings
 from app.core.errors import ValidationAppError
+from app.domain.enums import StyleVersionStatus
 from app.domain.models import GenerationRequest, GenerationResult, MediaAsset, MediaKind, MediaSource
 from app.generators.registry import GeneratorRegistry
 from app.services.job_service import JobService
+from app.services.style_version_service import StyleVersionService
 from app.storage.local_file_store import LocalFileStore
 from app.storage.local_media_store import LocalMediaStore
 from app.storage.log_store import LogStore
@@ -19,19 +21,34 @@ logger = logging.getLogger(__name__)
 
 
 class GenerationService:
-    def __init__(self, registry: GeneratorRegistry, job_service: JobService, file_store: LocalFileStore, media_store: LocalMediaStore, log_store: LogStore, metadata_store: MetadataStore, settings: Settings) -> None:
+    def __init__(
+        self,
+        registry: GeneratorRegistry,
+        job_service: JobService,
+        file_store: LocalFileStore,
+        media_store: LocalMediaStore,
+        log_store: LogStore,
+        metadata_store: MetadataStore,
+        style_version_service: StyleVersionService,
+        settings: Settings,
+    ) -> None:
         self.registry = registry
         self.job_service = job_service
         self.file_store = file_store
         self.media_store = media_store
         self.log_store = log_store
         self.metadata_store = metadata_store
+        self.style_version_service = style_version_service
         self.settings = settings
 
     def validate_request(self, request: GenerationRequest) -> GenerationRequest:
         generator_name = request.generator or self.settings.default_generator
         if generator_name not in self.registry.names():
             raise ValidationAppError(f"Unknown generator: {generator_name}")
+        if request.style_version_id:
+            style = self.style_version_service.get_required(request.style_version_id)
+            if style.status != StyleVersionStatus.ACTIVE:
+                raise ValidationAppError("Style version is not active")
         data = request.model_dump()
         data["generator"] = generator_name
         return GenerationRequest.model_validate(data)
@@ -80,14 +97,25 @@ class GenerationService:
             self.job_service.mark_failed(job, message, log_file=log_path.name)
 
     def _request_version_details(self, generation_id: str, request: GenerationRequest, generator_name: str) -> dict[str, Any]:
+        style_version_id = None
+        training_run_id = None
+        dataset_slice_id = None
+        model_artifact_id = None
+        if request.style_version_id:
+            style = self.style_version_service.get_required(request.style_version_id)
+            style_version_id = style.id
+            training_run_id = style.training_run_id
+            dataset_slice_id = style.dataset_slice_id
+            model_artifact_id = style.artifact_path
+
         return {
             "generationId": generation_id,
             "backend": generator_name,
             "modelVersion": None,
-            "styleVersionId": None,
-            "trainingRunId": None,
-            "datasetSliceId": None,
-            "modelArtifactId": None,
+            "styleVersionId": style_version_id,
+            "trainingRunId": training_run_id,
+            "datasetSliceId": dataset_slice_id,
+            "modelArtifactId": model_artifact_id,
             "targetConceptId": None,
             "targetCategoryIds": [],
             "prompt": request.prompt,

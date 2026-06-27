@@ -14,8 +14,8 @@
 
       <section class="studio-hero">
         <p class="eyebrow">Workbench</p>
-        <h1>Train a custom style</h1>
-        <p class="muted">Pick reviewed reference tracks for one concept, lock them in, then run a calibration training pass. Check history before starting — avoid repeating the same run.</p>
+        <h1>Training inbox</h1>
+        <p class="muted">Tagged uploads appear here automatically. Ingest adds them to the model — no manual slice setup.</p>
       </section>
 
       <section class="card model-card">
@@ -25,91 +25,56 @@
         </div>
         <p id="model-status-text" class="model-status-text muted">Checking model…</p>
         <dl id="model-details" class="model-details"></dl>
+        <p id="active-style-line" class="active-style-line muted hidden"></p>
       </section>
 
       <section class="card workbench-panel">
         <div class="panel-head">
           <div>
-            <p class="step-label">Step 1</p>
-            <h2>Pick reference tracks</h2>
-            <p class="panel-lead muted">Choose one concept. Tags below only appear on tracks that are ready for training.</p>
+            <h2>Ready to ingest</h2>
+            <p class="panel-lead muted">Uploads with at least one category and audio file. Already ingested tracks stay in history below.</p>
           </div>
-          <p id="slice-status" class="panel-status muted"></p>
+          <p id="inbox-status" class="panel-status muted"></p>
         </div>
 
-        <div class="guided-form">
-          <label class="guided-field">
-            Style concept <span class="required-mark">required</span>
-            <select id="filter-concept" required>
-              <option value="">Select a concept…</option>
-            </select>
-          </label>
-
-          <div id="tag-refine-block" class="tag-refine-block hidden">
-            <p class="field-label">Optional: narrow by tag</p>
-            <div id="filter-categories" class="filter-categories"></div>
-          </div>
-
-          <label class="guided-field">
-            Training set name
-            <input id="slice-name" type="text" placeholder="e.g. Dark cinematic vocal refs" required />
-          </label>
-        </div>
-
-        <p id="preview-summary" class="preview-summary">Select a concept to see matching tracks.</p>
-        <p id="preview-guidance" class="preview-guidance muted hidden"></p>
-        <div id="preview-list" class="preview-list"></div>
+        <div id="queue-list" class="inbox-list"></div>
 
         <div class="panel-actions">
-          <button type="button" id="save-slice-btn" disabled>Save training set</button>
-          <button type="button" id="freeze-slice-btn" class="ghost" disabled>Lock tracks</button>
-          <p id="slice-save-feedback" class="save-feedback" hidden aria-live="polite"></p>
+          <button type="button" id="ingest-btn" disabled>Ingest now</button>
+          <button type="button" id="cancel-run-btn" class="ghost hidden" disabled>Cancel run</button>
+          <p id="inbox-feedback" class="save-feedback" hidden aria-live="polite"></p>
         </div>
+      </section>
+
+      <section id="live-run-panel" class="card workbench-panel hidden">
+        <div class="panel-head">
+          <div>
+            <h2>Live training</h2>
+            <p class="panel-lead muted">Run progress updates automatically.</p>
+          </div>
+          <span id="live-run-badge" class="status-pill running"></span>
+        </div>
+        <p id="live-run-name" class="live-run-name"></p>
+        <pre id="live-run-log" class="active-run-log"></pre>
       </section>
 
       <section class="card workbench-panel">
         <div class="panel-head">
           <div>
-            <p class="step-label">Step 2</p>
-            <h2>Run calibration training</h2>
-            <p class="panel-lead muted">Training uses a locked set only. Calibration is the guided first pass (8–12 tracks recommended).</p>
+            <h2>Ingested</h2>
+            <p class="panel-lead muted">Tracks already used in a successful training run.</p>
           </div>
-          <p id="training-status" class="panel-status muted"></p>
         </div>
-
-        <label class="guided-field">
-          Locked training set
-          <select id="train-slice-select">
-            <option value="">Select a locked set…</option>
-          </select>
-        </label>
-
-        <p id="train-slice-hint" class="train-slice-hint muted"></p>
-
-        <div class="panel-actions">
-          <button type="button" id="start-training-btn" disabled>Start calibration run</button>
-          <button type="button" id="cancel-training-btn" class="ghost hidden" disabled>Cancel run</button>
-        </div>
-
-        <div id="active-run-panel" class="active-run-panel hidden">
-          <div class="active-run-head">
-            <span id="active-run-name" class="active-run-name"></span>
-            <span id="active-run-badge" class="status-pill"></span>
-          </div>
-          <pre id="active-run-log" class="active-run-log"></pre>
-        </div>
+        <div id="ingested-list" class="inbox-list"></div>
       </section>
 
       <section class="card workbench-panel">
         <div class="panel-head">
           <div>
-            <h2>History</h2>
-            <p class="panel-lead muted">Locked sets and past training runs. Use this to avoid repeating work.</p>
+            <h2>Recent runs</h2>
           </div>
         </div>
-        <div id="history-list" class="history-list">
-          <p class="muted">Loading history…</p>
-        </div>
+        <div id="runs-list" class="history-list"></div>
       </section>
     </main>
     <script src="/assets/js/studio-routes.js"></script>
@@ -117,7 +82,6 @@
     <script src="/assets/js/studio-save.js"></script>
     <script src="/assets/js/studio-nav.js"></script>
     <script src="/assets/js/workbench.js"></script>
-    <script src="/assets/js/workbench-slice.js"></script>
-    <script src="/assets/js/workbench-training.js"></script>
+    <script src="/assets/js/workbench-inbox.js"></script>
   </body>
 </html>

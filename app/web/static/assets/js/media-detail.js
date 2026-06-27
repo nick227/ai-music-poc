@@ -33,6 +33,7 @@ function renderMeta() {
     ['Review', formatReviewStatus(media.review_status)],
     ['Duration', media.duration_seconds != null ? `${Math.round(media.duration_seconds)}s` : '—'],
     ['Categories', count],
+    ['Ingestion', (media.ingestion_status || 'PENDING').replace(/_/g, ' ').toLowerCase()],
     ['Kind', (media.kind || '').replace(/_/g, ' ').toLowerCase()],
     ['Added', new Date(media.created_at).toLocaleString()],
   ];

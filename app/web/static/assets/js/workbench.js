@@ -5,8 +5,8 @@ function renderModelCard() {
   const statusEl = document.getElementById('model-status-text');
   const message = modelStatus?.user_message || (ready ? 'Your model is ready to generate.' : 'Your model still needs setup.');
   statusEl.textContent = ready
-    ? `${message} Step 1 picks reference tracks; Step 2 runs calibration training when a set is locked.`
-    : `${message} You can still prepare and lock reference tracks while setup continues in Settings.`;
+    ? `${message} Tag media in Media, then ingest from the queue below.`
+    : `${message} You can still queue and ingest tagged media while setup continues.`;
   statusEl.classList.toggle('ready', !!ready);
 
   const rows = [
@@ -22,8 +22,7 @@ function renderModelCard() {
 async function init() {
   modelStatus = await StudioApi.modelStatus();
   renderModelCard();
-  await WorkbenchSlice.init();
-  await WorkbenchTraining.init();
+  await WorkbenchInbox.init();
 }
 
 init();

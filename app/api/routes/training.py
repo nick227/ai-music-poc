@@ -1,6 +1,7 @@
 from fastapi import APIRouter, BackgroundTasks, Depends, Query
 
 from app.api.dependencies import get_training_service
+from app.api.schemas.ingestion_api import IngestRequest, IngestionQueueResponse, IngestResponse, ingest_response
 from app.api.schemas.training_api import (
     TrainingRunCreateRequest,
     TrainingRunListResponse,
@@ -11,6 +12,30 @@ from app.api.schemas.training_api import (
 from app.services.training_service import TrainingService
 
 router = APIRouter(prefix="/api/training", tags=["training"])
+
+
+@router.get("/queue", response_model=IngestionQueueResponse)
+def get_ingestion_queue(training_service: TrainingService = Depends(get_training_service)):
+    return IngestionQueueResponse(
+        queue=training_service.list_queue(),
+        ingested=training_service.list_ingested(),
+    )
+
+
+@router.post("/ingest", response_model=IngestResponse)
+def ingest_training_queue(
+    request: IngestRequest,
+    background_tasks: BackgroundTasks,
+    training_service: TrainingService = Depends(get_training_service),
+):
+    media_ids = request.media_ids or None
+    run = training_service.ingest(
+        media_ids=media_ids,
+        name=request.name,
+        config_preset=request.config_preset,
+    )
+    background_tasks.add_task(training_service.execute_run, run.id)
+    return ingest_response(run)
 
 
 @router.get("/runs", response_model=TrainingRunListResponse)

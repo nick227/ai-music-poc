@@ -166,6 +166,12 @@ class SliceService:
         self.slice_store.save(updated)
         return updated
 
+    def create_and_freeze(self, name: str, media_ids: list[str]) -> DatasetSlice:
+        if not media_ids:
+            raise ValidationAppError("At least one media id is required")
+        record = self.create(name, DatasetSliceFilter(), media_ids=media_ids)
+        return self.freeze(record.id)
+
     def build_package_path(self, slice_id: str):
         record = self.get_required(slice_id)
         if record.status != DatasetSliceStatus.READY:

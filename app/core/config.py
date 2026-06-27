@@ -85,6 +85,10 @@ class Settings(BaseSettings):
         return self.data_dir / "training_runs"
 
     @property
+    def style_versions_dir(self) -> Path:
+        return self.data_dir / "style_versions"
+
+    @property
     def metadata_dir(self) -> Path:
         return self.data_dir / "outputs"
 

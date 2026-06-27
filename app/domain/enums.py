@@ -62,3 +62,16 @@ class DatasetSliceStatus(str, Enum):
     DRAFT = "DRAFT"
     READY = "READY"
     ARCHIVED = "ARCHIVED"
+
+
+class IngestionStatus(str, Enum):
+    PENDING = "PENDING"
+    INGESTING = "INGESTING"
+    INGESTED = "INGESTED"
+    FAILED = "FAILED"
+    SKIPPED = "SKIPPED"
+
+
+class StyleVersionStatus(str, Enum):
+    ACTIVE = "ACTIVE"
+    ARCHIVED = "ARCHIVED"

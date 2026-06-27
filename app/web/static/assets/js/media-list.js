@@ -51,13 +51,12 @@ function render() {
   tbody.innerHTML = rows.map((row) => {
     const count = row.category_assignment_count ?? 0;
     const reviewLabel = row.review_status.replace(/_/g, ' ').toLowerCase();
-    const kindLabel = row.kind.replace(/_/g, ' ').toLowerCase();
+    const ingestion = (row.ingestion_status || 'pending').replace(/_/g, ' ').toLowerCase();
     const meta = [
       formatDuration(row.duration_seconds),
       `${count} tag${count === 1 ? '' : 's'}`,
-      roleLabel(row),
+      ingestion,
       reviewLabel,
-      kindLabel,
       formatDate(row.created_at),
     ].join(' · ');
     return `

@@ -7,7 +7,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field, field_validator
 
-from app.domain.enums import ReviewDecision
+from app.domain.enums import IngestionStatus, ReviewDecision
 
 
 class JobStatus(str, Enum):
@@ -71,6 +71,7 @@ class GenerationRequest(BaseModel):
     guidance_scale: float = Field(default=7.5, ge=0.0, le=20.0)
     allow_fallback: bool = True
     include_lyrics_in_bundle: bool = True
+    style_version_id: Optional[str] = Field(default=None, max_length=80)
 
     @field_validator("prompt", "lyrics", "title", "negative_prompt")
     @classmethod
@@ -140,6 +141,9 @@ class MediaAsset(BaseModel):
     review_notes: Optional[str] = None
     generation_id: Optional[str] = None
     version_details: Dict[str, Any] = Field(default_factory=dict)
+    ingestion_status: IngestionStatus = IngestionStatus.PENDING
+    last_training_run_id: Optional[str] = None
+    ingested_at: Optional[datetime] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 

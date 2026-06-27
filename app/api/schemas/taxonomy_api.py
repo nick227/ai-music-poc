@@ -19,6 +19,10 @@ class CategoryCreateRequest(BaseModel):
     description: Optional[str] = Field(default=None, max_length=2000)
 
 
+class CategoryBulkCreateRequest(BaseModel):
+    categories: list[CategoryCreateRequest] = Field(min_length=1, max_length=200)
+
+
 class ConceptCreateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=160)
     slug: Optional[str] = Field(default=None, max_length=160)
@@ -67,6 +71,9 @@ class MediaDetailResponse(BaseModel):
     channels: Optional[int] = None
     review_status: str
     rights_status: str
+    ingestion_status: str = "PENDING"
+    last_training_run_id: Optional[str] = None
+    ingested_at: Optional[str] = None
     generation_id: Optional[str] = None
     version_details: dict = Field(default_factory=dict)
     created_at: str

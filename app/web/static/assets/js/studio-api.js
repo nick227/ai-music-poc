@@ -83,6 +83,19 @@ window.StudioApi = {
   getTrainingRunLogs(id, maxChars = 4000) {
     return this.request(`/api/training/runs/${id}/logs?max_chars=${maxChars}`);
   },
+  getIngestionQueue() {
+    return this.request('/api/training/queue');
+  },
+  ingestTrainingQueue(payload = {}) {
+    return this.request('/api/training/ingest', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  },
+  listStyleVersions() {
+    return this.request('/api/style-versions').then((r) => r.style_versions || []);
+  },
   createCategory(name, dimension, description = '') {
     return this.request('/api/categories', {
       method: 'POST',

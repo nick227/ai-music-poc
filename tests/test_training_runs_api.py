@@ -80,6 +80,7 @@ def test_training_run_lifecycle_succeeds_with_logs_and_artifact(client):
     detail = _wait_for_terminal_status(client, body["id"])
     assert detail["status"] == "SUCCEEDED"
     assert detail["artifact_path"] == f"training_runs/{body['id']}/artifacts/lora.mock.json"
+    assert detail["style_version_id"] is not None
     assert detail["started_at"] is not None
     assert detail["finished_at"] is not None
 
