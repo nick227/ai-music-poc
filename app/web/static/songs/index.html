@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="/assets/css/studio.css" />
     <link rel="stylesheet" href="/assets/css/songs.css" />
   </head>
-  <body data-studio-tab="songs">
+  <body data-studio-tab="generate">
     <main class="shell studio-shell">
       <nav id="studio-nav" class="studio-nav"></nav>
 
@@ -86,7 +86,7 @@
                 Notes
                 <textarea id="review-notes" rows="3" placeholder="Optional review notes"></textarea>
               </label>
-              <p id="review-feedback" class="review-feedback muted" hidden></p>
+              <p id="review-feedback" class="save-feedback" hidden aria-live="polite"></p>
             </section>
           </div>
         </aside>
@@ -94,6 +94,7 @@
     </main>
     <script src="/assets/js/studio-routes.js"></script>
     <script src="/assets/js/studio-api.js"></script>
+    <script src="/assets/js/studio-save.js"></script>
     <script src="/assets/js/studio-nav.js"></script>
     <script src="/assets/js/songs.js"></script>
   </body>

@@ -93,7 +93,7 @@ function renderDetail(song) {
 
   const feedback = document.getElementById('review-feedback');
   feedback.hidden = true;
-  feedback.classList.remove('saved');
+  feedback.classList.remove('saving', 'saved', 'error');
 }
 
 function renderTable() {
@@ -135,8 +135,8 @@ async function selectSong(id) {
   renderTable();
 }
 
-async function submitReview(decision) {
-  if (!selectedId) return;
+async function submitReview(decision, button) {
+  if (!selectedId || !button) return;
   const overallScore = document.getElementById('review-score').value;
   const notes = document.getElementById('review-notes').value.trim();
   const payload = {
@@ -144,16 +144,22 @@ async function submitReview(decision) {
     overall_score: overallScore ? Number(overallScore) : null,
     notes: notes || null,
   };
-  const song = await StudioApi.reviewSong(selectedId, payload);
-  songs = songs.map((item) => (item.id === song.id ? song : item));
-  setActiveDecision(decision);
-  renderTable();
-  renderDetail(song);
-
-  const feedback = document.getElementById('review-feedback');
-  feedback.hidden = false;
-  feedback.classList.add('saved');
-  feedback.textContent = `Saved ${decision.replace(/_/g, ' ').toLowerCase()}.`;
+  await StudioSave.run(
+    button,
+    async () => {
+      const song = await StudioApi.reviewSong(selectedId, payload);
+      songs = songs.map((item) => (item.id === song.id ? song : item));
+      setActiveDecision(decision);
+      renderTable();
+      renderDetail(song);
+      return song;
+    },
+    {
+      savingLabel: 'Saving…',
+      successMessage: `Saved ${decision.replace(/_/g, ' ').toLowerCase()}.`,
+      feedbackEl: 'review-feedback',
+    },
+  );
 }
 
 async function loadSongs() {
@@ -166,7 +172,7 @@ async function loadSongs() {
 document.getElementById('filter-review').addEventListener('change', loadSongs);
 
 document.querySelectorAll('#review-actions button').forEach((btn) => {
-  btn.addEventListener('click', () => submitReview(btn.dataset.decision));
+  btn.addEventListener('click', () => submitReview(btn.dataset.decision, btn).catch(() => {}));
 });
 
 loadSongs();

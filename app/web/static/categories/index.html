@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Categories - AI Music Studio</title>
+    <link rel="stylesheet" href="/assets/css/base.css" />
+    <link rel="stylesheet" href="/assets/css/studio.css" />
+    <link rel="stylesheet" href="/assets/css/categories.css" />
+  </head>
+  <body data-studio-tab="categories">
+    <main class="shell studio-shell">
+      <nav id="studio-nav" class="studio-nav"></nav>
+
+      <section class="studio-hero">
+        <p class="eyebrow">Categories</p>
+        <h1>Taxonomy</h1>
+      </section>
+
+      <section class="category-layout">
+        <div class="category-main">
+          <div class="toolbar card">
+            <input type="search" id="category-search" placeholder="Search categories..." />
+            <select id="dimension-filter"></select>
+            <span id="category-count" class="muted"></span>
+          </div>
+
+          <div class="data-table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Dimension</th>
+                  <th>Slug</th>
+                  <th>Description</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="category-rows"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <aside class="category-side">
+          <section class="card">
+            <h2>Add category</h2>
+            <label>
+              Name
+              <input type="text" id="single-name" autocomplete="off" />
+            </label>
+            <label>
+              Dimension
+              <select id="single-dimension"></select>
+            </label>
+            <label>
+              Description
+              <textarea id="single-description" rows="3"></textarea>
+            </label>
+            <button type="button" id="single-create">Add</button>
+            <p id="single-feedback" class="save-feedback" hidden aria-live="polite"></p>
+          </section>
+
+          <section class="card">
+            <h2>Bulk add</h2>
+            <label>
+              Default dimension
+              <select id="bulk-dimension"></select>
+            </label>
+            <label>
+              Categories
+              <textarea id="bulk-text" rows="10" placeholder="One category per line&#10;Mood: Haunted&#10;Instrument: Prepared Piano"></textarea>
+            </label>
+            <button type="button" id="bulk-create">Add bulk</button>
+            <p id="category-feedback" class="save-feedback" hidden aria-live="polite"></p>
+          </section>
+        </aside>
+      </section>
+    </main>
+    <script src="/assets/js/studio-routes.js"></script>
+    <script src="/assets/js/studio-api.js"></script>
+    <script src="/assets/js/studio-save.js"></script>
+    <script src="/assets/js/studio-nav.js"></script>
+    <script src="/assets/js/categories.js"></script>
+  </body>
+</html>

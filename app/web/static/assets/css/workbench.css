@@ -146,6 +146,11 @@
   margin-top: 14px;
 }
 
+.panel-actions .save-feedback {
+  flex-basis: 100%;
+  margin-top: 2px;
+}
+
 .preview-summary {
   margin: 0 0 6px;
   font-size: 14px;

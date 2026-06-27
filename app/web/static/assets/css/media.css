@@ -9,7 +9,7 @@
 }
 
 .media-detail-shell {
-  width: min(820px, calc(100% - 32px));
+  width: min(1400px, calc(100% - 32px));
 }
 
 .media-player-card {
@@ -21,32 +21,30 @@
   margin-bottom: 14px;
 }
 
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  align-items: start;
+}
+
+.detail-meta { display: grid; gap: 8px; }
+
 .detail-meta-inline {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 10px 18px;
-  margin: 0 0 16px;
+  grid-template-columns: auto 1fr;
+  gap: 8px;
+  align-items: center;
+  margin: 16px 0;
   padding: 14px;
   border-radius: 12px;
   background: rgba(0,0,0,0.18);
-  border: 1px solid rgba(255,255,255,0.06);
-}
-
-.detail-meta-inline dt {
-  margin: 0;
 }
 
 .detail-meta-inline dd {
   margin: 2px 0 0;
   font-weight: 600;
   color: #fafafa;
-}
-
-.pipeline-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 10px;
 }
 
 .pipeline-hint {
@@ -96,6 +94,11 @@
   margin-top: 18px;
   padding-top: 18px;
   border-top: 1px solid rgba(255,255,255,0.08);
+}
+
+.form-actions .save-feedback {
+  flex-basis: 100%;
+  margin-top: 2px;
 }
 
 /* Compact two-row media list rows */

@@ -109,21 +109,31 @@
 
 .count-pill.has-value { background: rgba(139,92,246,0.22); color: #e9d5ff; }
 
-.detail-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 18px;
-  align-items: start;
-}
-
-.detail-meta { display: grid; gap: 8px; font-size: 13px; color: #d4d4d8; }
-.detail-meta dt { color: #71717a; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; }
-.detail-meta dd { margin: 0 0 8px; }
-
 .pipeline-card { margin-bottom: 18px; }
 .pipeline-steps { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; }
 
 .status-strip.ready { color: #bbf7d0; border-color: rgba(34,197,94,0.3); }
+
+.save-feedback {
+  margin: 10px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  min-height: 1.25em;
+}
+
+.save-feedback.saving { color: #a1a1aa; }
+.save-feedback.saved { color: #bbf7d0; }
+.save-feedback.error { color: #fecaca; }
+
+button.save-busy {
+  opacity: 0.8;
+  cursor: wait;
+}
+
+button.save-ok {
+  border-color: rgba(34, 197, 94, 0.45);
+  color: #bbf7d0;
+}
 
 @media (max-width: 900px) {
   .detail-grid { grid-template-columns: 1fr; }

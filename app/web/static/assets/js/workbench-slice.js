@@ -172,6 +172,7 @@ window.WorkbenchSlice = (() => {
   }
 
   async function saveDraft() {
+    const button = document.getElementById('save-slice-btn');
     const name = document.getElementById('slice-name').value.trim();
     const conceptId = selectedConceptId();
     if (!conceptId) {
@@ -184,24 +185,45 @@ window.WorkbenchSlice = (() => {
     }
     const filter = baseFilter(conceptId, readCategoryIds());
     const payload = { name, filter };
-    setStatus('Saving training set…');
-    const slice = activeSliceId && activeSlice()?.status === 'DRAFT'
-      ? await StudioApi.updateSlice(activeSliceId, payload)
-      : await StudioApi.createSlice(payload);
-    activeSliceId = slice.id;
-    await refreshSlices();
-    window.WorkbenchTraining?.refreshHistory?.();
-    setStatus(`Saved “${slice.name}” with ${slice.asset_count} track${slice.asset_count === 1 ? '' : 's'}. Lock tracks when ready.`);
+    await StudioSave.run(
+      button,
+      async () => {
+        const slice = activeSliceId && activeSlice()?.status === 'DRAFT'
+          ? await StudioApi.updateSlice(activeSliceId, payload)
+          : await StudioApi.createSlice(payload);
+        activeSliceId = slice.id;
+        await refreshSlices();
+        window.WorkbenchTraining?.refreshHistory?.();
+        setStatus('');
+        return slice;
+      },
+      {
+        savingLabel: 'Saving training set…',
+        successMessage: (slice) => `Saved “${slice.name}” (${slice.asset_count} track${slice.asset_count === 1 ? '' : 's'}).`,
+        feedbackEl: 'slice-save-feedback',
+      },
+    );
   }
 
   async function freezeSlice() {
     if (!activeSliceId) return;
-    setStatus('Locking tracks…');
-    const slice = await StudioApi.freezeSlice(activeSliceId);
-    await refreshSlices();
-    window.WorkbenchTraining?.refreshHistory?.();
-    window.WorkbenchTraining?.refreshTrainableSlices?.();
-    setStatus(`Locked “${slice.name}”. You can start calibration training in Step 2.`);
+    const button = document.getElementById('freeze-slice-btn');
+    await StudioSave.run(
+      button,
+      async () => {
+        const slice = await StudioApi.freezeSlice(activeSliceId);
+        await refreshSlices();
+        window.WorkbenchTraining?.refreshHistory?.();
+        window.WorkbenchTraining?.refreshTrainableSlices?.();
+        setStatus('');
+        return slice;
+      },
+      {
+        savingLabel: 'Locking tracks…',
+        successMessage: (slice) => `Locked “${slice.name}”.`,
+        feedbackEl: 'slice-save-feedback',
+      },
+    );
   }
 
   function applyFilterToForm(filter) {
@@ -248,8 +270,8 @@ window.WorkbenchSlice = (() => {
       runPreview().catch((err) => setStatus(err.message, true));
     });
     document.getElementById('slice-name').addEventListener('input', updateActionButtons);
-    document.getElementById('save-slice-btn').addEventListener('click', () => saveDraft().catch((err) => setStatus(err.message, true)));
-    document.getElementById('freeze-slice-btn').addEventListener('click', () => freezeSlice().catch((err) => setStatus(err.message, true)));
+    document.getElementById('save-slice-btn').addEventListener('click', () => saveDraft().catch(() => {}));
+    document.getElementById('freeze-slice-btn').addEventListener('click', () => freezeSlice().catch(() => {}));
   }
 
   return {
