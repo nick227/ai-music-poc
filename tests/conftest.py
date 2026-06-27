@@ -24,6 +24,7 @@ def clear_caches():
     dependencies.get_metadata_store.cache_clear()
     dependencies.get_bundle_service.cache_clear()
     dependencies.get_generation_service.cache_clear()
+    dependencies.get_song_service.cache_clear()
     dependencies.get_registry.cache_clear()
     dependencies.get_preset_service.cache_clear()
 

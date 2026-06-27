@@ -31,8 +31,8 @@ function renderModelCard() {
   const statusEl = document.getElementById('model-status-text');
   const message = modelStatus?.user_message || (ready ? 'Your model is ready to generate.' : 'Your model still needs setup.');
   statusEl.textContent = ready
-    ? `${message} Tracks you select below will be packaged for fine-tuning.`
-    : `${message} You can still pick tracks — finish setup in Settings when you're ready to train.`;
+    ? `${message} Select reviewed reference tracks below. Training export ships in a later phase.`
+    : `${message} You can still pick tracks — finish setup in Settings when you're ready to generate.`;
   statusEl.classList.toggle('ready', !!ready);
 
   const rows = [
@@ -69,7 +69,7 @@ function renderSummary() {
     summary.textContent = `${selected} of ${total} tracks selected`;
   }
 
-  downloadBtn.disabled = selected === 0;
+  downloadBtn.disabled = true;
   selectAllBtn.disabled = false;
   selectAllBtn.textContent = selected === total ? 'Clear selection' : 'Select all';
 }

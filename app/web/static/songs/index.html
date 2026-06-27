@@ -6,6 +6,7 @@
     <title>Songs - AI Music Studio</title>
     <link rel="stylesheet" href="/assets/css/base.css" />
     <link rel="stylesheet" href="/assets/css/studio.css" />
+    <link rel="stylesheet" href="/assets/css/songs.css" />
   </head>
   <body data-studio-tab="songs">
     <main class="shell studio-shell">
@@ -14,24 +15,81 @@
       <section class="studio-hero">
         <p class="eyebrow">Songs</p>
         <h1>Generated outputs</h1>
+        <p class="muted">Review generated songs, inspect Version Details, and record decisions.</p>
       </section>
 
-      <div class="data-table-wrap">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th></th>
-              <th>Title</th>
-              <th>Backend</th>
-              <th>Status</th>
-              <th>Review</th>
-              <th>Duration</th>
-              <th>Created</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody id="song-rows"></tbody>
-        </table>
+      <div class="songs-layout">
+        <section class="songs-list-panel">
+          <div class="toolbar">
+            <select id="filter-review">
+              <option value="">All review</option>
+              <option value="NEEDS_REVIEW">Needs review</option>
+              <option value="REVIEWED">Reviewed</option>
+              <option value="REJECTED">Rejected</option>
+            </select>
+          </div>
+
+          <div class="data-table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Title</th>
+                  <th>Backend</th>
+                  <th>Review</th>
+                  <th>Decision</th>
+                  <th>Duration</th>
+                </tr>
+              </thead>
+              <tbody id="song-rows"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <aside class="card songs-detail-panel" id="song-detail">
+          <p class="empty-detail muted">Select a song to play audio, view Version Details, and submit a review decision.</p>
+
+          <div id="song-detail-body" hidden>
+            <div class="songs-detail-head">
+              <h2 id="detail-title">—</h2>
+              <span id="detail-review-pill" class="status-pill">—</span>
+            </div>
+
+            <audio id="detail-player" controls preload="metadata"></audio>
+
+            <section class="version-details-card">
+              <h3>Version Details</h3>
+              <dl id="version-details" class="detail-meta"></dl>
+            </section>
+
+            <section class="review-card">
+              <h3>Review decision</h3>
+              <div class="review-actions" id="review-actions">
+                <button type="button" class="ghost small" data-decision="KEEPER">Keeper</button>
+                <button type="button" class="ghost small" data-decision="REJECT">Reject</button>
+                <button type="button" class="ghost small" data-decision="USE_AS_REFERENCE">Use as reference</button>
+                <button type="button" class="ghost small" data-decision="USE_AS_NEGATIVE">Use as negative</button>
+                <button type="button" class="ghost small" data-decision="COMPARE">Compare</button>
+                <button type="button" class="ghost small" data-decision="REGENERATE">Regenerate</button>
+              </div>
+              <label class="review-score-label">
+                Overall score
+                <select id="review-score">
+                  <option value="">—</option>
+                  <option value="1">1</option>
+                  <option value="2">2</option>
+                  <option value="3">3</option>
+                  <option value="4">4</option>
+                  <option value="5">5</option>
+                </select>
+              </label>
+              <label class="review-notes-label">
+                Notes
+                <textarea id="review-notes" rows="3" placeholder="Optional review notes"></textarea>
+              </label>
+              <p id="review-feedback" class="review-feedback muted" hidden></p>
+            </section>
+          </div>
+        </aside>
       </div>
     </main>
     <script src="/assets/js/studio-routes.js"></script>

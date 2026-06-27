@@ -1,3 +1,4 @@
+from app.domain.enums import ReviewDecision
 from app.domain.models import (
     GenerationRequest,
     GenerationResult,
@@ -6,6 +7,7 @@ from app.domain.models import (
     MediaAsset,
     MediaKind,
     MediaSource,
+    ReviewStatus,
 )
 from app.storage.local_job_store import LocalJobStore
 from app.storage.local_media_store import LocalMediaStore
@@ -83,7 +85,9 @@ def test_list_songs_returns_generated_songs_with_generation_metadata(client):
     assert song["id"] == media.id
     assert song["kind"] == "GENERATED_SONG"
     assert song["review_status"] == "NEEDS_REVIEW"
+    assert song["audio_url"] == f"/api/media/{media.id}/audio"
     assert song["version_details"]["backend"] == "fake-backend"
+    assert song["version_details"]["model_version"] == "fake-v1"
     assert song["generation"]["id"] == "gen_song_api_1"
     assert song["generation"]["status"] == "SUCCEEDED"
     assert song["generation"]["output_path"] == "outputs/gen_song_api_1.wav"
@@ -102,13 +106,14 @@ def test_get_song_returns_detail_for_generated_song(client):
     assert song["id"] == media.id
     assert song["media_asset_id"] == media.id
     assert song["file_path"] == "outputs/gen_song_api_1.wav"
+    assert song["audio_url"] == f"/api/media/{media.id}/audio"
     assert song["duration_seconds"] == 10
     assert song["sample_rate"] == 44100
     assert song["channels"] == 2
     assert song["generation_id"] == "gen_song_api_1"
     assert song["generation"]["backend"] == "fake-backend"
     assert song["generation"]["model_version"] == "fake-v1"
-    assert song["version_details"]["modelVersion"] == "fake-v1"
+    assert song["version_details"]["model_version"] == "fake-v1"
 
 
 def test_get_song_rejects_non_generated_media(client):
@@ -125,3 +130,58 @@ def test_get_song_rejects_non_generated_media(client):
     res = c.get("/api/songs/media_upload_1")
 
     assert res.status_code == 404
+
+
+def test_review_song_keeper_marks_reviewed(client):
+    c, data_dir = client
+    media = _seed_generated_song(data_dir)
+
+    res = c.post(
+        f"/api/songs/{media.id}/review",
+        json={"decision": "KEEPER", "overall_score": 5, "notes": "strong chorus"},
+    )
+
+    assert res.status_code == 200
+    song = res.json()
+    assert song["review_status"] == "REVIEWED"
+    assert song["review_decision"] == "KEEPER"
+    assert song["review_score"] == 5
+    assert song["review_notes"] == "strong chorus"
+
+
+def test_review_song_reject_marks_rejected(client):
+    c, data_dir = client
+    media = _seed_generated_song(data_dir)
+
+    res = c.post(
+        f"/api/songs/{media.id}/review",
+        json={"decision": "REJECT", "overall_score": 2},
+    )
+
+    assert res.status_code == 200
+    song = res.json()
+    assert song["review_status"] == "REJECTED"
+    assert song["review_decision"] == "REJECT"
+    assert song["review_score"] == 2
+
+
+def test_list_songs_filters_by_review_status(client):
+    c, data_dir = client
+    media = _seed_generated_song(data_dir)
+    reviewed = MediaAsset(
+        id="media_gen_reviewed",
+        title="Reviewed Song",
+        kind=MediaKind.GENERATED_SONG,
+        source=MediaSource.GENERATION,
+        review_status=ReviewStatus.REVIEWED,
+        review_decision=ReviewDecision.KEEPER,
+    )
+    LocalMediaStore(data_dir / "media").save(reviewed)
+
+    needs = c.get("/api/songs", params={"review_status": "NEEDS_REVIEW"}).json()["songs"]
+    reviewed_rows = c.get("/api/songs", params={"review_status": "REVIEWED"}).json()["songs"]
+
+    assert len(needs) == 1
+    assert needs[0]["id"] == media.id
+    assert len(reviewed_rows) == 1
+    assert reviewed_rows[0]["id"] == reviewed.id

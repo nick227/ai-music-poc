@@ -10,6 +10,7 @@ from app.services.generation_service import GenerationService
 from app.services.job_service import JobService
 from app.services.media_service import MediaService
 from app.services.preset_service import PresetService
+from app.services.song_service import SongService
 from app.storage.assignment_store import AssignmentStore
 from app.storage.category_store import CategoryStore
 from app.storage.concept_store import ConceptStore
@@ -122,6 +123,11 @@ def get_generation_service():
         metadata_store=get_metadata_store(),
         settings=settings,
     )
+
+
+@lru_cache
+def get_song_service():
+    return SongService(get_media_store(), get_job_service())
 
 
 @lru_cache

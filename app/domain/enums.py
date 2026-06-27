@@ -46,3 +46,13 @@ class AssignmentRole(str, Enum):
     EDGE_CASE = "EDGE_CASE"
     KEEPER = "KEEPER"
     REJECT = "REJECT"
+
+
+class ReviewDecision(str, Enum):
+    KEEPER = "KEEPER"
+    REJECT = "REJECT"
+    COMPARE = "COMPARE"
+    PROMOTE = "PROMOTE"
+    USE_AS_REFERENCE = "USE_AS_REFERENCE"
+    USE_AS_NEGATIVE = "USE_AS_NEGATIVE"
+    REGENERATE = "REGENERATE"

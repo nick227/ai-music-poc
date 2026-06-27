@@ -1,0 +1,90 @@
+.songs-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.9fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.songs-list-panel .toolbar { margin-bottom: 12px; }
+
+.songs-detail-panel {
+  position: sticky;
+  top: 16px;
+  padding: 18px;
+}
+
+.songs-detail-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.songs-detail-head h2 {
+  margin: 0;
+  font-size: 20px;
+}
+
+#detail-player {
+  width: 100%;
+  margin-bottom: 16px;
+}
+
+.version-details-card,
+.review-card {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+
+.version-details-card h3,
+.review-card h3 {
+  margin: 0 0 12px;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #a1a1aa;
+}
+
+.review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.review-actions button.active {
+  background: rgba(139,92,246,0.25);
+  color: #fafafa;
+}
+
+.review-score-label,
+.review-notes-label {
+  display: block;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: #d4d4d8;
+}
+
+.review-score-label select,
+.review-notes-label textarea {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+}
+
+.review-feedback.saved { color: #bbf7d0; }
+
+.data-table tbody tr.selected { background: rgba(139,92,246,0.12); }
+
+.data-table tbody tr { cursor: pointer; }
+
+.empty-detail { margin: 0; font-size: 14px; line-height: 1.5; }
+
+.status-pill.rejected { background: rgba(239,68,68,0.15); color: #fecaca; }
+
+@media (max-width: 960px) {
+  .songs-layout { grid-template-columns: 1fr; }
+  .songs-detail-panel { position: static; }
+}

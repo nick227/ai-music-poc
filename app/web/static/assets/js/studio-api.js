@@ -38,11 +38,22 @@ window.StudioApi = {
       body: JSON.stringify(payload),
     });
   },
-  listSongs(limit = 100) {
-    return this.request(`/api/songs?limit=${limit}`).then((r) => r.songs || []);
+  listSongs(params = {}) {
+    const query = new URLSearchParams();
+    query.set('limit', String(params.limit || 100));
+    if (params.review_status) query.set('review_status', params.review_status);
+    if (params.review_decision) query.set('review_decision', params.review_decision);
+    return this.request(`/api/songs?${query}`).then((r) => r.songs || []);
   },
   getSong(id) {
     return this.request(`/api/songs/${id}`);
+  },
+  reviewSong(id, payload) {
+    return this.request(`/api/songs/${id}/review`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
   },
   modelStatus() {
     return this.request('/api/model-status');

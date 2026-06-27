@@ -7,6 +7,8 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.domain.enums import ReviewDecision
+
 
 class JobStatus(str, Enum):
     QUEUED = "QUEUED"
@@ -133,6 +135,9 @@ class MediaAsset(BaseModel):
     channels: Optional[int] = None
     review_status: ReviewStatus = ReviewStatus.NEEDS_REVIEW
     rights_status: RightsStatus = RightsStatus.UNKNOWN
+    review_decision: Optional[ReviewDecision] = None
+    review_score: Optional[int] = Field(default=None, ge=1, le=5)
+    review_notes: Optional[str] = None
     generation_id: Optional[str] = None
     version_details: Dict[str, Any] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -181,15 +186,33 @@ class SongResponse(BaseModel):
     media_asset_id: str
     kind: MediaKind
     file_path: Optional[str] = None
+    audio_url: Optional[str] = None
     duration_seconds: Optional[float] = None
     sample_rate: Optional[int] = None
     channels: Optional[int] = None
     review_status: ReviewStatus
+    review_decision: Optional[ReviewDecision] = None
+    review_score: Optional[int] = None
+    review_notes: Optional[str] = None
     generation_id: Optional[str] = None
     version_details: Dict[str, Any] = Field(default_factory=dict)
     generation: Optional[SongGenerationSummary] = None
     created_at: datetime
     updated_at: datetime
+
+
+class SongReviewRequest(BaseModel):
+    decision: ReviewDecision
+    overall_score: Optional[int] = Field(default=None, ge=1, le=5)
+    notes: Optional[str] = None
+
+    @field_validator("notes")
+    @classmethod
+    def strip_notes(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        value = value.strip()
+        return value or None
 
 
 class SongListResponse(BaseModel):
