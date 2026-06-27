@@ -50,15 +50,15 @@ window.WorkbenchSessions = (() => {
     return update(session);
   }
 
-  function addMedia(session, mediaId) {
+  function addMedia(session, mediaId, title) {
     if (session.media_ids.includes(mediaId)) return session;
     session.media_ids.push(mediaId);
-    return log(session, 'media_added', `Added ${mediaId}`);
+    return log(session, 'media_added', title || mediaId);
   }
 
-  function removeMedia(session, mediaId) {
+  function removeMedia(session, mediaId, title) {
     session.media_ids = session.media_ids.filter((id) => id !== mediaId);
-    return log(session, 'media_removed', `Removed ${mediaId}`);
+    return log(session, 'media_removed', title || mediaId);
   }
 
   function setStatus(session, status) {

@@ -1,8 +1,10 @@
-const TRAINING_ROLES = new Set(['GOLD_REFERENCE', 'TRAINING_CANDIDATE']);
+const TRAINING_ROLES = new Set(['GOLD_REFERENCE', 'TRAINING_CANDIDATE', 'REFERENCE']);
 
 let sessions = [];
 let activeSession = null;
-let mediaById = new Map();
+let modelStatus = null;
+let categoriesById = new Map();
+let eligibleMedia = [];
 
 function queryMediaId() {
   return new URLSearchParams(window.location.search).get('media_id');
@@ -17,115 +19,128 @@ function isTrainingEligible(item) {
 
 function roleLabel(item) {
   if (item.primary_role) return item.primary_role.replace(/_/g, ' ').toLowerCase();
+  const first = item.category_assignments?.[0];
+  if (first?.role) return first.role.replace(/_/g, ' ').toLowerCase();
   return '—';
 }
 
-function catCount(item) {
-  return item.category_assignment_count ?? item.category_assignments?.length ?? 0;
+function categoryLabels(item) {
+  const assignments = item.category_assignments || [];
+  return assignments.map((a) => {
+    const cat = categoriesById.get(a.category_id);
+    return cat ? cat.name : a.category_id;
+  });
 }
 
-async function loadMedia() {
-  const rows = await StudioApi.listMedia({ limit: 200 });
-  mediaById = new Map(rows.map((row) => [row.id, row]));
+function renderModelCard() {
+  const summary = document.getElementById('model-summary');
+  const ready = modelStatus?.can_generate || modelStatus?.wiring_ok;
+  summary.textContent = modelStatus?.user_message || (ready ? 'Model wiring looks ready' : 'Model not fully configured');
+  summary.classList.toggle('ready', !!ready);
+
+  const rows = [
+    ['Backend', 'ACE-Step'],
+    ['Model dir', modelStatus?.ace_model_dir || '—'],
+    ['Generate ready', ready ? 'yes' : 'no'],
+    ['HF cache', modelStatus?.hf_cache_exists ? 'present' : 'missing'],
+  ];
+  document.getElementById('model-meta').innerHTML = rows
+    .map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`)
+    .join('');
 }
 
-function renderSessions() {
-  const list = document.getElementById('session-list');
+function renderSessionSelect() {
+  const select = document.getElementById('session-select');
   if (!sessions.length) {
-    list.innerHTML = '<p class="table-meta">No sessions yet</p>';
+    select.innerHTML = '<option value="">No sessions</option>';
     return;
   }
-  list.innerHTML = sessions.map((session) => `
-    <button type="button" class="session-item ${activeSession?.id === session.id ? 'active' : ''}" data-id="${session.id}">
-      <span class="session-item-name">${session.name}</span>
-      <span class="session-item-meta">${session.media_ids.length} · ${session.status}</span>
-    </button>
+  select.innerHTML = sessions.map((s) => `
+    <option value="${s.id}" ${s.id === activeSession?.id ? 'selected' : ''}>${s.name} (${s.media_ids.length})</option>
   `).join('');
-  list.querySelectorAll('.session-item').forEach((btn) => {
-    btn.addEventListener('click', () => selectSession(btn.dataset.id));
-  });
 }
 
 function renderStats() {
-  const payload = activeSession.media_ids.map((id) => mediaById.get(id)).filter(Boolean);
-  const gold = payload.filter((item) => item.primary_role === 'GOLD_REFERENCE').length;
-  const candidates = payload.filter((item) => item.primary_role === 'TRAINING_CANDIDATE').length;
+  const inSlice = activeSession.media_ids
+    .map((id) => eligibleMedia.find((m) => m.id === id))
+    .filter(Boolean);
+  const gold = inSlice.filter((item) => item.primary_role === 'GOLD_REFERENCE').length;
+  const candidates = inSlice.filter((item) => item.primary_role === 'TRAINING_CANDIDATE').length;
   const cats = new Set();
-  payload.forEach((item) => {
+  inSlice.forEach((item) => {
     (item.category_assignments || []).forEach((a) => cats.add(a.category_id));
   });
+  const eligibleCount = eligibleMedia.length;
+
   document.getElementById('session-stats').innerHTML = `
-    <span class="stat-pill">${payload.length} tracks</span>
-    <span class="stat-pill">${gold} gold</span>
+    <span class="stat-pill highlight">${inSlice.length} in slice</span>
+    <span class="stat-pill">${eligibleCount} eligible in Media</span>
+    <span class="stat-pill">${gold} gold ref</span>
     <span class="stat-pill">${candidates} candidates</span>
-    <span class="stat-pill">${cats.size} categories</span>
+    <span class="stat-pill">${cats.size} categories covered</span>
   `;
-  document.getElementById('payload-count').textContent = String(payload.length);
+  document.getElementById('slice-count').textContent = String(inSlice.length);
+
+  const hint = document.getElementById('slice-hint');
+  if (!eligibleCount) {
+    hint.textContent = 'No eligible tracks yet — categorize and mark reviewed in Media, then return here.';
+  } else if (!inSlice.length) {
+    hint.textContent = `${eligibleCount} reviewed categorized track${eligibleCount === 1 ? '' : 's'} available. Toggle rows or use "Include all eligible".`;
+  } else {
+    hint.textContent = `Slice pulls ${inSlice.length} of ${eligibleCount} eligible tracks toward the target model above.`;
+  }
 }
 
-function renderPayload() {
-  const tbody = document.getElementById('payload-rows');
-  const items = activeSession.media_ids.map((id) => mediaById.get(id)).filter(Boolean);
-  if (!items.length) {
-    tbody.innerHTML = '<tr><td colspan="5" class="table-meta">No tracks in payload — add from pool below or Media</td></tr>';
-    return;
-  }
-  tbody.innerHTML = items.map((item) => `
-    <tr>
-      <td class="table-title"><a href="${StudioRoutes.mediaDetail(item.id)}">${item.title}</a></td>
-      <td class="table-meta">${roleLabel(item)}</td>
-      <td><span class="count-pill ${catCount(item) ? 'has-value' : ''}">${catCount(item)}</span></td>
-      <td class="table-meta">${item.review_status.replace(/_/g, ' ').toLowerCase()}</td>
-      <td><button type="button" class="ghost small" data-remove="${item.id}">Remove</button></td>
-    </tr>
-  `).join('');
-  tbody.querySelectorAll('[data-remove]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      activeSession = WorkbenchSessions.removeMedia(activeSession, btn.dataset.remove);
-      sessions = WorkbenchSessions.loadAll();
-      renderAll();
-    });
-  });
-}
+function renderTrainingTable() {
+  const tbody = document.getElementById('training-rows');
+  const inSlice = new Set(activeSession?.media_ids || []);
 
-function renderPool() {
-  const tbody = document.getElementById('pool-rows');
-  const inPayload = new Set(activeSession.media_ids);
-  const pool = [...mediaById.values()].filter((item) => isTrainingEligible(item) && !inPayload.has(item.id));
-  if (!pool.length) {
-    tbody.innerHTML = '<tr><td colspan="4" class="table-meta">No eligible media — categorize and mark reviewed in Media</td></tr>';
+  if (!eligibleMedia.length) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="6" class="table-meta">
+          No training-ready media — <a href="${StudioRoutes.media}">open Media</a> to import, categorize, and mark reviewed.
+        </td>
+      </tr>`;
     return;
   }
-  tbody.innerHTML = pool.map((item) => `
-    <tr>
-      <td class="table-title"><a href="${StudioRoutes.mediaDetail(item.id)}">${item.title}</a></td>
-      <td class="table-meta">${roleLabel(item)}</td>
-      <td><span class="count-pill ${catCount(item) ? 'has-value' : ''}">${catCount(item)}</span></td>
-      <td><button type="button" class="ghost small" data-add="${item.id}">Add</button></td>
-    </tr>
-  `).join('');
-  tbody.querySelectorAll('[data-add]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      activeSession = WorkbenchSessions.addMedia(activeSession, btn.dataset.add);
-      sessions = WorkbenchSessions.loadAll();
-      renderAll();
-    });
+
+  tbody.innerHTML = eligibleMedia.map((item) => {
+    const included = inSlice.has(item.id);
+    const labels = categoryLabels(item);
+    const tags = labels.length
+      ? labels.map((name) => `<span class="cat-tag">${name}</span>`).join('')
+      : '<span class="table-meta">—</span>';
+    const reviewClass = item.review_status === 'NEEDS_REVIEW' ? 'status-pill needs-review' : 'status-pill reviewed';
+    return `
+      <tr data-id="${item.id}">
+        <td><input type="checkbox" class="slice-toggle" data-id="${item.id}" ${included ? 'checked' : ''} /></td>
+        <td class="table-title"><a href="${StudioRoutes.mediaDetail(item.id)}">${item.title}</a></td>
+        <td class="table-meta">${roleLabel(item)}</td>
+        <td><div class="cat-tags">${tags}</div></td>
+        <td><span class="${reviewClass}">${item.review_status.replace(/_/g, ' ').toLowerCase()}</span></td>
+        <td><a class="button ghost small" href="${StudioRoutes.mediaDetail(item.id)}">Edit</a></td>
+      </tr>
+    `;
+  }).join('');
+
+  tbody.querySelectorAll('.slice-toggle').forEach((input) => {
+    input.addEventListener('change', () => toggleSlice(input.dataset.id, input.checked));
   });
 }
 
 function renderHistory() {
   const list = document.getElementById('history-list');
-  const entries = activeSession.history || [];
-  list.innerHTML = entries.map((entry) => `
-    <li><time>${new Date(entry.at).toLocaleString()}</time> <strong>${entry.action}</strong> — ${entry.detail}</li>
-  `).join('');
+  const entries = activeSession?.history || [];
+  list.innerHTML = entries.length
+    ? entries.map((entry) => `
+        <li><time>${new Date(entry.at).toLocaleString()}</time> <strong>${entry.action}</strong> — ${entry.detail}</li>
+      `).join('')
+    : '<li class="table-meta">No history yet</li>';
 }
 
 function renderActive() {
-  const hasSession = !!activeSession;
-  document.getElementById('session-main').hidden = !hasSession;
-  document.getElementById('session-empty').hidden = hasSession;
-  if (!hasSession) return;
+  if (!activeSession) return;
 
   document.getElementById('session-name').value = activeSession.name;
   document.getElementById('session-notes').value = activeSession.notes || '';
@@ -133,14 +148,19 @@ function renderActive() {
   statusEl.textContent = activeSession.status;
   statusEl.className = `status-pill ${activeSession.status === 'ready' ? 'reviewed' : 'needs-review'}`;
 
+  if (modelStatus && !activeSession.base_model_version) {
+    activeSession.base_model_version = modelStatus.ace_model_dir || '';
+    WorkbenchSessions.update(activeSession);
+  }
+
+  renderSessionSelect();
   renderStats();
-  renderPayload();
-  renderPool();
+  renderTrainingTable();
   renderHistory();
 }
 
 function renderAll() {
-  renderSessions();
+  renderSessionSelect();
   renderActive();
 }
 
@@ -155,23 +175,69 @@ function createSession() {
   renderAll();
 }
 
+function toggleSlice(mediaId, included) {
+  const media = eligibleMedia.find((m) => m.id === mediaId);
+  const title = media?.title || mediaId;
+  if (included) {
+    activeSession = WorkbenchSessions.addMedia(activeSession, mediaId, title);
+  } else {
+    activeSession = WorkbenchSessions.removeMedia(activeSession, mediaId, title);
+  }
+  sessions = WorkbenchSessions.loadAll();
+  renderAll();
+}
+
+function syncAllEligible() {
+  let added = 0;
+  for (const item of eligibleMedia) {
+    if (!activeSession.media_ids.includes(item.id)) {
+      activeSession = WorkbenchSessions.addMedia(activeSession, item.id, item.title);
+      added += 1;
+    }
+  }
+  if (added) {
+    activeSession = WorkbenchSessions.log(activeSession, 'synced', `Included ${added} eligible track${added === 1 ? '' : 's'} from Media`);
+  }
+  sessions = WorkbenchSessions.loadAll();
+  renderAll();
+}
+
 function saveSessionFields() {
   if (!activeSession) return;
   activeSession.name = document.getElementById('session-name').value.trim() || activeSession.name;
   activeSession.notes = document.getElementById('session-notes').value.trim();
   activeSession = WorkbenchSessions.log(activeSession, 'updated', 'Session details saved');
   sessions = WorkbenchSessions.loadAll();
-  renderSessions();
+  renderSessionSelect();
 }
 
 function exportPayload() {
   if (!activeSession) return;
+  const media = activeSession.media_ids
+    .map((id) => eligibleMedia.find((m) => m.id === id))
+    .filter(Boolean);
   const payload = {
     session_id: activeSession.id,
     name: activeSession.name,
     status: activeSession.status,
-    base_model_version: activeSession.base_model_version,
-    media: activeSession.media_ids.map((id) => mediaById.get(id)).filter(Boolean),
+    target_model: {
+      backend: 'ACE-Step',
+      model_dir: modelStatus?.ace_model_dir || activeSession.base_model_version,
+      can_generate: modelStatus?.can_generate ?? false,
+    },
+    media: media.map((item) => ({
+      id: item.id,
+      title: item.title,
+      role: item.primary_role,
+      review_status: item.review_status,
+      categories: (item.category_assignments || []).map((a) => ({
+        category_id: a.category_id,
+        name: categoriesById.get(a.category_id)?.name || a.category_id,
+        role: a.role,
+        quality_score: a.quality_score,
+        fit_score: a.fit_score,
+      })),
+    })),
     exported_at: new Date().toISOString(),
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
@@ -181,40 +247,49 @@ function exportPayload() {
   link.download = `${activeSession.name.replace(/\s+/g, '-').toLowerCase()}-payload.json`;
   link.click();
   URL.revokeObjectURL(url);
-  activeSession = WorkbenchSessions.log(activeSession, 'exported', 'Training payload exported');
+  activeSession = WorkbenchSessions.log(activeSession, 'exported', `Exported ${media.length} tracks toward target model`);
   sessions = WorkbenchSessions.loadAll();
   renderHistory();
 }
 
-async function init() {
-  await loadMedia();
-  const status = await StudioApi.modelStatus();
-  sessions = WorkbenchSessions.loadAll();
-  sessions.forEach((session) => {
-    if (!session.base_model_version) session.base_model_version = status.model_version || status.ace_model_dir || '';
-  });
+async function loadTaxonomy() {
+  const res = await StudioApi.listCategories();
+  categoriesById = new Map((res.categories || []).map((c) => [c.id, c]));
+}
 
+async function loadEligibleMedia() {
+  const summaries = await StudioApi.listMedia({ limit: 200 });
+  const candidates = summaries.filter(isTrainingEligible);
+  eligibleMedia = await Promise.all(candidates.map((s) => StudioApi.getMedia(s.id)));
+}
+
+async function init() {
+  const [status] = await Promise.all([StudioApi.modelStatus(), loadTaxonomy(), loadEligibleMedia()]);
+  modelStatus = status;
+  renderModelCard();
+
+  sessions = WorkbenchSessions.loadAll();
   if (!sessions.length) {
-    renderSessions();
-    document.getElementById('session-empty').hidden = false;
-    document.getElementById('session-main').hidden = true;
+    activeSession = WorkbenchSessions.create();
+    sessions = WorkbenchSessions.loadAll();
   } else {
     activeSession = sessions[0];
-    renderAll();
   }
 
   const mediaId = queryMediaId();
-  if (mediaId) {
-    if (!activeSession) createSession();
-    if (mediaById.has(mediaId)) {
-      activeSession = WorkbenchSessions.addMedia(activeSession, mediaId);
+  if (mediaId && eligibleMedia.some((m) => m.id === mediaId)) {
+    if (!activeSession.media_ids.includes(mediaId)) {
+      const item = eligibleMedia.find((m) => m.id === mediaId);
+      activeSession = WorkbenchSessions.addMedia(activeSession, mediaId, item?.title);
       sessions = WorkbenchSessions.loadAll();
-      renderAll();
     }
   }
 
+  renderAll();
+
+  document.getElementById('session-select').addEventListener('change', (e) => selectSession(e.target.value));
   document.getElementById('new-session-btn').addEventListener('click', createSession);
-  document.getElementById('new-session-empty-btn').addEventListener('click', createSession);
+  document.getElementById('sync-eligible-btn').addEventListener('click', syncAllEligible);
   document.getElementById('session-name').addEventListener('change', saveSessionFields);
   document.getElementById('session-notes').addEventListener('change', saveSessionFields);
   document.getElementById('mark-ready-btn').addEventListener('click', () => {
