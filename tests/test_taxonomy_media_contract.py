@@ -199,6 +199,19 @@ def test_assignment_mark_reviewed_updates_inbox(client):
     assert detail["review_status"] == "REVIEWED"
 
 
+def test_create_category_inline(client):
+    c, _ = client
+    res = c.post("/api/categories", json={"name": "Trip Hop", "dimension": "GENRE"})
+    assert res.status_code == 200
+    body = res.json()
+    assert body["name"] == "Trip Hop"
+    assert body["dimension"] == "GENRE"
+    assert body["slug"] == "trip-hop"
+
+    listed = c.get("/api/categories", params={"dimension": "GENRE"}).json()["categories"]
+    assert any(item["id"] == body["id"] for item in listed)
+
+
 def test_list_media_filters_review_status(client):
     c, data_dir = client
     c.post("/api/media/import", files=[wav_upload("inbox.wav")])

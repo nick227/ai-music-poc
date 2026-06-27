@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, Query
 
 from app.api.dependencies import get_category_service
-from app.api.schemas.taxonomy_api import CategoryListResponse
+from app.api.schemas.taxonomy_api import CategoryCreateRequest, CategoryListResponse
 from app.domain.enums import CategoryDimension
+from app.domain.taxonomy import Category
 from app.services.category_service import CategoryService
 
 router = APIRouter(prefix="/api", tags=["categories"])
@@ -15,6 +16,20 @@ def list_categories(
 ):
     category_service.seed_if_empty()
     return CategoryListResponse(categories=category_service.list(dimension=dimension))
+
+
+@router.post("/categories", response_model=Category)
+def create_category(
+    request: CategoryCreateRequest,
+    category_service: CategoryService = Depends(get_category_service),
+):
+    category_service.seed_if_empty()
+    return category_service.create(
+        name=request.name,
+        dimension=request.dimension,
+        slug=request.slug,
+        description=request.description,
+    )
 
 
 @router.get("/categories/{category_id}")

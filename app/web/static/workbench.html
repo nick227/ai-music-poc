@@ -17,29 +17,23 @@
       <section class="hero">
         <p class="eyebrow">Workbench</p>
         <h1>Media Inbox</h1>
-        <p class="muted">Rapidly ingest, categorize, and prepare media for the Studio.</p>
+        <p class="muted">Browse, suggest, or create categories — no taxonomy memorization required.</p>
       </section>
 
       <div class="workbench-layout">
-        <!-- Sidebar: Queue List -->
         <aside class="card queue-panel">
           <div class="section-head">
             <h2>Inbox Queue</h2>
             <span id="queue-count" class="badge">0</span>
           </div>
-          
           <div id="dropzone" class="dropzone">
             <p>Drag & drop audio files here</p>
             <input type="file" id="file-upload" multiple accept="audio/*" hidden />
-            <button class="ghost small" onclick="document.getElementById('file-upload').click()">Browse Files</button>
+            <button class="ghost small" type="button" onclick="document.getElementById('file-upload').click()">Browse Files</button>
           </div>
-
-          <div id="queue-list" class="queue-list muted">
-            <!-- Queue items go here -->
-          </div>
+          <div id="queue-list" class="queue-list muted"></div>
         </aside>
 
-        <!-- Main Area: Editor -->
         <section class="card editor-panel">
           <div id="empty-editor-state" class="empty-state">
             <p class="muted">Select an item from the queue to start tagging.</p>
@@ -56,58 +50,77 @@
 
             <audio id="media-player" controls></audio>
 
-            <div class="quick-categorizer">
-              <label>
-                Categories
-                <div class="search-wrap">
-                  <input type="text" id="cat-search" placeholder="Search categories..." autocomplete="off"/>
-                  <div id="cat-results" class="search-results hidden"></div>
-                </div>
-                <div id="cat-chips" class="chips-container"></div>
-              </label>
+            <section class="taxonomy-block">
+              <div class="block-head">
+                <h3>Categories</h3>
+                <p class="muted small">Selected</p>
+              </div>
+              <div id="cat-chips" class="chips-container selected-chips"></div>
 
-              <label>
-                Concepts
-                <div class="search-wrap">
-                  <input type="text" id="con-search" placeholder="Search concepts..." autocomplete="off"/>
-                  <div id="con-results" class="search-results hidden"></div>
-                </div>
-                <div id="con-chips" class="chips-container"></div>
-              </label>
-            </div>
+              <div class="block-head">
+                <p class="muted small">Suggested</p>
+              </div>
+              <div id="cat-suggestions" class="chips-container suggestion-chips"></div>
 
-            <div class="row">
-              <label>
-                Quality Score (1-5)
-                <input type="number" id="quality-score" min="1" max="5" placeholder="e.g. 4" />
-              </label>
-              <label>
-                Fit Score (1-5)
-                <input type="number" id="fit-score" min="1" max="5" placeholder="e.g. 5" />
-              </label>
-              <label>
-                Role
-                <select id="role-select">
-                  <option value="REFERENCE">Reference</option>
-                  <option value="GOLD_REFERENCE">Gold Reference</option>
-                  <option value="TRAINING_CANDIDATE">Training Candidate</option>
-                  <option value="GENERATED_TEST">Generated Test</option>
-                  <option value="NEGATIVE_EXAMPLE">Negative Example</option>
-                  <option value="EDGE_CASE">Edge Case</option>
-                  <option value="KEEPER">Keeper</option>
-                  <option value="REJECT">Reject</option>
-                </select>
-              </label>
-            </div>
+              <div class="search-wrap">
+                <input type="text" id="cat-search" placeholder="Search or create category..." autocomplete="off" />
+                <div id="cat-results" class="search-results hidden"></div>
+              </div>
+
+              <div id="cat-browse" class="browse-panel"></div>
+            </section>
+
+            <section class="taxonomy-block">
+              <div class="block-head">
+                <h3>Concepts</h3>
+                <p class="muted small">Selected</p>
+              </div>
+              <div id="con-chips" class="chips-container selected-chips"></div>
+
+              <div class="block-head">
+                <p class="muted small">Suggested</p>
+              </div>
+              <div id="con-suggestions" class="chips-container suggestion-chips"></div>
+
+              <div class="search-wrap">
+                <input type="text" id="con-search" placeholder="Search or create concept..." autocomplete="off" />
+                <div id="con-results" class="search-results hidden"></div>
+              </div>
+            </section>
+
+            <details class="optional-details">
+              <summary>Optional scores &amp; role</summary>
+              <div class="row">
+                <label>
+                  Quality (1–5)
+                  <input type="number" id="quality-score" min="1" max="5" placeholder="optional" />
+                </label>
+                <label>
+                  Fit (1–5)
+                  <input type="number" id="fit-score" min="1" max="5" placeholder="optional" />
+                </label>
+                <label>
+                  Role
+                  <select id="role-select">
+                    <option value="REFERENCE" selected>Reference</option>
+                    <option value="GOLD_REFERENCE">Gold Reference</option>
+                    <option value="TRAINING_CANDIDATE">Training Candidate</option>
+                    <option value="NEGATIVE_EXAMPLE">Negative Example</option>
+                    <option value="REJECT">Reject</option>
+                  </select>
+                </label>
+              </div>
+            </details>
 
             <label>
               Notes
-              <textarea id="notes-input" rows="3" placeholder="Add any relevant notes about this media..."></textarea>
+              <textarea id="notes-input" rows="2" placeholder="Optional notes..."></textarea>
             </label>
           </form>
         </section>
       </div>
     </main>
+    <script src="/workbench-taxonomy.js"></script>
     <script src="/workbench.js"></script>
   </body>
 </html>

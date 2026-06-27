@@ -4,12 +4,19 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
-from app.domain.enums import AssignmentRole
+from app.domain.enums import AssignmentRole, CategoryDimension
 from app.domain.taxonomy import Category, Concept, MediaCategoryAssignment, MediaConceptAssignment
 
 
 class CategoryListResponse(BaseModel):
     categories: list[Category]
+
+
+class CategoryCreateRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=160)
+    dimension: CategoryDimension
+    slug: Optional[str] = Field(default=None, max_length=160)
+    description: Optional[str] = Field(default=None, max_length=2000)
 
 
 class ConceptCreateRequest(BaseModel):

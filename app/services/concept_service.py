@@ -1,18 +1,13 @@
 from __future__ import annotations
 
-import re
 from datetime import datetime, timezone
 
 from app.core.errors import NotFoundError, ValidationAppError
 from app.domain.enums import ConceptStatus, CoverageState
 from app.domain.taxonomy import Concept
+from app.domain.text_utils import slugify
 from app.services.category_service import CategoryService
 from app.storage.concept_store import ConceptStore
-
-
-def _slugify(value: str) -> str:
-    slug = re.sub(r"[^a-z0-9]+", "-", value.strip().lower()).strip("-")
-    return slug or "concept"
 
 
 class ConceptService:
@@ -33,7 +28,7 @@ class ConceptService:
                 self.category_service.get_required(category_id)
                 unique_category_ids.append(category_id)
 
-        clean_slug = _slugify(slug or clean_name)
+        clean_slug = slugify(slug or clean_name, fallback="concept")
         concept = Concept(
             name=clean_name,
             slug=clean_slug,
