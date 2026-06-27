@@ -43,12 +43,36 @@ class Settings(BaseSettings):
         return self.data_dir / "outputs"
 
     @property
+    def media_dir(self) -> Path:
+        return self.data_dir / "media"
+
+    @property
     def log_dir(self) -> Path:
         return self.data_dir / "logs"
 
     @property
     def tmp_dir(self) -> Path:
         return self.data_dir / "tmp"
+
+    @property
+    def uploads_dir(self) -> Path:
+        return self.data_dir / "uploads"
+
+    @property
+    def taxonomy_dir(self) -> Path:
+        return self.data_dir / "taxonomy"
+
+    @property
+    def categories_dir(self) -> Path:
+        return self.taxonomy_dir / "categories"
+
+    @property
+    def concepts_dir(self) -> Path:
+        return self.taxonomy_dir / "concepts"
+
+    @property
+    def assignments_dir(self) -> Path:
+        return self.taxonomy_dir / "assignments"
 
     @property
     def metadata_dir(self) -> Path:

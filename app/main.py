@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api.routes import analyze, files, generate, generators, health, jobs, lyrics, model_status, presets
+from app.api.routes import analyze, categories, concepts, files, generate, generators, health, jobs, lyrics, media, model_status, presets, songs
 from app.core.config import get_settings
 from app.core.errors import AppError
 from app.core.logging import configure_logging
@@ -41,7 +41,11 @@ def create_app() -> FastAPI:
     app.include_router(lyrics.router)
     app.include_router(generate.router)
     app.include_router(jobs.router)
+    app.include_router(songs.router)
     app.include_router(files.router)
+    app.include_router(categories.router)
+    app.include_router(concepts.router)
+    app.include_router(media.router)
 
     static_dir = Path(__file__).parent / "web" / "static"
     app.mount("/", StaticFiles(directory=static_dir, html=True), name="web")

@@ -1,0 +1,48 @@
+from __future__ import annotations
+
+from enum import Enum
+
+
+class CategoryDimension(str, Enum):
+    GENRE = "GENRE"
+    MOOD = "MOOD"
+    INSTRUMENT = "INSTRUMENT"
+    TECHNIQUE = "TECHNIQUE"
+    PRODUCTION = "PRODUCTION"
+    MIX = "MIX"
+    RHYTHM = "RHYTHM"
+    VOCALS = "VOCALS"
+    ARRANGEMENT = "ARRANGEMENT"
+    ENERGY = "ENERGY"
+    QUALITY_ISSUE = "QUALITY_ISSUE"
+    TRAINING_ROLE = "TRAINING_ROLE"
+
+
+class CategoryStatus(str, Enum):
+    ACTIVE = "ACTIVE"
+    ARCHIVED = "ARCHIVED"
+
+
+class ConceptStatus(str, Enum):
+    ACTIVE = "ACTIVE"
+    ARCHIVED = "ARCHIVED"
+
+
+class CoverageState(str, Enum):
+    EMPTY = "EMPTY"
+    THIN = "THIN"
+    USABLE = "USABLE"
+    STRONG = "STRONG"
+    CONFUSED = "CONFUSED"
+    NEEDS_CLEANUP = "NEEDS_CLEANUP"
+
+
+class AssignmentRole(str, Enum):
+    REFERENCE = "REFERENCE"
+    GOLD_REFERENCE = "GOLD_REFERENCE"
+    TRAINING_CANDIDATE = "TRAINING_CANDIDATE"
+    GENERATED_TEST = "GENERATED_TEST"
+    NEGATIVE_EXAMPLE = "NEGATIVE_EXAMPLE"
+    EDGE_CASE = "EDGE_CASE"
+    KEEPER = "KEEPER"
+    REJECT = "REJECT"
