@@ -14,6 +14,7 @@ window.WorkbenchTaxonomy = (() => {
   let allCategories = [];
   let selectedCategoryIds = [];
   let activeTitle = '';
+  let onChange = null;
 
   function dimensionLabel(value) {
     return DIMENSION_LABELS[value] || value;
@@ -137,6 +138,7 @@ window.WorkbenchTaxonomy = (() => {
     renderSelectedChips();
     renderSuggestionChips();
     renderBrowse();
+    if (onChange) onChange();
   }
 
   function filterCategories(query) {
@@ -213,7 +215,8 @@ window.WorkbenchTaxonomy = (() => {
     rememberSavedCategories() {
       rememberRecent(selectedCategoryIds);
     },
-    init() {
+    init(changeHandler) {
+      onChange = changeHandler || null;
       setupCategorySearch();
       refresh();
     },

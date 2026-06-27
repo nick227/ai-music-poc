@@ -5,24 +5,34 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Workbench - AI Music Studio</title>
     <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/studio.css" />
     <link rel="stylesheet" href="/workbench.css" />
   </head>
   <body>
-    <main class="shell workbench-shell">
-      <nav class="nav-bar">
-        <a href="/" class="nav-link">Generate</a>
-        <a href="/workbench.html" class="nav-link active">Workbench</a>
-      </nav>
+    <main class="shell workbench-shell studio-shell">
+      <nav id="studio-nav" class="studio-nav"></nav>
 
-      <section class="hero">
+      <section class="studio-hero">
         <p class="eyebrow">Workbench</p>
-        <h1>Media Inbox</h1>
+        <h1>Pipeline &amp; versioning</h1>
+        <p class="muted">Categorize reference audio, then use those tags to steer generation and compare outputs.</p>
+      </section>
+
+      <section id="pipeline-card" class="card pipeline-card" hidden>
+        <h2>Active item</h2>
+        <p id="pipeline-summary" class="muted">—</p>
+        <div class="pipeline-steps">
+          <span id="pipeline-cats" class="count-pill">0 categories</span>
+          <a id="pipeline-generate" class="button" href="/">Generate baseline</a>
+          <a id="pipeline-songs" class="button ghost" href="/songs.html">View songs</a>
+          <a id="pipeline-media-link" class="button ghost" href="/media.html">Media library</a>
+        </div>
       </section>
 
       <div class="workbench-layout" id="workbench-layout">
         <aside class="card queue-panel">
           <div class="section-head">
-            <h2>Inbox</h2>
+            <h2>Review queue</h2>
             <span id="queue-count" class="badge">0</span>
           </div>
           <div id="dropzone" class="dropzone">
@@ -87,6 +97,8 @@
         </section>
       </div>
     </main>
+    <script src="/studio-api.js"></script>
+    <script src="/studio-nav.js"></script>
     <script src="/workbench-taxonomy.js"></script>
     <script src="/workbench.js"></script>
   </body>

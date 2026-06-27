@@ -3,19 +3,23 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>AI Music POC v3.4</title>
+    <title>Generate - AI Music Studio</title>
     <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/studio.css" />
   </head>
   <body>
-    <main class="shell">
-      <nav class="nav-bar" style="display:flex;gap:20px;margin-bottom:24px;">
-        <a href="/" class="nav-link" style="color:#8b5cf6;font-weight:600;text-decoration:none;">Generate</a>
-        <a href="/workbench.html" class="nav-link" style="color:#a1a1aa;font-weight:600;text-decoration:none;">Workbench</a>
-      </nav>
-      <section class="hero">
-        <p class="eyebrow">AI Music POC v3.4</p>
+    <main class="shell studio-shell">
+      <nav id="studio-nav" class="studio-nav"></nav>
+      <section class="studio-hero">
+        <p class="eyebrow">Generate</p>
         <h1>Local song drafts with synthetic singing voices</h1>
         <p class="muted">Line-aware formant vocals, chorus harmony, and optional vocal stems in balanced/high quality. Wire ACE-Step for neural singing.</p>
+      </section>
+
+      <section id="context-banner" class="card" hidden>
+        <p class="muted">Generating from workbench context: <strong id="context-title"></strong></p>
+        <p id="context-cats" class="table-meta"></p>
+        <a id="context-workbench" class="button ghost small" href="#">Back to Workbench</a>
       </section>
 
       <section id="model-status" class="status-strip muted">Loading model status…</section>
@@ -97,6 +101,8 @@ Before the morning breaks again</textarea>
         <div id="jobs" class="jobs muted">No jobs found.</div>
       </section>
     </main>
+    <script src="/studio-api.js"></script>
+    <script src="/studio-nav.js"></script>
     <script src="/app.js"></script>
   </body>
 </html>

@@ -17,6 +17,33 @@ class JobStatus(str, Enum):
     CANCELLED = "CANCELLED"
 
 
+class MediaKind(str, Enum):
+    REFERENCE = "REFERENCE"
+    UPLOAD = "UPLOAD"
+    GENERATED_SONG = "GENERATED_SONG"
+    CLIP = "CLIP"
+    STEM = "STEM"
+    NOTE_ONLY = "NOTE_ONLY"
+
+
+class MediaSource(str, Enum):
+    USER_IMPORT = "USER_IMPORT"
+    GENERATION = "GENERATION"
+    MANUAL_REFERENCE = "MANUAL_REFERENCE"
+
+
+class ReviewStatus(str, Enum):
+    NEEDS_REVIEW = "NEEDS_REVIEW"
+    REVIEWED = "REVIEWED"
+    REJECTED = "REJECTED"
+
+
+class RightsStatus(str, Enum):
+    UNKNOWN = "UNKNOWN"
+    CONFIRMED = "CONFIRMED"
+    DO_NOT_TRAIN = "DO_NOT_TRAIN"
+
+
 class GenerationRequest(BaseModel):
     title: str = Field(default="Untitled Sketch", min_length=1, max_length=120)
     prompt: str = Field(min_length=1, max_length=2000)
@@ -91,6 +118,25 @@ class JobRecord(BaseModel):
     error: Optional[str] = None
     log_file: Optional[str] = None
     metadata_file: Optional[str] = None
+    media_asset_id: Optional[str] = None
+    version_details: Dict[str, Any] = Field(default_factory=dict)
+
+
+class MediaAsset(BaseModel):
+    id: str = Field(default_factory=lambda: f"media_{uuid4().hex}")
+    title: str
+    kind: MediaKind
+    source: MediaSource
+    file_path: Optional[str] = None
+    duration_seconds: Optional[float] = None
+    sample_rate: Optional[int] = None
+    channels: Optional[int] = None
+    review_status: ReviewStatus = ReviewStatus.NEEDS_REVIEW
+    rights_status: RightsStatus = RightsStatus.UNKNOWN
+    generation_id: Optional[str] = None
+    version_details: Dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class GenerationResponse(BaseModel):
@@ -114,6 +160,40 @@ class JobStatusResponse(BaseModel):
     download_url: Optional[str] = None
     vocal_download_url: Optional[str] = None
     bundle_url: Optional[str] = None
+
+
+class SongGenerationSummary(BaseModel):
+    id: str
+    status: JobStatus
+    output_path: Optional[str] = None
+    prompt: str
+    lyrics: str = ""
+    seed: Optional[int] = None
+    backend: Optional[str] = None
+    model_version: Optional[str] = None
+    created_at: datetime
+    finished_at: Optional[datetime] = None
+
+
+class SongResponse(BaseModel):
+    id: str
+    title: str
+    media_asset_id: str
+    kind: MediaKind
+    file_path: Optional[str] = None
+    duration_seconds: Optional[float] = None
+    sample_rate: Optional[int] = None
+    channels: Optional[int] = None
+    review_status: ReviewStatus
+    generation_id: Optional[str] = None
+    version_details: Dict[str, Any] = Field(default_factory=dict)
+    generation: Optional[SongGenerationSummary] = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class SongListResponse(BaseModel):
+    songs: list[SongResponse]
 
 
 class GeneratorInfo(BaseModel):

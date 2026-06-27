@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Media - AI Music Studio</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/studio.css" />
+    <link rel="stylesheet" href="/media.css" />
+  </head>
+  <body>
+    <main class="shell studio-shell">
+      <nav id="studio-nav" class="studio-nav"></nav>
+
+      <section class="studio-hero">
+        <p class="eyebrow">Media</p>
+        <h1>Audio library</h1>
+      </section>
+
+      <div class="toolbar card">
+        <input type="file" id="import-files" multiple accept="audio/*" hidden />
+        <button type="button" id="import-btn">Import</button>
+        <input type="search" id="search" placeholder="Search title..." />
+        <select id="filter-review">
+          <option value="">All review</option>
+          <option value="NEEDS_REVIEW">Needs review</option>
+          <option value="REVIEWED">Reviewed</option>
+        </select>
+        <select id="filter-kind">
+          <option value="">All kinds</option>
+          <option value="UPLOAD">Upload</option>
+          <option value="GENERATED_SONG">Generated</option>
+        </select>
+        <span id="table-count" class="muted"></span>
+      </div>
+
+      <div class="data-table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th></th>
+              <th>Title</th>
+              <th>Duration</th>
+              <th>Cats</th>
+              <th>Role</th>
+              <th>Review</th>
+              <th>Kind</th>
+              <th>Added</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="media-rows"></tbody>
+        </table>
+      </div>
+    </main>
+    <script src="/studio-api.js"></script>
+    <script src="/studio-nav.js"></script>
+    <script src="/media.js"></script>
+  </body>
+</html>

@@ -1,37 +1,3 @@
-window.WorkbenchApi = {
-  async request(url, options = {}) {
-    const res = await fetch(url, options);
-    if (!res.ok) throw new Error(await res.text() || 'API request failed');
-    return res.json();
-  },
-  importMedia(formData) {
-    return this.request('/api/media/import', { method: 'POST', body: formData }).then((r) => r.media || []);
-  },
-  getInbox() {
-    return this.request('/api/media?review_status=NEEDS_REVIEW&kind=UPLOAD').then((r) => r.media || []);
-  },
-  getMedia(id) {
-    return this.request(`/api/media/${id}`);
-  },
-  listCategories() {
-    return this.request('/api/categories');
-  },
-  createCategory(name, dimension) {
-    return this.request('/api/categories', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, dimension }),
-    });
-  },
-  saveAssignments(id, payload) {
-    return this.request(`/api/media/${id}/assignments`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-  },
-};
-
 let queue = [];
 let activeItem = null;
 
@@ -44,6 +10,11 @@ const workbenchLayout = document.getElementById('workbench-layout');
 const editorForm = document.getElementById('editor-form');
 const activeFilename = document.getElementById('active-filename');
 const mediaPlayer = document.getElementById('media-player');
+const pipelineCard = document.getElementById('pipeline-card');
+
+function queryMediaId() {
+  return new URLSearchParams(window.location.search).get('media_id');
+}
 
 function categoryCount(item) {
   if (item.category_assignment_count != null) return item.category_assignment_count;
@@ -65,14 +36,33 @@ function setEditorOpen(open) {
   editorPanel.classList.toggle('editor-panel--idle', !open);
   workbenchLayout.classList.toggle('workbench-layout--editor-open', open);
   editorForm.hidden = !open;
+  pipelineCard.hidden = !open;
+}
+
+function updatePipeline() {
+  if (!activeItem) {
+    pipelineCard.hidden = true;
+    return;
+  }
+  const count = WorkbenchTaxonomy.getSelectedCategoryIds().length;
+  document.getElementById('pipeline-summary').textContent = activeItem.title;
+  const pill = document.getElementById('pipeline-cats');
+  pill.textContent = `${count} categor${count === 1 ? 'y' : 'ies'}`;
+  pill.classList.toggle('has-value', count > 0);
+  document.getElementById('pipeline-generate').href = `/?context_media=${activeItem.id}`;
+  document.getElementById('pipeline-media-link').href = `/media-detail.html?id=${activeItem.id}`;
 }
 
 async function init() {
+  StudioNav.render('workbench');
   await WorkbenchTaxonomy.loadTaxonomy();
-  WorkbenchTaxonomy.init();
+  WorkbenchTaxonomy.init(updatePipeline);
   await loadQueue();
   setupDragAndDrop();
   setEditorOpen(false);
+
+  const mediaId = queryMediaId();
+  if (mediaId) await focusMedia(mediaId);
 
   editorForm.addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -88,11 +78,23 @@ async function init() {
   });
 }
 
+async function focusMedia(mediaId) {
+  const existing = queue.find((item) => item.id === mediaId);
+  if (existing) {
+    await selectItem(existing);
+    return;
+  }
+  const media = await StudioApi.getMedia(mediaId);
+  queue = [media, ...queue.filter((item) => item.id !== mediaId)];
+  renderQueue();
+  await selectItem(media);
+}
+
 async function loadQueue() {
   try {
-    queue = await WorkbenchApi.getInbox();
+    queue = await StudioApi.getInbox();
     renderQueue();
-    if (queue.length > 0 && !activeItem) await selectItem(queue[0]);
+    if (queue.length > 0 && !activeItem && !queryMediaId()) await selectItem(queue[0]);
   } catch (error) {
     console.error('Failed to load inbox', error);
   }
@@ -125,20 +127,21 @@ async function selectItemById(id) {
 }
 
 async function selectItem(item) {
-  activeItem = await WorkbenchApi.getMedia(item.id);
+  activeItem = await StudioApi.getMedia(item.id);
   syncQueueItem(activeItem);
   renderQueue();
 
   const first = activeItem.category_assignments?.[0] || {};
   document.getElementById('quality-score').value = first.quality_score ?? '';
   document.getElementById('fit-score').value = first.fit_score ?? '';
-  document.getElementById('role-select').value = first.role || 'REFERENCE';
+  document.getElementById('role-select').value = first.role || activeItem.primary_role || 'REFERENCE';
   document.getElementById('notes-input').value = first.notes || '';
 
   WorkbenchTaxonomy.setSelectionFromMedia(activeItem);
   setEditorOpen(true);
   activeFilename.textContent = activeItem.title;
   mediaPlayer.src = `/api/media/${activeItem.id}/audio`;
+  updatePipeline();
 }
 
 function advanceQueue(currentId, { remove }) {
@@ -169,7 +172,7 @@ async function uploadFiles(files) {
   const formData = new FormData();
   for (const file of files) formData.append('files', file);
   try {
-    const imported = await WorkbenchApi.importMedia(formData);
+    const imported = await StudioApi.importMedia(formData);
     queue = [...queue, ...imported];
     renderQueue();
     if (!activeItem && queue.length) await selectItem(queue[0]);
@@ -212,7 +215,7 @@ async function saveAssignments({ advance, markReviewed }) {
   document.getElementById('done-btn').disabled = true;
 
   try {
-    const saved = await WorkbenchApi.saveAssignments(activeItem.id, buildAssignmentPayload(markReviewed));
+    const saved = await StudioApi.saveAssignments(activeItem.id, buildAssignmentPayload(markReviewed));
     WorkbenchTaxonomy.rememberSavedCategories();
     activeItem = saved;
     if (markReviewed) {

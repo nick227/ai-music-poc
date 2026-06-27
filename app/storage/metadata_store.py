@@ -41,6 +41,8 @@ class MetadataStore:
             "created_at": datetime.now(timezone.utc).isoformat(),
             "output_file": result.file_name,
             "settings": result.metadata,
+            "version_details": job.version_details,
+            "versionDetailsJson": job.version_details,
         }
         if result.metadata.get("backend") == "external-command":
             payload["ace"] = {

@@ -74,6 +74,7 @@ class MediaDetailResponse(BaseModel):
     category_assignments: list[MediaCategoryAssignment]
     concept_assignments: list[MediaConceptAssignment]
     category_assignment_count: int = 0
+    primary_role: str | None = None
 
 
 class MediaImportResponse(BaseModel):

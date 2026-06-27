@@ -159,4 +159,32 @@ analyzeBtn.addEventListener('click', async () => {
     analyzeBtn.disabled = false;
   }
 });
-Promise.all([loadGenerators(), loadPresets(), loadModelStatus(), loadJobs()]).catch(err => setError(err.message));
+async function loadContextMedia() {
+  StudioNav.render('generate');
+  const mediaId = new URLSearchParams(window.location.search).get('context_media');
+  if (!mediaId) return;
+  const media = await StudioApi.getMedia(mediaId);
+  const banner = document.querySelector('#context-banner');
+  banner.hidden = false;
+  document.querySelector('#context-title').textContent = media.title;
+  document.querySelector('#context-workbench').href = `/workbench.html?media_id=${mediaId}`;
+  const cats = (media.category_assignments || []).map((a) => a.category_id);
+  if (cats.length) {
+    const taxonomy = await StudioApi.listCategories();
+    const byId = new Map((taxonomy.categories || []).map((c) => [c.id, c]));
+    const labels = cats.map((id) => {
+      const cat = byId.get(id);
+      return cat ? `${cat.dimension.toLowerCase()}: ${cat.name}` : id;
+    });
+    document.querySelector('#context-cats').textContent = labels.join(' · ');
+    const genreTags = labels.filter((l) => l.startsWith('genre:')).map((l) => l.split(': ')[1]);
+    const moodTags = labels.filter((l) => l.startsWith('mood:')).map((l) => l.split(': ')[1]);
+    if (genreTags.length) document.querySelector('#genre_tags').value = genreTags.join(', ');
+    if (moodTags.length) document.querySelector('#mood_tags').value = moodTags.join(', ');
+    if (!document.querySelector('#title').value || document.querySelector('#title').value === 'Midnight Demo') {
+      document.querySelector('#title').value = `${media.title} (baseline)`;
+    }
+  }
+}
+
+Promise.all([loadGenerators(), loadPresets(), loadModelStatus(), loadJobs(), loadContextMedia()]).catch(err => setError(err.message));

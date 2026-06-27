@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Settings - AI Music Studio</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/studio.css" />
+  </head>
+  <body>
+    <main class="shell studio-shell">
+      <nav id="studio-nav" class="studio-nav"></nav>
+
+      <section class="studio-hero">
+        <p class="eyebrow">Settings</p>
+        <h1>Model runtime</h1>
+      </section>
+
+      <section class="card">
+        <div id="model-status" class="status-strip muted">Loading…</div>
+        <pre id="model-detail" class="metadata"></pre>
+      </section>
+    </main>
+    <script src="/studio-api.js"></script>
+    <script src="/studio-nav.js"></script>
+    <script>
+      StudioNav.render('settings');
+      StudioApi.modelStatus().then((s) => {
+        const el = document.getElementById('model-status');
+        el.textContent = s.user_message || (s.can_generate ? 'Ready to generate' : 'Not ready');
+        el.classList.toggle('ready', !!s.can_generate);
+        document.getElementById('model-detail').textContent = JSON.stringify(s, null, 2);
+      });
+    </script>
+  </body>
+</html>

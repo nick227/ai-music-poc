@@ -62,11 +62,13 @@ class MediaService:
 
     def _list_summary(self, asset: MediaAsset) -> dict:
         category_assignments = self.assignment_store.list_category_assignments_for_media(asset.id)
+        primary = category_assignments[0] if category_assignments else None
         return {
             **asset.model_dump(mode="json"),
             "category_assignments": [],
             "concept_assignments": [],
             "category_assignment_count": len(category_assignments),
+            "primary_role": primary.role.value if primary else None,
         }
 
     def get_with_assignments(self, media_id: str) -> dict:
@@ -174,11 +176,13 @@ class MediaService:
     def _with_assignments(self, asset: MediaAsset) -> dict:
         category_assignments = self.assignment_store.list_category_assignments_for_media(asset.id)
         concept_assignments = self.assignment_store.list_concept_assignments_for_media(asset.id)
+        primary = category_assignments[0] if category_assignments else None
         return {
             **asset.model_dump(mode="json"),
             "category_assignments": [item.model_dump(mode="json") for item in category_assignments],
             "concept_assignments": [item.model_dump(mode="json") for item in concept_assignments],
             "category_assignment_count": len(category_assignments),
+            "primary_role": primary.role.value if primary else None,
         }
 
 

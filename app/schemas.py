@@ -48,3 +48,16 @@ class JobRecord(BaseModel):
     metadata: Optional[GenerationMetadata] = None
     error: Optional[str] = None
     output_path: Optional[Path] = None
+
+
+class MediaRecord(BaseModel):
+    id: str
+    filename: str
+    url: str
+    categories: list[str] = Field(default_factory=list)
+    concepts: list[str] = Field(default_factory=list)
+    qualityScore: Optional[int] = None
+    fitScore: Optional[int] = None
+    role: Optional[str] = None
+    notes: Optional[str] = None
+    processed: bool = False

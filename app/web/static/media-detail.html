@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Media item - AI Music Studio</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/studio.css" />
+    <link rel="stylesheet" href="/workbench.css" />
+  </head>
+  <body>
+    <main class="shell studio-shell">
+      <nav id="studio-nav" class="studio-nav"></nav>
+
+      <section class="studio-hero">
+        <p class="eyebrow">Media</p>
+        <h1 id="page-title">—</h1>
+      </section>
+
+      <div class="detail-grid">
+        <section class="card">
+          <audio id="media-player" controls></audio>
+          <dl class="detail-meta" id="meta-list"></dl>
+          <div class="actions">
+            <a id="workbench-link" class="button ghost" href="#">Open in Workbench</a>
+            <a id="generate-link" class="button ghost" href="/">Generate</a>
+          </div>
+        </section>
+
+        <section class="card">
+          <form id="editor-form">
+            <div id="cat-chips" class="chips-container selected-chips"></div>
+            <div id="cat-suggestions" class="chips-container suggestion-chips"></div>
+            <div class="search-wrap">
+              <input type="text" id="cat-search" placeholder="Search categories..." autocomplete="off" />
+              <div id="cat-results" class="search-results hidden"></div>
+            </div>
+            <div id="cat-browse" class="browse-panel"></div>
+
+            <details class="optional-details">
+              <summary>Scores &amp; role</summary>
+              <div class="row">
+                <label>Quality <input type="number" id="quality-score" min="1" max="5" /></label>
+                <label>Fit <input type="number" id="fit-score" min="1" max="5" /></label>
+                <label>Role
+                  <select id="role-select">
+                    <option value="REFERENCE" selected>Reference</option>
+                    <option value="GOLD_REFERENCE">Gold Reference</option>
+                    <option value="TRAINING_CANDIDATE">Training Candidate</option>
+                    <option value="NEGATIVE_EXAMPLE">Negative Example</option>
+                    <option value="REJECT">Reject</option>
+                  </select>
+                </label>
+              </div>
+            </details>
+
+            <label>Notes <textarea id="notes-input" rows="2"></textarea></label>
+
+            <div class="actions">
+              <button type="submit">Save</button>
+              <button type="button" id="done-btn" class="ghost">Mark reviewed</button>
+            </div>
+          </form>
+        </section>
+      </div>
+    </main>
+    <script src="/studio-api.js"></script>
+    <script src="/studio-nav.js"></script>
+    <script src="/workbench-taxonomy.js"></script>
+    <script src="/media-detail.js"></script>
+  </body>
+</html>

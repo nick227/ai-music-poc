@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Songs - AI Music Studio</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/studio.css" />
+  </head>
+  <body>
+    <main class="shell studio-shell">
+      <nav id="studio-nav" class="studio-nav"></nav>
+
+      <section class="studio-hero">
+        <p class="eyebrow">Songs</p>
+        <h1>Generated outputs</h1>
+      </section>
+
+      <div class="data-table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th></th>
+              <th>Title</th>
+              <th>Backend</th>
+              <th>Status</th>
+              <th>Review</th>
+              <th>Duration</th>
+              <th>Created</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="song-rows"></tbody>
+        </table>
+      </div>
+    </main>
+    <script src="/studio-api.js"></script>
+    <script src="/studio-nav.js"></script>
+    <script src="/songs.js"></script>
+  </body>
+</html>
