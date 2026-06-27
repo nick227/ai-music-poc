@@ -1,11 +1,11 @@
 from typing import List
 
 from fastapi import APIRouter, Depends, File, Query, UploadFile
+from fastapi.responses import FileResponse
 
 from app.api.dependencies import get_media_service
 from app.api.schemas.taxonomy_api import MediaAssignmentsRequest, MediaDetailResponse, MediaImportResponse, MediaListResponse
 from app.domain.models import MediaKind, ReviewStatus
-from app.domain.taxonomy import Concept
 from app.services.media_service import MediaService
 
 router = APIRouter(prefix="/api/media", tags=["media"])
@@ -60,6 +60,15 @@ def list_media(
     return MediaListResponse(media=[_summary(asset.model_dump(mode="json")) for asset in assets])
 
 
+@router.get("/{media_id}/audio")
+def stream_media_audio(
+    media_id: str,
+    media_service: MediaService = Depends(get_media_service),
+):
+    path = media_service.get_audio_path(media_id)
+    return FileResponse(path)
+
+
 @router.get("/{media_id}", response_model=MediaDetailResponse)
 def get_media(
     media_id: str,
@@ -78,5 +87,6 @@ def upsert_media_assignments(
         media_id,
         categories=[item.model_dump() for item in request.categories],
         concepts=[item.model_dump() for item in request.concepts],
+        mark_reviewed=request.mark_reviewed,
     )
     return _detail(payload)

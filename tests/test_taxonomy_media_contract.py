@@ -175,6 +175,30 @@ def test_assignment_upsert_and_nested_get(client):
     assert detail_body["category_assignments"][0]["category_id"] == genre["id"]
 
 
+def test_assignment_mark_reviewed_updates_inbox(client):
+    c, _ = client
+    categories = c.get("/api/categories").json()["categories"]
+    genre = next(item for item in categories if item["dimension"] == "GENRE")
+
+    import_res = c.post("/api/media/import", files=[wav_upload("review-me.wav")])
+    media_id = import_res.json()["media"][0]["id"]
+
+    c.put(
+        f"/api/media/{media_id}/assignments",
+        json={
+            "mark_reviewed": True,
+            "categories": [{"category_id": genre["id"], "role": "REFERENCE", "reviewed": True}],
+            "concepts": [],
+        },
+    )
+
+    inbox = c.get("/api/media", params={"review_status": "NEEDS_REVIEW", "kind": "UPLOAD"})
+    assert all(item["id"] != media_id for item in inbox.json()["media"])
+
+    detail = c.get(f"/api/media/{media_id}").json()
+    assert detail["review_status"] == "REVIEWED"
+
+
 def test_list_media_filters_review_status(client):
     c, data_dir = client
     c.post("/api/media/import", files=[wav_upload("inbox.wav")])
@@ -184,3 +208,14 @@ def test_list_media_filters_review_status(client):
     media = res.json()["media"]
     assert len(media) == 1
     assert media[0]["review_status"] == "NEEDS_REVIEW"
+
+
+def test_media_audio_route_serves_upload(client):
+    c, data_dir = client
+    import_res = c.post("/api/media/import", files=[wav_upload("play-me.wav")])
+    media_id = import_res.json()["media"][0]["id"]
+
+    audio = c.get(f"/api/media/{media_id}/audio")
+    assert audio.status_code == 200
+    assert "audio" in audio.headers["content-type"] or "octet-stream" in audio.headers["content-type"]
+    assert len(audio.content) > 1000

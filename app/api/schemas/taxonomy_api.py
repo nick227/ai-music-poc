@@ -46,6 +46,7 @@ class ConceptAssignmentInput(BaseModel):
 class MediaAssignmentsRequest(BaseModel):
     categories: list[CategoryAssignmentInput] = Field(default_factory=list)
     concepts: list[ConceptAssignmentInput] = Field(default_factory=list)
+    mark_reviewed: bool = False
 
 
 class MediaDetailResponse(BaseModel):

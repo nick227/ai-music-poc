@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Workbench - AI Music Studio</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/workbench.css" />
+  </head>
+  <body>
+    <main class="shell workbench-shell">
+      <nav class="nav-bar">
+        <a href="/" class="nav-link">Generate</a>
+        <a href="/workbench.html" class="nav-link active">Workbench</a>
+      </nav>
+
+      <section class="hero">
+        <p class="eyebrow">Workbench</p>
+        <h1>Media Inbox</h1>
+        <p class="muted">Rapidly ingest, categorize, and prepare media for the Studio.</p>
+      </section>
+
+      <div class="workbench-layout">
+        <!-- Sidebar: Queue List -->
+        <aside class="card queue-panel">
+          <div class="section-head">
+            <h2>Inbox Queue</h2>
+            <span id="queue-count" class="badge">0</span>
+          </div>
+          
+          <div id="dropzone" class="dropzone">
+            <p>Drag & drop audio files here</p>
+            <input type="file" id="file-upload" multiple accept="audio/*" hidden />
+            <button class="ghost small" onclick="document.getElementById('file-upload').click()">Browse Files</button>
+          </div>
+
+          <div id="queue-list" class="queue-list muted">
+            <!-- Queue items go here -->
+          </div>
+        </aside>
+
+        <!-- Main Area: Editor -->
+        <section class="card editor-panel">
+          <div id="empty-editor-state" class="empty-state">
+            <p class="muted">Select an item from the queue to start tagging.</p>
+          </div>
+
+          <form id="editor-form" class="editor-form" hidden>
+            <header class="editor-header">
+              <h2 id="active-filename">Filename.wav</h2>
+              <div class="actions">
+                <button type="button" id="skip-btn" class="ghost">Skip</button>
+                <button type="submit" id="save-next-btn">Save + Next</button>
+              </div>
+            </header>
+
+            <audio id="media-player" controls></audio>
+
+            <div class="quick-categorizer">
+              <label>
+                Categories
+                <div class="search-wrap">
+                  <input type="text" id="cat-search" placeholder="Search categories..." autocomplete="off"/>
+                  <div id="cat-results" class="search-results hidden"></div>
+                </div>
+                <div id="cat-chips" class="chips-container"></div>
+              </label>
+
+              <label>
+                Concepts
+                <div class="search-wrap">
+                  <input type="text" id="con-search" placeholder="Search concepts..." autocomplete="off"/>
+                  <div id="con-results" class="search-results hidden"></div>
+                </div>
+                <div id="con-chips" class="chips-container"></div>
+              </label>
+            </div>
+
+            <div class="row">
+              <label>
+                Quality Score (1-5)
+                <input type="number" id="quality-score" min="1" max="5" placeholder="e.g. 4" />
+              </label>
+              <label>
+                Fit Score (1-5)
+                <input type="number" id="fit-score" min="1" max="5" placeholder="e.g. 5" />
+              </label>
+              <label>
+                Role
+                <select id="role-select">
+                  <option value="REFERENCE">Reference</option>
+                  <option value="GOLD_REFERENCE">Gold Reference</option>
+                  <option value="TRAINING_CANDIDATE">Training Candidate</option>
+                  <option value="GENERATED_TEST">Generated Test</option>
+                  <option value="NEGATIVE_EXAMPLE">Negative Example</option>
+                  <option value="EDGE_CASE">Edge Case</option>
+                  <option value="KEEPER">Keeper</option>
+                  <option value="REJECT">Reject</option>
+                </select>
+              </label>
+            </div>
+
+            <label>
+              Notes
+              <textarea id="notes-input" rows="3" placeholder="Add any relevant notes about this media..."></textarea>
+            </label>
+          </form>
+        </section>
+      </div>
+    </main>
+    <script src="/workbench.js"></script>
+  </body>
+</html>

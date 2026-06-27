@@ -63,6 +63,7 @@ class MediaService:
         media_id: str,
         categories: list[dict],
         concepts: list[dict],
+        mark_reviewed: bool = False,
     ) -> dict:
         asset = self.media_store.get(media_id)
         if asset is None:
@@ -100,7 +101,10 @@ class MediaService:
             )
             concept_assignments.append(self.assignment_store.upsert_concept_assignment(assignment))
 
-        updated_asset = asset.model_copy(update={"updated_at": datetime.now(timezone.utc)})
+        update_fields: dict = {"updated_at": datetime.now(timezone.utc)}
+        if mark_reviewed:
+            update_fields["review_status"] = ReviewStatus.REVIEWED
+        updated_asset = asset.model_copy(update=update_fields)
         self.media_store.save(updated_asset)
 
         return {
@@ -108,6 +112,14 @@ class MediaService:
             "category_assignments": [item.model_dump(mode="json") for item in category_assignments],
             "concept_assignments": [item.model_dump(mode="json") for item in concept_assignments],
         }
+
+    def get_audio_path(self, media_id: str) -> Path:
+        asset = self.media_store.get(media_id)
+        if asset is None:
+            raise NotFoundError(f"Media asset not found: {media_id}")
+        if not asset.file_path:
+            raise NotFoundError(f"Media asset has no audio file: {media_id}")
+        return safe_child_path(self.settings.data_dir, asset.file_path)
 
     def _import_one(self, original_name: str, stream: BinaryIO) -> MediaAsset:
         filename = Path(original_name).name
