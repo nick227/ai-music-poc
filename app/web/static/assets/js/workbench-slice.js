@@ -1,43 +1,36 @@
 window.WorkbenchSlice = (() => {
-  const DIMENSION_ORDER = [
-    'GENRE', 'MOOD', 'INSTRUMENT', 'VOCALS', 'ENERGY', 'RHYTHM', 'TECHNIQUE',
-    'PRODUCTION', 'MIX', 'ARRANGEMENT', 'QUALITY_ISSUE', 'TRAINING_ROLE',
-  ];
+  const CALIBRATION_MIN_TRACKS = 8;
+  const CALIBRATION_MAX_TRACKS = 12;
 
-  let categories = [];
-  let concepts = [];
-  let previewMedia = [];
+  const BASE_FILTER = {
+    review_status: 'REVIEWED',
+    rights_status: 'CONFIRMED',
+    min_quality: 3,
+    min_fit: 3,
+    roles: ['GOLD_REFERENCE', 'TRAINING_CANDIDATE', 'REFERENCE'],
+    category_ids: [],
+  };
+
+  let categoriesById = new Map();
+  let conceptsById = new Map();
+  let eligibleMedia = [];
   let savedSlices = [];
   let activeSliceId = null;
 
-  function readFilter() {
-    const roles = [...document.querySelectorAll('input[name="role"]:checked')].map((el) => el.value);
-    const categoryIds = [...document.querySelectorAll('#filter-categories input:checked')].map((el) => el.value);
-    const minQuality = document.getElementById('filter-min-quality').value;
-    const minFit = document.getElementById('filter-min-fit').value;
+  function baseFilter(conceptId = null, categoryIds = []) {
     return {
-      concept_id: document.getElementById('filter-concept').value || null,
+      ...BASE_FILTER,
+      concept_id: conceptId,
       category_ids: categoryIds,
-      roles,
-      min_quality: minQuality ? Number(minQuality) : null,
-      min_fit: minFit ? Number(minFit) : null,
-      review_status: document.getElementById('filter-review-status').value || null,
-      rights_status: document.getElementById('filter-rights-status').value || null,
     };
   }
 
-  function applyFilterToForm(filter) {
-    document.getElementById('filter-concept').value = filter.concept_id || '';
-    document.getElementById('filter-review-status').value = filter.review_status || '';
-    document.getElementById('filter-rights-status').value = filter.rights_status || '';
-    document.getElementById('filter-min-quality').value = filter.min_quality ?? '';
-    document.getElementById('filter-min-fit').value = filter.min_fit ?? '';
-    document.querySelectorAll('input[name="role"]').forEach((el) => {
-      el.checked = (filter.roles || []).includes(el.value);
-    });
-    document.querySelectorAll('#filter-categories input').forEach((el) => {
-      el.checked = (filter.category_ids || []).includes(el.value);
-    });
+  function readCategoryIds() {
+    return [...document.querySelectorAll('#filter-categories input:checked')].map((el) => el.value);
+  }
+
+  function selectedConceptId() {
+    return document.getElementById('filter-concept').value || null;
   }
 
   function setStatus(message, isError = false) {
@@ -52,112 +45,171 @@ window.WorkbenchSlice = (() => {
 
   function updateActionButtons() {
     const slice = activeSlice();
+    const conceptId = selectedConceptId();
+    const saveBtn = document.getElementById('save-slice-btn');
     const freezeBtn = document.getElementById('freeze-slice-btn');
-    const downloadBtn = document.getElementById('download-package-btn');
+    const hasName = document.getElementById('slice-name').value.trim().length > 0;
+    const canSave = !!conceptId && previewMedia.length > 0 && hasName
+      && (!slice || slice.status === 'DRAFT');
+    saveBtn.disabled = !canSave;
     freezeBtn.disabled = !slice || slice.status !== 'DRAFT' || slice.asset_count === 0;
-    downloadBtn.disabled = !slice || slice.status !== 'READY';
-  }
-
-  function renderCategoryFilters() {
-    const container = document.getElementById('filter-categories');
-    const grouped = new Map();
-    categories.forEach((cat) => {
-      if (!grouped.has(cat.dimension)) grouped.set(cat.dimension, []);
-      grouped.get(cat.dimension).push(cat);
-    });
-    container.innerHTML = DIMENSION_ORDER.filter((dim) => grouped.has(dim)).map((dim) => {
-      const items = grouped.get(dim).map((cat) => `
-        <label class="checkline category-option">
-          <input type="checkbox" value="${cat.id}" />
-          ${cat.name}
-        </label>
-      `).join('');
-      return `<div class="category-group"><p class="category-group-label">${dim.replace(/_/g, ' ')}</p>${items}</div>`;
-    }).join('');
   }
 
   function renderConceptOptions() {
+    const counts = new Map();
+    eligibleMedia.forEach((item) => {
+      item.concept_ids.forEach((id) => counts.set(id, (counts.get(id) || 0) + 1));
+    });
     const select = document.getElementById('filter-concept');
-    select.innerHTML = '<option value="">Any concept</option>' + concepts.map((c) => `<option value="${c.id}">${c.name}</option>`).join('');
+    const current = select.value;
+    const options = [...counts.entries()]
+      .map(([id, count]) => {
+        const concept = conceptsById.get(id);
+        return concept ? { id, name: concept.name, count } : null;
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.name.localeCompare(b.name));
+    select.innerHTML = options.length
+      ? '<option value="">Select a concept…</option>' + options.map((c) => `<option value="${c.id}">${c.name} (${c.count} ready track${c.count === 1 ? '' : 's'})</option>`).join('')
+      : '<option value="">No concepts with ready tracks yet</option>';
+    if (current && options.some((c) => c.id === current)) select.value = current;
   }
+
+  function mediaForConcept(conceptId) {
+    return eligibleMedia.filter((item) => item.concept_ids.includes(conceptId));
+  }
+
+  function renderCategoryFilters(conceptId) {
+    const block = document.getElementById('tag-refine-block');
+    const container = document.getElementById('filter-categories');
+    if (!conceptId) {
+      block.classList.add('hidden');
+      container.innerHTML = '';
+      return;
+    }
+    const counts = new Map();
+    mediaForConcept(conceptId).forEach((item) => {
+      item.category_ids.forEach((id) => counts.set(id, (counts.get(id) || 0) + 1));
+    });
+    const tags = [...counts.entries()]
+      .map(([id, count]) => {
+        const cat = categoriesById.get(id);
+        return cat ? { ...cat, count } : null;
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.name.localeCompare(b.name));
+    if (!tags.length) {
+      block.classList.add('hidden');
+      container.innerHTML = '';
+      return;
+    }
+    block.classList.remove('hidden');
+    container.innerHTML = tags.map((cat) => `
+      <label class="checkline category-option">
+        <input type="checkbox" value="${cat.id}" />
+        ${cat.name} <span class="tag-count">(${cat.count})</span>
+      </label>
+    `).join('');
+    container.querySelectorAll('input').forEach((el) => {
+      el.addEventListener('change', () => runPreview().catch((err) => setStatus(err.message, true)));
+    });
+  }
+
+  let previewMedia = [];
 
   function renderPreview() {
     const summary = document.getElementById('preview-summary');
+    const guidance = document.getElementById('preview-guidance');
     const list = document.getElementById('preview-list');
-    summary.textContent = `${previewMedia.length} eligible track${previewMedia.length === 1 ? '' : 's'} match the current filters.`;
-    if (!previewMedia.length) {
-      list.innerHTML = '<p class="empty-hint muted">No media matches these filters. Import and review tracks in Media, or loosen the filters.</p>';
+    const conceptId = selectedConceptId();
+    if (!conceptId) {
+      summary.textContent = 'Select a concept to see matching tracks.';
+      guidance.classList.add('hidden');
+      list.innerHTML = '<p class="empty-hint muted">Import and review tracks in Media first. Only reviewed tracks with confirmed training rights appear here.</p>';
+      updateActionButtons();
+      return;
+    }
+    const count = previewMedia.length;
+    summary.textContent = `${count} track${count === 1 ? '' : 's'} ready for this concept.`;
+    guidance.classList.remove('hidden');
+    if (count < CALIBRATION_MIN_TRACKS) {
+      guidance.textContent = `Add ${CALIBRATION_MIN_TRACKS - count} more reviewed track${CALIBRATION_MIN_TRACKS - count === 1 ? '' : 's'} before calibration training (target ${CALIBRATION_MIN_TRACKS}–${CALIBRATION_MAX_TRACKS}).`;
+      guidance.classList.add('warn');
+    } else if (count > CALIBRATION_MAX_TRACKS) {
+      guidance.textContent = `${count} tracks match. Calibration works best with ${CALIBRATION_MIN_TRACKS}–${CALIBRATION_MAX_TRACKS} focused tracks — consider narrowing tags.`;
+      guidance.classList.remove('warn');
+    } else {
+      guidance.textContent = `Good size for calibration (${CALIBRATION_MIN_TRACKS}–${CALIBRATION_MAX_TRACKS} tracks). Save, then lock the set before training.`;
+      guidance.classList.remove('warn');
+    }
+    if (!count) {
+      list.innerHTML = '<p class="empty-hint muted">No tracks match this concept and tag filter. Loosen tags or add more reviewed media.</p>';
       updateActionButtons();
       return;
     }
     list.innerHTML = previewMedia.map((item) => `
       <div class="preview-row">
         <a class="track-title" href="${StudioRoutes.mediaDetail(item.id)}">${item.title}</a>
-        <span class="preview-meta">${item.review_status.replace(/_/g, ' ').toLowerCase()} · ${item.rights_status.replace(/_/g, ' ').toLowerCase()} · ${item.primary_role || 'no role'}</span>
+        <span class="preview-meta">${item.primary_role ? item.primary_role.replace(/_/g, ' ').toLowerCase() : 'no role'}</span>
       </div>
     `).join('');
     updateActionButtons();
   }
 
-  function renderSavedSlices() {
-    const list = document.getElementById('saved-slices-list');
-    if (!savedSlices.length) {
-      list.innerHTML = '<p class="muted">No saved slices yet.</p>';
+  async function runPreview() {
+    const conceptId = selectedConceptId();
+    renderCategoryFilters(conceptId);
+    if (!conceptId) {
+      previewMedia = [];
+      renderPreview();
       return;
     }
-    list.innerHTML = savedSlices.map((slice) => {
-      const selected = slice.id === activeSliceId ? 'selected' : '';
-      const statusClass = slice.status === 'READY' ? 'ready' : 'draft';
-      return `
-        <button type="button" class="saved-slice-row ${selected}" data-id="${slice.id}">
-          <span class="saved-slice-name">${slice.name}</span>
-          <span class="status-pill ${statusClass}">${slice.status.toLowerCase()}</span>
-          <span class="saved-slice-meta">${slice.asset_count} track${slice.asset_count === 1 ? '' : 's'}</span>
-        </button>
-      `;
-    }).join('');
-    list.querySelectorAll('.saved-slice-row').forEach((btn) => {
-      btn.addEventListener('click', () => loadSlice(btn.dataset.id));
-    });
-  }
-
-  async function runPreview() {
-    setStatus('Loading preview…');
-    const res = await StudioApi.previewSlices(readFilter());
+    setStatus('Updating track list…');
+    const res = await StudioApi.previewSlices(baseFilter(conceptId, readCategoryIds()));
     previewMedia = res.media || [];
     renderPreview();
-    setStatus('Preview updated. Save a draft slice when the match set looks right.');
+    setStatus('');
   }
 
   async function saveDraft() {
     const name = document.getElementById('slice-name').value.trim();
-    if (!name) {
-      setStatus('Enter a slice name before saving.', true);
+    const conceptId = selectedConceptId();
+    if (!conceptId) {
+      setStatus('Select a concept before saving.', true);
       return;
     }
-    const filter = readFilter();
+    if (!name) {
+      setStatus('Enter a training set name before saving.', true);
+      return;
+    }
+    const filter = baseFilter(conceptId, readCategoryIds());
     const payload = { name, filter };
-    setStatus('Saving draft slice…');
+    setStatus('Saving training set…');
     const slice = activeSliceId && activeSlice()?.status === 'DRAFT'
       ? await StudioApi.updateSlice(activeSliceId, payload)
       : await StudioApi.createSlice(payload);
     activeSliceId = slice.id;
     await refreshSlices();
-    setStatus(`Saved draft slice “${slice.name}” with ${slice.asset_count} track${slice.asset_count === 1 ? '' : 's'}.`);
+    window.WorkbenchTraining?.refreshHistory?.();
+    setStatus(`Saved “${slice.name}” with ${slice.asset_count} track${slice.asset_count === 1 ? '' : 's'}. Lock tracks when ready.`);
   }
 
   async function freezeSlice() {
     if (!activeSliceId) return;
-    setStatus('Freezing slice…');
+    setStatus('Locking tracks…');
     const slice = await StudioApi.freezeSlice(activeSliceId);
     await refreshSlices();
-    setStatus(`Frozen “${slice.name}”. You can download the dataset package — training has not started.`);
+    window.WorkbenchTraining?.refreshHistory?.();
+    window.WorkbenchTraining?.refreshTrainableSlices?.();
+    setStatus(`Locked “${slice.name}”. You can start calibration training in Step 2.`);
   }
 
-  function downloadPackage() {
-    const slice = activeSlice();
-    if (!slice || slice.status !== 'READY') return;
-    window.location.href = StudioApi.slicePackageUrl(slice.id);
+  function applyFilterToForm(filter) {
+    document.getElementById('filter-concept').value = filter.concept_id || '';
+    renderCategoryFilters(filter.concept_id || null);
+    document.querySelectorAll('#filter-categories input').forEach((el) => {
+      el.checked = (filter.category_ids || []).includes(el.value);
+    });
   }
 
   async function loadSlice(sliceId) {
@@ -166,15 +218,19 @@ window.WorkbenchSlice = (() => {
     document.getElementById('slice-name').value = slice.name;
     applyFilterToForm(slice.filter);
     await runPreview();
-    renderSavedSlices();
     updateActionButtons();
-    setStatus(`Loaded slice “${slice.name}” (${slice.status.toLowerCase()}).`);
+    setStatus(`Loaded “${slice.name}” (${slice.status === 'READY' ? 'locked' : 'draft'}).`);
   }
 
   async function refreshSlices() {
     savedSlices = await StudioApi.listSlices();
-    renderSavedSlices();
     updateActionButtons();
+  }
+
+  async function loadEligiblePool() {
+    const res = await StudioApi.previewSlices(baseFilter());
+    eligibleMedia = res.media || [];
+    renderConceptOptions();
   }
 
   async function init() {
@@ -182,22 +238,25 @@ window.WorkbenchSlice = (() => {
       StudioApi.listCategories(),
       StudioApi.listConcepts(),
     ]);
-    categories = categoryRes.categories || [];
-    concepts = conceptList;
-    renderCategoryFilters();
-    renderConceptOptions();
+    (categoryRes.categories || []).forEach((cat) => categoriesById.set(cat.id, cat));
+    conceptList.forEach((c) => conceptsById.set(c.id, c));
+    await loadEligiblePool();
     await refreshSlices();
-    await runPreview();
 
-    document.getElementById('preview-btn').addEventListener('click', () => runPreview().catch((err) => setStatus(err.message, true)));
+    document.getElementById('filter-concept').addEventListener('change', () => {
+      if (activeSliceId && activeSlice()?.status === 'DRAFT') activeSliceId = null;
+      runPreview().catch((err) => setStatus(err.message, true));
+    });
+    document.getElementById('slice-name').addEventListener('input', updateActionButtons);
     document.getElementById('save-slice-btn').addEventListener('click', () => saveDraft().catch((err) => setStatus(err.message, true)));
     document.getElementById('freeze-slice-btn').addEventListener('click', () => freezeSlice().catch((err) => setStatus(err.message, true)));
-    document.getElementById('download-package-btn').addEventListener('click', downloadPackage);
-    document.getElementById('slice-filter-form').addEventListener('change', () => {
-      if (activeSliceId && activeSlice()?.status === 'DRAFT') activeSliceId = null;
-      updateActionButtons();
-    });
   }
 
-  return { init };
+  return {
+    init,
+    refreshSlices,
+    loadSlice,
+    listSlices: () => savedSlices,
+    calibrationMinTracks: CALIBRATION_MIN_TRACKS,
+  };
 })();

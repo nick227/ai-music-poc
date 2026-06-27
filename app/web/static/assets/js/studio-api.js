@@ -64,6 +64,25 @@ window.StudioApi = {
   slicePackageUrl(id) {
     return `/api/slices/${id}/package`;
   },
+  listTrainingRuns() {
+    return this.request('/api/training/runs').then((r) => r.runs || []);
+  },
+  getTrainingRun(id) {
+    return this.request(`/api/training/runs/${id}`);
+  },
+  createTrainingRun(payload) {
+    return this.request('/api/training/runs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  },
+  cancelTrainingRun(id) {
+    return this.request(`/api/training/runs/${id}/cancel`, { method: 'POST' });
+  },
+  getTrainingRunLogs(id, maxChars = 4000) {
+    return this.request(`/api/training/runs/${id}/logs?max_chars=${maxChars}`);
+  },
   createCategory(name, dimension, description = '') {
     return this.request('/api/categories', {
       method: 'POST',

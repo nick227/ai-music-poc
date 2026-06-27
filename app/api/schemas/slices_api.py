@@ -66,6 +66,8 @@ class SlicePreviewItem(BaseModel):
     duration_seconds: Optional[float] = None
     category_assignment_count: int = 0
     concept_assignment_count: int = 0
+    category_ids: list[str] = Field(default_factory=list)
+    concept_ids: list[str] = Field(default_factory=list)
     primary_role: Optional[str] = None
 
 

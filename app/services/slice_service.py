@@ -203,5 +203,7 @@ class SliceService:
             "duration_seconds": asset.duration_seconds,
             "category_assignment_count": len(categories),
             "concept_assignment_count": len(concepts),
+            "category_ids": [item.category_id for item in categories],
+            "concept_ids": [item.concept_id for item in concepts],
             "primary_role": categories[0].role.value if categories else (concepts[0].role.value if concepts else None),
         }
