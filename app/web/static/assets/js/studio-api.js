@@ -24,12 +24,62 @@ window.StudioApi = {
   listCategories() {
     return this.request('/api/categories');
   },
-  createCategory(name, dimension) {
+  listConcepts() {
+    return this.request('/api/concepts').then((r) => r.concepts || []);
+  },
+  previewSlices(filter = {}) {
+    const query = new URLSearchParams();
+    if (filter.concept_id) query.append('concept_id', filter.concept_id);
+    (filter.category_ids || []).forEach((id) => query.append('category_ids', id));
+    (filter.roles || []).forEach((role) => query.append('roles', role));
+    if (filter.min_quality != null && filter.min_quality !== '') query.set('min_quality', String(filter.min_quality));
+    if (filter.min_fit != null && filter.min_fit !== '') query.set('min_fit', String(filter.min_fit));
+    if (filter.review_status) query.set('review_status', filter.review_status);
+    if (filter.rights_status) query.set('rights_status', filter.rights_status);
+    return this.request(`/api/slices/preview?${query}`);
+  },
+  listSlices() {
+    return this.request('/api/slices').then((r) => r.slices || []);
+  },
+  getSlice(id) {
+    return this.request(`/api/slices/${id}`);
+  },
+  createSlice(payload) {
+    return this.request('/api/slices', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  },
+  updateSlice(id, payload) {
+    return this.request(`/api/slices/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  },
+  freezeSlice(id) {
+    return this.request(`/api/slices/${id}/freeze`, { method: 'POST' });
+  },
+  slicePackageUrl(id) {
+    return `/api/slices/${id}/package`;
+  },
+  createCategory(name, dimension, description = '') {
     return this.request('/api/categories', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, dimension }),
+      body: JSON.stringify({ name, dimension, description: description || null }),
     });
+  },
+  bulkCreateCategories(categories) {
+    return this.request('/api/categories/bulk', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ categories }),
+    });
+  },
+  deleteCategory(id) {
+    return this.request(`/api/categories/${encodeURIComponent(id)}`, { method: 'DELETE' });
   },
   saveAssignments(id, payload) {
     return this.request(`/api/media/${id}/assignments`, {

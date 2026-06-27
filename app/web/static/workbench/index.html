@@ -14,8 +14,8 @@
 
       <section class="studio-hero">
         <p class="eyebrow">Workbench</p>
-        <h1>Teach your model</h1>
-        <p class="muted">Pick the tracks that represent your sound. Training export is not available yet — finish categorizing and reviewing reference audio first.</p>
+        <h1>Build dataset slices</h1>
+        <p class="muted">Filter reviewed reference audio, save a draft slice, freeze it, and download a dataset package. This prepares training data — it does not start model training.</p>
       </section>
 
       <section class="card model-card">
@@ -27,26 +27,103 @@
         <dl id="model-details" class="model-details"></dl>
       </section>
 
-      <section class="card tracks-card">
-        <div class="tracks-toolbar">
-          <p id="tracks-summary" class="tracks-summary">Loading tracks…</p>
-          <div class="actions">
-            <button type="button" id="select-all-btn" class="ghost">Select all</button>
-            <button type="button" id="download-btn" class="ghost" disabled title="Available after dataset slices ship">Export slice (coming soon)</button>
-          </div>
+      <section class="card slice-builder-card">
+        <div class="slice-builder-head">
+          <h2>Dataset slice builder</h2>
+          <p id="slice-status" class="slice-status muted"></p>
         </div>
 
-        <div id="tracks-list" class="tracks-list"></div>
+        <form id="slice-filter-form" class="slice-filter-form">
+          <label>
+            Slice name
+            <input id="slice-name" type="text" placeholder="e.g. Dark cinematic vocal refs" required />
+          </label>
 
-        <p id="empty-hint" class="empty-hint muted" hidden>
-          No tracks are ready yet. Import audio in <a href="/media/">Media</a>, add categories, and mark them reviewed — then come back here.
-        </p>
+          <label>
+            Concept
+            <select id="filter-concept">
+              <option value="">Any concept</option>
+            </select>
+          </label>
+
+          <label>
+            Review status
+            <select id="filter-review-status">
+              <option value="">Any review status</option>
+              <option value="NEEDS_REVIEW">Needs review</option>
+              <option value="REVIEWED" selected>Reviewed</option>
+              <option value="REJECTED">Rejected</option>
+            </select>
+          </label>
+
+          <label>
+            Rights status
+            <select id="filter-rights-status">
+              <option value="">Any rights status</option>
+              <option value="UNKNOWN">Unknown</option>
+              <option value="CONFIRMED" selected>Confirmed</option>
+              <option value="DO_NOT_TRAIN">Do not train</option>
+            </select>
+          </label>
+
+          <label>
+            Min quality
+            <select id="filter-min-quality">
+              <option value="">Any</option>
+              <option value="1">1+</option>
+              <option value="2">2+</option>
+              <option value="3" selected>3+</option>
+              <option value="4">4+</option>
+              <option value="5">5</option>
+            </select>
+          </label>
+
+          <label>
+            Min fit
+            <select id="filter-min-fit">
+              <option value="">Any</option>
+              <option value="1">1+</option>
+              <option value="2">2+</option>
+              <option value="3" selected>3+</option>
+              <option value="4">4+</option>
+              <option value="5">5</option>
+            </select>
+          </label>
+
+          <fieldset class="slice-roles-field">
+            <legend>Roles</legend>
+            <label class="checkline"><input type="checkbox" name="role" value="GOLD_REFERENCE" checked /> Gold reference</label>
+            <label class="checkline"><input type="checkbox" name="role" value="TRAINING_CANDIDATE" checked /> Training candidate</label>
+            <label class="checkline"><input type="checkbox" name="role" value="REFERENCE" checked /> Reference</label>
+          </fieldset>
+
+          <div class="slice-categories-field">
+            <p class="field-label">Categories</p>
+            <div id="filter-categories" class="filter-categories"></div>
+          </div>
+        </form>
+
+        <div class="slice-actions">
+          <button type="button" id="preview-btn" class="ghost">Preview matches</button>
+          <button type="button" id="save-slice-btn">Save draft slice</button>
+          <button type="button" id="freeze-slice-btn" class="ghost" disabled>Freeze slice</button>
+          <button type="button" id="download-package-btn" class="ghost" disabled>Download package</button>
+        </div>
+
+        <p id="preview-summary" class="preview-summary">Preview not loaded yet.</p>
+
+        <div id="preview-list" class="preview-list"></div>
+
+        <div class="saved-slices">
+          <h3>Saved slices</h3>
+          <div id="saved-slices-list" class="saved-slices-list"></div>
+        </div>
       </section>
     </main>
     <script src="/assets/js/studio-routes.js"></script>
     <script src="/assets/js/studio-api.js"></script>
     <script src="/assets/js/studio-nav.js"></script>
-    <script src="/assets/js/workbench-sessions.js"></script>
     <script src="/assets/js/workbench.js"></script>
+    <script src="/assets/js/workbench-slice.js"></script>
   </body>
 </html>
