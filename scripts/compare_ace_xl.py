@@ -378,7 +378,7 @@ def compare_ace_xl(
         "xl_turbo_available": xl_turbo_ready,
         "offload_to_cpu": offload_to_cpu,
         "model_dir": str(checkpoint_dir),
-        "quality_note": "Subjective quality must be judged by listening.",
+        "quality_note": "Subjective quality must be judged by listening. XL SFT disabled for app generation (failed listening on 12GB).",
         "variants": variant_reports,
         "summary": {
             "variant_count": len(variant_reports),

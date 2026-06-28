@@ -19,7 +19,7 @@ from typing import Optional
 from pydantic import BaseModel
 
 from app.core.hardware import HardwareProfile, build_hardware_profile
-from app.core.ace_profiles import XL_SFT_CHECKPOINT
+from app.core.ace_profiles import XL_SFT_CHECKPOINT, XL_SFT_APP_ENABLED
 
 
 _PROFILE_FILENAME = "ace_hardware_profile.json"
@@ -273,7 +273,13 @@ def build_runtime_status(
             )
 
     final_render_warning = ""
-    if not hardware.xl_sft_available:
+    if hardware.xl_sft_available and not XL_SFT_APP_ENABLED:
+        final_render_warning = (
+            f"XL SFT installed ({XL_SFT_CHECKPOINT}) but disabled for app generation — "
+            "listening validation failed on this hardware (use turbo). "
+            "Benchmark only: python scripts/compare_ace_xl.py"
+        )
+    elif not hardware.xl_sft_available:
         final_render_warning = (
             f"optional top-model checkpoint missing ({XL_SFT_CHECKPOINT}). "
             "Turbo generation is unaffected. Install: python scripts/install_ace_dit.py --model acestep-v15-xl-sft"

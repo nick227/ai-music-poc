@@ -81,6 +81,18 @@ def test_missing_xl_does_not_block_checkpoints_ok(tmp_path: Path) -> None:
     assert status.checkpoints_ok is True
 
 
+def test_installed_xl_disabled_warning(tmp_path: Path) -> None:
+    turbo = tmp_path / "acestep-v15-turbo"
+    turbo.mkdir()
+    xl = tmp_path / XL_SFT_CHECKPOINT
+    xl.mkdir()
+    (xl / "model.safetensors").write_bytes(b"x" * 16)
+    (tmp_path / "vae").mkdir()
+    hw = build_hardware_profile(checkpoint_dir=tmp_path)
+    status = build_runtime_status(hw, packages_ok=True, last_smoke_test=None)
+    assert "disabled for app generation" in status.final_render_warning
+
+
 def test_compare_variants_skip_xl_when_missing() -> None:
     variants, skipped = build_variants(xl_sft_ready=False, xl_turbo_ready=False)
     assert len(variants) == 1

@@ -12,6 +12,10 @@ XL_SFT_CHECKPOINT = "acestep-v15-xl-sft"
 XL_TURBO_CHECKPOINT = "acestep-v15-xl-turbo"
 PROFILE_LM = "acestep-5Hz-lm-0.6B"
 
+# XL SFT failed listening validation on RTX 3060 12GB (noise vs usable turbo).
+# Keep False until a fixed inference path is proven; compare script still tests XL manually.
+XL_SFT_APP_ENABLED = False
+
 FINAL_XL_SFT_24 = "final_xl_sft_24"
 FINAL_XL_SFT_50 = "final_xl_sft_50"
 XL_TURBO_8 = "xl_turbo_8"
@@ -53,8 +57,8 @@ def build_xl_sft_profile(*, inference_steps: int) -> AceRenderProfile:
         offload_to_cpu=True,
         lm_model=PROFILE_LM,
         description=(
-            f"Experimental XL final-render — {XL_SFT_CHECKPOINT}, "
-            f"{inference_steps} steps, batch=1, offload=true, lm={PROFILE_LM}"
+            f"Experimental XL final-render (manual/compare only) — {XL_SFT_CHECKPOINT}, "
+            f"{inference_steps} steps. Not used for app generation until listening validation passes."
         ),
     )
 
