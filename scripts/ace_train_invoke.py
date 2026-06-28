@@ -9,11 +9,17 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_ACE_STEP_DIR = Path("/home/administrator/models/ACE-Step-1.5")
+
+
+def _ace_step_dir() -> Path:
+    raw = os.environ.get("ACE_STEP_DIR", "").strip()
+    if not raw:
+        raise SystemExit("ACE_STEP_DIR is required")
+    return Path(raw).expanduser().resolve()
 
 
 def _configure_safe_root() -> None:
-    ace_step = Path(os.environ.get("ACE_STEP_DIR", str(DEFAULT_ACE_STEP_DIR))).resolve()
+    ace_step = _ace_step_dir()
     default_root = ace_step.parent.parent
     safe_root = Path(os.environ.get("ACE_TRAIN_SAFE_ROOT", str(default_root))).expanduser().resolve()
     if str(ace_step) not in sys.path:
@@ -24,7 +30,7 @@ def _configure_safe_root() -> None:
 
 
 def main() -> None:
-    ace_step = Path(os.environ.get("ACE_STEP_DIR", str(DEFAULT_ACE_STEP_DIR))).resolve()
+    ace_step = _ace_step_dir()
     train_script = ace_step / "train.py"
     if not train_script.is_file():
         raise SystemExit(f"ACE train.py not found: {train_script}")

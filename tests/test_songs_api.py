@@ -185,3 +185,42 @@ def test_list_songs_filters_by_review_status(client):
     assert needs[0]["id"] == media.id
     assert len(reviewed_rows) == 1
     assert reviewed_rows[0]["id"] == reviewed.id
+
+
+def test_list_songs_filters_by_style_version_id(client):
+    c, data_dir = client
+    style_version_id = "style_abc123"
+    other_style_id = "style_xyz789"
+
+    styled = MediaAsset(
+        id="media_styled_1",
+        title="Styled Song",
+        kind=MediaKind.GENERATED_SONG,
+        source=MediaSource.GENERATION,
+        version_details={"styleVersionId": style_version_id, "prompt": "dark piano"},
+    )
+    other = MediaAsset(
+        id="media_styled_2",
+        title="Other Style Song",
+        kind=MediaKind.GENERATED_SONG,
+        source=MediaSource.GENERATION,
+        version_details={"styleVersionId": other_style_id, "prompt": "bright guitar"},
+    )
+    untyled = MediaAsset(
+        id="media_no_style",
+        title="Base Song",
+        kind=MediaKind.GENERATED_SONG,
+        source=MediaSource.GENERATION,
+        version_details={"prompt": "ambient pad"},
+    )
+    store = LocalMediaStore(data_dir / "media")
+    store.save(styled)
+    store.save(other)
+    store.save(untyled)
+
+    filtered = c.get("/api/songs", params={"style_version_id": style_version_id}).json()["songs"]
+    assert len(filtered) == 1
+    assert filtered[0]["id"] == styled.id
+
+    all_songs = c.get("/api/songs", params={"limit": 100}).json()["songs"]
+    assert len(all_songs) == 3

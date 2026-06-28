@@ -14,64 +14,44 @@
 
       <section class="studio-hero">
         <p class="eyebrow">Workbench</p>
-        <h1>Training packages</h1>
-        <p class="muted">Admin-curated audio is ready to package. Create a training package, download it, and train your model in one flow.</p>
+        <h1>Datasets & Models</h1>
       </section>
 
       <section class="card model-card">
         <div class="model-card-head">
-          <h2>Model status</h2>
-          <a class="button ghost small" href="/settings/">Settings</a>
+          <h2>ACE Runtime Status</h2>
+          <button type="button" id="validate-runtime-btn" class="button ghost small">Run validation</button>
         </div>
-        <p id="model-status-text" class="model-status-text muted">Checking model…</p>
+        <p id="model-status-text" class="model-status-text muted">Checking runtime…</p>
         <p id="pipeline-status-text" class="panel-lead muted"></p>
-        <dl id="model-details" class="model-details"></dl>
-        <p id="active-style-line" class="active-style-line muted hidden"></p>
-      </section>
-
-      <section class="card workbench-panel">
-        <div class="panel-head">
-          <div>
-            <h2>Ready Audio</h2>
-            <p class="panel-lead muted">Tracks with audio plus at least one category or concept. Rejected, do-not-train, and already-packaged tracks are skipped.</p>
-          </div>
-          <p id="package-status" class="panel-status muted"></p>
-        </div>
-
-        <label class="guided-field">
-          <span>Focus concept (optional)</span>
-          <select id="concept-filter">
-            <option value="">All ready audio</option>
-          </select>
-        </label>
-
-        <div id="ready-audio-list" class="inbox-list"></div>
-
-        <div class="panel-actions">
-          <button type="button" id="create-package-btn" disabled>Create Package</button>
-          <button type="button" id="cancel-run-btn" class="ghost hidden" disabled>Cancel run</button>
-          <p id="package-feedback" class="save-feedback" hidden aria-live="polite"></p>
-        </div>
+        <div id="model-details" class="model-details"></div>
       </section>
 
       <section id="live-run-panel" class="card workbench-panel hidden">
         <div class="panel-head">
           <div>
             <h2>Training status</h2>
-            <p class="panel-lead muted">Package creation and training progress update automatically.</p>
           </div>
           <span id="live-run-badge" class="status-pill running"></span>
         </div>
         <p id="live-run-name" class="live-run-name"></p>
         <pre id="live-run-log" class="active-run-log"></pre>
+        <div class="panel-actions">
+          <button type="button" id="cancel-run-btn" class="ghost hidden" disabled>Cancel run</button>
+        </div>
       </section>
 
       <section class="card workbench-panel">
         <div class="panel-head">
           <div>
-            <h2>Training Packages</h2>
-            <p class="panel-lead muted">Frozen snapshots of ready audio. Download a training package anytime.</p>
+            <h2>Datasets</h2>
           </div>
+        </div>
+        <div class="panel-actions" style="margin-bottom: 16px; display: flex; gap: 8px;">
+          <button type="button" id="generate-datasets-btn" class="button primary">Generate Recommended Datasets</button>
+          <button type="button" id="create-package-btn" class="button ghost">Create Custom Dataset</button>
+          <p id="package-feedback" class="save-feedback" hidden aria-live="polite"></p>
+          <p id="package-status" class="panel-status muted hidden"></p>
         </div>
         <div id="packages-list" class="history-list"></div>
       </section>
@@ -79,10 +59,19 @@
       <section class="card workbench-panel">
         <div class="panel-head">
           <div>
-            <h2>Recent runs</h2>
+            <h2>Training Runs</h2>
           </div>
         </div>
         <div id="runs-list" class="history-list"></div>
+      </section>
+
+      <section class="card workbench-panel">
+        <div class="panel-head">
+          <div>
+            <h2>Model Versions</h2>
+          </div>
+        </div>
+        <div id="models-list" class="history-list"></div>
       </section>
     </main>
     <script src="/assets/js/studio-routes.js"></script>

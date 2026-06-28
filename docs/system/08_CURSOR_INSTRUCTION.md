@@ -4,6 +4,8 @@
 
 You are responsible for connecting product surfaces to the current app/API while keeping the implementation model-first and contract-driven.
 
+**Locked conventions:** read `09_CONTRACT_CONVENTIONS.md` before changing domain, API, or persistence.
+
 ## Direction
 
 Build AI Music Studio around the current ACE-Step POC.
@@ -15,6 +17,15 @@ The app should expose:
 - Settings
 
 Generation is first-class. Generated songs must carry Version Details.
+
+## MVP decisions (do not override without explicit ask)
+
+- **`JobRecord` = runtime Generation** — keep `job_id` contracts; expose `generation_id` alias where useful.
+- **`VersionDetails`** — typed Pydantic model; API field `version_details`; stored as JSON.
+- **Persistence** — JSON stores for now; SQLite only as scoped upgrade for assignment awkwardness.
+- **Routes** — wrap existing generation/job routes; add product views (`/api/media`, `/api/songs`, …).
+- **UI** — no Vite/React scaffold; backend contracts first; static UI proof-of-flow only.
+- **Agent split** — Cursor owns backend/API/integration; Antigravity owns UI architecture; Codex owns runtime/smoke/tests.
 
 ## Architecture for now
 
@@ -41,6 +52,8 @@ Suggested route groups:
 /api/model-status
 ```
 
+**Preserve unchanged:** `POST /api/generate`, `GET /api/jobs/{job_id}/status`, download routes, existing contract tests.
+
 ## Required model behavior
 
 ### MediaAsset
@@ -57,7 +70,7 @@ Must support:
 ### Category / Concept
 
 Must support:
-- seeded top-level category dimensions
+- seeded top-level category dimensions (including **Energy** — see `09_CONTRACT_CONVENTIONS.md`)
 - many-to-many media assignments
 - concepts as category combinations
 
@@ -74,6 +87,8 @@ Must support:
 - status
 - output path
 - Version Details
+
+MVP implementation: extend **`JobRecord`** / generation service — do not rename to a separate entity yet.
 
 ### Songs
 
@@ -98,7 +113,7 @@ Every Generation should preserve:
 - batch id
 
 Use UI/API field name:
-- `version_details`
+- `version_details` (snake_case keys in new JSON)
 
 Do not use:
 - `lineage`
@@ -106,11 +121,11 @@ Do not use:
 ## Declarative model-first rules
 
 Implementation order:
-1. domain enums/models
-2. persistence shape
+1. domain enums/models (`app/domain/enums.py`, `VersionDetails`, taxonomy models)
+2. persistence shape (JSON stores first)
 3. API request/response models
 4. service layer
-5. UI binding
+5. UI binding (static UI only until contracts stable)
 6. tests
 
 Avoid:
@@ -121,7 +136,7 @@ Avoid:
 
 ## Initial implementation slices
 
-### Slice 1 — Media Inbox
+### Slice 1 — Media Inbox (backend first)
 
 - upload one or more audio files
 - list unreviewed media
@@ -132,7 +147,7 @@ Avoid:
 ### Slice 2 — Generate with version details
 
 - generate from target concept/category context
-- create Generation immediately
+- create Generation immediately (`JobRecord`)
 - save output
 - create generated MediaAsset
 - show generated song in Songs
@@ -165,6 +180,8 @@ Do not:
 - remove procedural fallback
 - use bucket/lineage terminology
 - start real ACE batch jobs without clear operator intent
+- scaffold Vite/React unless explicitly requested
+- rename `JobRecord` to `Generation` in MVP
 
 ## Return format
 

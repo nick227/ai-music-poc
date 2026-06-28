@@ -1,9 +1,9 @@
 window.StudioNav = {
   tabs: [
+    { id: 'categories', label: 'Categories', href: StudioRoutes.categories },
     { id: 'media', label: 'Media', href: StudioRoutes.media },
     { id: 'workbench', label: 'Workbench', href: StudioRoutes.workbench },
-    { id: 'generate', label: 'Generate', href: StudioRoutes.home },
-    { id: 'songs', label: 'Songs', href: StudioRoutes.songs },
+    { id: 'generate', label: 'Songs', href: StudioRoutes.home },
     { id: 'settings', label: 'Settings', href: StudioRoutes.settings },
   ],
   render(activeId) {

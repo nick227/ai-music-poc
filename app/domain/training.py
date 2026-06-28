@@ -14,7 +14,10 @@ class TrainingRun(BaseModel):
     name: str
     dataset_slice_id: str
     backend: str = "MOCK"
-    base_model_version: str = "mock-v1"
+    base_model_id: str = "ace-v1"
+    base_model_name: str = "ACE v1.0"
+    training_mode: str = "lora"
+    artifact_type: str = "adapter"
     config_preset: str
     config: dict[str, Any] = Field(default_factory=dict)
     status: JobStatus = JobStatus.QUEUED

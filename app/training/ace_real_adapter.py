@@ -45,7 +45,10 @@ class AceRealTrainingAdapter:
             run = request.run.model_copy(
                 update={
                     "backend": "ACE_STEP_REAL_DRY_RUN",
-                    "base_model_version": "ace-step-turbo",
+                    "base_model_id": "ace-step-turbo",
+                    "base_model_name": "ACE-Step 1.5 Turbo",
+                    "training_mode": "lora",
+                    "artifact_type": "adapter_dir",
                     "status": JobStatus.SUCCEEDED,
                     "started_at": started,
                     "finished_at": started,
@@ -58,7 +61,10 @@ class AceRealTrainingAdapter:
         run = request.run.model_copy(
             update={
                 "backend": "ACE_STEP",
-                "base_model_version": "ace-step-turbo",
+                "base_model_id": "ace-step-turbo",
+                "base_model_name": "ACE-Step 1.5 Turbo",
+                "training_mode": "lora",
+                "artifact_type": "adapter_dir",
                 "status": JobStatus.RUNNING,
                 "started_at": started,
                 "updated_at": started,
@@ -210,9 +216,9 @@ class AceRealTrainingAdapter:
     def _ace_step_dir(self) -> Path:
         if self.settings.ace_step_dir is not None:
             return self.settings.ace_step_dir.expanduser().resolve()
-        return Path("/home/administrator/models/ACE-Step-1.5").resolve()
+        raise RuntimeError("ACE_STEP_DIR is required for real ACE training")
 
     def _checkpoint_dir(self, ace_step_dir: Path) -> Path:
         if self.settings.ace_train_checkpoint_dir is not None:
             return self.settings.ace_train_checkpoint_dir.expanduser().resolve()
-        return (ace_step_dir / "checkpoints").resolve()
+        return self.settings.ace_model_dir.expanduser().resolve()

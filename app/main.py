@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api.routes import analyze, categories, concepts, files, generate, generators, health, jobs, lyrics, media, model_status, presets, slices, songs, style_versions, training
+from app.api.routes import ace_runtime, analyze, categories, concepts, files, generate, generators, health, jobs, lyrics, media, model_status, presets, slices, songs, style_versions, training
 from app.core.config import get_settings
 from app.core.errors import AppError
 from app.core.logging import configure_logging
@@ -37,6 +37,7 @@ def create_app() -> FastAPI:
     app.include_router(analyze.router)
     app.include_router(generators.router)
     app.include_router(model_status.router)
+    app.include_router(ace_runtime.router)
     app.include_router(presets.router)
     app.include_router(lyrics.router)
     app.include_router(generate.router)

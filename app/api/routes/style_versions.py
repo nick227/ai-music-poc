@@ -1,16 +1,23 @@
 from fastapi import APIRouter, Depends, Query
+from pydantic import BaseModel
 
 from app.api.dependencies import get_song_service, get_style_version_service
 from app.api.schemas.style_versions_api import (
     StyleVersionDetailResponse,
     StyleVersionGeneratedSongSummary,
     StyleVersionListResponse,
+    StyleVersionResponse,
     style_version_to_detail,
     style_version_to_response,
 )
 from app.core.config import Settings, get_settings
+from app.domain.enums import StyleVersionStatus
 from app.services.song_service import SongService
 from app.services.style_version_service import StyleVersionService
+
+
+class StyleVersionStatusRequest(BaseModel):
+    status: StyleVersionStatus
 
 router = APIRouter(prefix="/api/style-versions", tags=["style-versions"])
 
@@ -42,4 +49,14 @@ def get_style_version(
         for song in songs
     ]
     return style_version_to_detail(record, load_path=load_path, generated_songs=generated)
+
+
+@router.patch("/{version_id}/status", response_model=StyleVersionResponse)
+def update_style_version_status(
+    version_id: str,
+    request: StyleVersionStatusRequest,
+    style_service: StyleVersionService = Depends(get_style_version_service),
+):
+    updated = style_service.update_status(version_id, request.status)
+    return style_version_to_response(updated)
 

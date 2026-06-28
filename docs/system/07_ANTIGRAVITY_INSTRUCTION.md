@@ -4,6 +4,8 @@
 
 You are responsible for product flow, Studio UI, and user-facing workflow clarity.
 
+**Conventions:** `09_CONTRACT_CONVENTIONS.md`. **Do not scaffold Vite/React yet** — design component architecture and flows; implement UI against stable backend contracts unless static UI blocks progress.
+
 ## Current direction
 
 The ACE music POC is becoming AI Music Studio.

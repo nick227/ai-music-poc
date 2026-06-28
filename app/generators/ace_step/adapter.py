@@ -4,9 +4,12 @@ import logging
 import subprocess
 import time
 from pathlib import Path
+from typing import Any
 
+from app.core.ace_runtime import AceRuntimeStatus, load_runtime_profile
 from app.core.audio_validation import validate_wav_output
 from app.core.config import Settings
+from app.core.hardware import AceGenConfig
 from app.domain.models import GenerationRequest, GenerationResult, GeneratorInfo
 from app.generators.ace_step.command_builder import AceCommandBuilder
 from app.generators.ace_step.env import ace_subprocess_env
@@ -15,6 +18,46 @@ from app.generators.ace_step.lora_meta import lora_meta_from_sources
 from app.generators.procedural import ProceduralGenerator
 
 logger = logging.getLogger(__name__)
+
+_QUALITY_STEPS = {"draft": 8, "balanced": 24, "high": 50}
+
+
+def _load_safe_config(settings: Settings) -> AceGenConfig | None:
+    """Load persisted safe recommended config from data/ace_hardware_profile.json."""
+    raw = load_runtime_profile(settings.data_dir)
+    if not raw:
+        return None
+    try:
+        status = AceRuntimeStatus.model_validate(raw)
+        hw = status.hardware
+        if hw and hw.safe_recommended_config:
+            return hw.safe_recommended_config
+    except Exception:
+        pass
+    return None
+
+
+def _build_runtime_config_record(
+    request: GenerationRequest,
+    safe_cfg: AceGenConfig | None,
+    offload_to_cpu: bool,
+    lm_model: str,
+    profile_detected_at: str,
+) -> dict[str, Any]:
+    """Build the ace_runtime_config dict that gets stored on the song."""
+    quality_steps = _QUALITY_STEPS.get(request.quality, 24)
+    return {
+        "checkpoint": safe_cfg.checkpoint if safe_cfg else "",
+        "lm_model": lm_model or "none",
+        "inference_steps": quality_steps,
+        "batch_size": 1,
+        "offload_to_cpu": offload_to_cpu,
+        "device": safe_cfg.device if safe_cfg else "cuda",
+        "seed": request.seed,
+        "duration_seconds": request.duration_seconds,
+        "runtime_profile_detected_at": profile_detected_at,
+        "config_tier": "safe_recommended" if safe_cfg else "fallback_defaults",
+    }
 
 
 class AceStepCommandGenerator:
@@ -70,8 +113,36 @@ class AceStepCommandGenerator:
             })
             return result
 
+        # Load safe recommended config from persisted hardware profile
+        safe_cfg = _load_safe_config(self.settings)
+        profile_detected_at = ""
+        if safe_cfg is not None:
+            raw = load_runtime_profile(self.settings.data_dir) or {}
+            try:
+                _status = AceRuntimeStatus.model_validate(raw)
+                profile_detected_at = (_status.hardware.detected_at if _status.hardware else "")
+            except Exception:
+                pass
+
+        # Determine safe defaults: offload_to_cpu from profile, LM model from safe tier
+        offload_to_cpu = safe_cfg.offload_to_cpu if safe_cfg is not None else True
+        lm_model = safe_cfg.lm_model if safe_cfg is not None else ""
+
         cmd = self.builder.build(request, output_path)
-        logger.info("ace_command_start output=%s cmd=%s", output_path, " ".join(cmd))
+
+        # Inject safe config args unless the template already includes them
+        cmd_str = " ".join(cmd)
+        if "--offload-to-cpu" not in cmd_str and offload_to_cpu:
+            cmd.append("--offload-to-cpu")
+        if "--use-lm" not in cmd_str:
+            cmd += ["--use-lm", "true" if lm_model else "false"]
+        if "--lm-model" not in cmd_str and lm_model:
+            cmd += ["--lm-model", lm_model]
+
+        logger.info(
+            "ace_command_start output=%s offload=%s lm=%s cmd=%s",
+            output_path, offload_to_cpu, lm_model or "none", " ".join(cmd),
+        )
         started = time.monotonic()
         try:
             completed = subprocess.run(
@@ -84,7 +155,6 @@ class AceStepCommandGenerator:
                 env=ace_subprocess_env(self.settings),
             )
         except subprocess.TimeoutExpired:
-            # Let GenerationService mark TIMEOUT and write the job log.
             raise
 
         elapsed_seconds = round(time.monotonic() - started, 3)
@@ -116,30 +186,36 @@ class AceStepCommandGenerator:
         command_preview = " ".join(cmd)
         if len(command_preview) > 480:
             command_preview = command_preview[:477] + "..."
+
+        runtime_config = _build_runtime_config_record(
+            request, safe_cfg, offload_to_cpu, lm_model, profile_detected_at,
+        )
+
         result_metadata: dict[str, object] = {
-                "engine": "ace-step-command-v3.4",
-                "backend": "external-command",
-                "device": self.settings.ace_device,
-                "model_dir": str(self.settings.ace_model_dir),
-                "hf_cache_dir": str(self.settings.hf_cache_dir) if self.settings.hf_cache_dir else None,
-                "lora_path": request.lora_path,
-                "lora_scale": request.lora_scale if request.lora_path else None,
-                "use_lora": bool(request.lora_path),
-                "command_preview": command_preview,
-                "ace_returncode": completed.returncode,
-                "ace_elapsed_seconds": elapsed_seconds,
-                "stdout_tail": stdout_tail,
-                "stderr_tail": stderr_tail,
-                "audio": {
-                    "file_size_bytes": audio.file_size_bytes,
-                    "duration_seconds": audio.duration_seconds,
-                    "sample_rate": audio.sample_rate,
-                    "channels": audio.channels,
-                    "peak_abs_sample": audio.peak_abs_sample,
-                    "rms": audio.rms,
-                    "warnings": audio.warnings,
-                },
-            }
+            "engine": "ace-step-command-v3.4",
+            "backend": "external-command",
+            "device": self.settings.ace_device,
+            "model_dir": str(self.settings.ace_model_dir),
+            "hf_cache_dir": str(self.settings.hf_cache_dir) if self.settings.hf_cache_dir else None,
+            "lora_path": request.lora_path,
+            "lora_scale": request.lora_scale if request.lora_path else None,
+            "use_lora": bool(request.lora_path),
+            "command_preview": command_preview,
+            "ace_returncode": completed.returncode,
+            "ace_elapsed_seconds": elapsed_seconds,
+            "stdout_tail": stdout_tail,
+            "stderr_tail": stderr_tail,
+            "ace_runtime_config": runtime_config,
+            "audio": {
+                "file_size_bytes": audio.file_size_bytes,
+                "duration_seconds": audio.duration_seconds,
+                "sample_rate": audio.sample_rate,
+                "channels": audio.channels,
+                "peak_abs_sample": audio.peak_abs_sample,
+                "rms": audio.rms,
+                "warnings": audio.warnings,
+            },
+        }
         if lora_meta:
             result_metadata.update(lora_meta)
         elif request.lora_path:

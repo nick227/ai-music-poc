@@ -122,6 +122,7 @@
   font-size: 12px;
   color: #a1a1aa;
   line-height: 1.5;
+  padding-left: 45px;
 }
 
 .media-row-main {
@@ -139,4 +140,8 @@
   display: flex;
   gap: 6px;
   justify-content: flex-end;
+}
+
+.media-table .data-table tr.selected td {
+  background: rgba(139, 92, 246, 0.15);
 }

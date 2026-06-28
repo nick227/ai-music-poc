@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import FileResponse
 
-from app.api.dependencies import get_slice_service
+from app.api.dependencies import get_slice_service, get_dataset_generator_service
 from app.api.schemas.slices_api import (
     SliceCreateRequest,
     SliceFilterInput,
@@ -51,6 +51,14 @@ def preview_slices(
 @router.get("", response_model=SliceListResponse)
 def list_slices(slice_service: SliceService = Depends(get_slice_service)):
     slices = [slice_to_response(item) for item in slice_service.list_slices()]
+    return SliceListResponse(slices=slices)
+
+
+@router.post("/generate-recommended", response_model=SliceListResponse)
+def generate_recommended_slices(
+    generator_service = Depends(get_dataset_generator_service)
+):
+    slices = [slice_to_response(item) for item in generator_service.generate_recommended_slices()]
     return SliceListResponse(slices=slices)
 
 

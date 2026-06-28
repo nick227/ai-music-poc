@@ -31,6 +31,8 @@ class DatasetSlice(BaseModel):
     status: DatasetSliceStatus = DatasetSliceStatus.DRAFT
     version: int = 1
     asset_count: int = 0
+    is_auto_generated: bool = False
+    lineage_parent_id: Optional[str] = None
     frozen_at: Optional[datetime] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

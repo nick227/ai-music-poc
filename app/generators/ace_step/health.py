@@ -37,10 +37,7 @@ def _readiness_user_message(
         first = warnings[0] if warnings else "Check ACE_* settings."
         return f"ACE wiring not ready: {first}"
     if not packages_checked:
-        return (
-            "ACE wiring is ready. Run POST /api/model-status/test to verify packages and CUDA. "
-            "The first real generation may take much longer while Hugging Face checkpoints download."
-        )
+        return "ACE wiring looks complete. Run POST /api/model-status/test to verify package imports and CUDA."
     if packages_ok is False:
         return "ACE wiring is ready but ACE venv package imports failed. See missing_packages."
     if cuda_expected and cuda_ready is False:

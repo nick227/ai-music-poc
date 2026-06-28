@@ -55,7 +55,7 @@ def describe_pipeline(settings: Settings, adapter_name: str) -> dict:
         elif not settings.ace_real_training_enabled:
             message = "ACE real adapter selected; set ACE_REAL_TRAINING_ENABLED=true to allow subprocess training."
         else:
-            message = "ACE turbo LoRA training via train.py fixed. Requires confirm_real_training on each run."
+            message = ""
     else:
         adapter_label = "Mock training"
         message = "Mock training runs locally and writes a placeholder artifact."

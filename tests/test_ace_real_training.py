@@ -194,6 +194,10 @@ def test_real_adapter_dry_run_never_starts_subprocess(tmp_path):
     run_mock.assert_not_called()
     assert result.dry_run is True
     assert result.run.artifact_path is None
+    assert result.run.base_model_id == "ace-step-turbo"
+    assert result.run.base_model_name == "ACE-Step 1.5 Turbo"
+    assert result.run.training_mode == "lora"
+    assert result.run.artifact_type == "adapter_dir"
     command_path = request.run_dir / "ace_train_command.json"
     payload = json.loads(command_path.read_text(encoding="utf-8"))
     assert payload["preprocess_command"][1:3] == ["-m", "acestep.training_v2.cli.train_fixed"]
@@ -215,6 +219,10 @@ def test_real_adapter_sets_artifact_path_only_when_final_adapter_files_exist(tmp
 
     assert result.run.artifact_path is not None
     assert result.run.artifact_path.endswith("artifacts/ace_output/final")
+    assert result.run.base_model_id == "ace-step-turbo"
+    assert result.run.base_model_name == "ACE-Step 1.5 Turbo"
+    assert result.run.training_mode == "lora"
+    assert result.run.artifact_type == "adapter_dir"
     manifest = json.loads((request.artifacts_dir / "artifact_manifest.json").read_text(encoding="utf-8"))
     assert manifest["artifact_type"] == "ADAPTER_DIR"
     assert manifest["artifact_path"] == "ace_output/final"

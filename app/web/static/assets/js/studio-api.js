@@ -100,6 +100,9 @@ window.StudioApi = {
       body: JSON.stringify(payload),
     });
   },
+  generateRecommendedPackages() {
+    return this.request('/api/slices/generate-recommended', { method: 'POST' }).then((r) => r.slices || []);
+  },
   ingestTrainingQueue(payload = {}) {
     return this.request('/api/training/ingest', {
       method: 'POST',
@@ -109,6 +112,16 @@ window.StudioApi = {
   },
   listStyleVersions() {
     return this.request('/api/style-versions').then((r) => r.style_versions || []);
+  },
+  getStyleVersion(id) {
+    return this.request(`/api/style-versions/${id}`);
+  },
+  updateStyleVersionStatus(id, status) {
+    return this.request(`/api/style-versions/${id}/status`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status }),
+    });
   },
   createCategory(name, dimension, description = '') {
     return this.request('/api/categories', {
@@ -160,6 +173,12 @@ window.StudioApi = {
   },
   modelStatus() {
     return this.request('/api/model-status');
+  },
+  aceRuntimeStatus() {
+    return this.request('/api/ace-runtime-status');
+  },
+  validateAceRuntime() {
+    return this.request('/api/ace-runtime-status/validate', { method: 'POST' });
   },
 };
 

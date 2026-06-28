@@ -22,7 +22,10 @@ class TrainingRunResponse(BaseModel):
     name: str
     dataset_slice_id: str
     backend: str
-    base_model_version: str
+    base_model_id: str
+    base_model_name: str
+    training_mode: str
+    artifact_type: str
     config_preset: str
     config: dict[str, Any]
     status: JobStatus
@@ -66,7 +69,10 @@ def training_run_to_response(run: TrainingRun, settings: Settings | None = None)
         name=run.name,
         dataset_slice_id=run.dataset_slice_id,
         backend=run.backend,
-        base_model_version=run.base_model_version,
+        base_model_id=run.base_model_id,
+        base_model_name=run.base_model_name,
+        training_mode=run.training_mode,
+        artifact_type=run.artifact_type,
         config_preset=run.config_preset,
         config=run.config,
         status=run.status,

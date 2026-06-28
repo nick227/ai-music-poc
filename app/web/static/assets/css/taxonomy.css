@@ -4,6 +4,8 @@
   border-bottom: 1px solid rgba(255,255,255,0.06);
 }
 
+.hidden { display: none !important; }
+
 .taxonomy-section:last-of-type {
   border-bottom: none;
   padding-bottom: 0;
@@ -83,15 +85,9 @@ label.section-label {
 
 .search-create:hover { background: transparent; }
 
-.browse-section .browse-panel {
-  max-height: 520px;
-}
-
 .browse-panel {
   margin-top: 0;
-  max-height: 420px;
-  overflow-y: auto;
-  padding: 4px;
+  padding: 2px;
   border-radius: 12px;
   background: rgba(0,0,0,0.14);
   border: 1px solid rgba(255,255,255,0.06);

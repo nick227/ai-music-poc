@@ -33,9 +33,12 @@ Mix
 Rhythm
 Vocals
 Arrangement
+Energy
 Quality Issue
 Training Role
 ```
+
+See `09_CONTRACT_CONVENTIONS.md` for enum source-of-truth and casing rules.
 
 Categories are ever-expanding.
 
@@ -132,6 +135,7 @@ CategoryDimension =
   | "RHYTHM"
   | "VOCALS"
   | "ARRANGEMENT"
+  | "ENERGY"
   | "QUALITY_ISSUE"
   | "TRAINING_ROLE"
 
@@ -260,6 +264,8 @@ GenerationBatch {
 ```
 
 ### Generation
+
+For MVP, the runtime Generation record is **`JobRecord`** in code (`job_id`; expose `generation_id` as alias). See `09_CONTRACT_CONVENTIONS.md`. A separate `Generation` table/type may be introduced later if needed.
 
 ```ts
 Generation {
@@ -443,8 +449,9 @@ Every generated song should be able to show:
 - batch
 
 Implementation detail:
+- typed Pydantic `VersionDetails` model; API field `version_details` (snake_case)
 - keep normalized fields for querying
-- also preserve `versionDetailsJson` as a frozen generation-time snapshot
+- also preserve `versionDetailsJson` in sidecar metadata files as a frozen audit alias (see `09_CONTRACT_CONVENTIONS.md` for field mapping and legacy camelCase reads)
 
 ## Why generated songs are also MediaAssets
 

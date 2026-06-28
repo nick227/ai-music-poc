@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Optional
 
 from app.core.errors import NotFoundError, ValidationAppError
@@ -21,8 +22,8 @@ class CategoryService:
                 self.store.save(category)
         return self.list()
 
-    def list(self, dimension: Optional[CategoryDimension] = None) -> list[Category]:
-        return self.store.list_filtered(dimension)
+    def list(self, dimension: Optional[CategoryDimension] = None, include_archived: bool = False) -> list[Category]:
+        return self.store.list_filtered(dimension, include_archived=include_archived)
 
     def get_required(self, category_id: str) -> Category:
         category = self.store.get(category_id)
@@ -51,4 +52,25 @@ class CategoryService:
             status=CategoryStatus.ACTIVE,
         )
         self.store.save(category)
+        return category
+
+    def create_many(self, items: list[dict]) -> list[Category]:
+        categories: list[Category] = []
+        for item in items:
+            categories.append(
+                self.create(
+                    name=item["name"],
+                    dimension=item["dimension"],
+                    slug=item.get("slug"),
+                    description=item.get("description"),
+                )
+            )
+        return categories
+
+    def archive(self, category_id: str) -> Category:
+        category = self.get_required(category_id)
+        if category.status != CategoryStatus.ARCHIVED:
+            category.status = CategoryStatus.ARCHIVED
+            category.updated_at = datetime.now(timezone.utc)
+            self.store.save(category)
         return category

@@ -6,6 +6,8 @@ Keep the AI Music Studio implementation easy for multiple agents to modify witho
 
 The code should be declarative, model-first, and contract-driven.
 
+**Cross-cutting conventions** (enums, casing, Energy dimension, JobRecord alias, persistence, routes): see `09_CONTRACT_CONVENTIONS.md`.
+
 ## Core rule
 
 Do not start by scattering UI state, API payloads, and database fields independently.
@@ -131,23 +133,26 @@ Do not treat generated WAVs as disposable temp files.
 ## Version Details rule
 
 Every generation should store:
+- typed `VersionDetails` model in domain code
 - normalized fields for querying
-- frozen JSON snapshot for audit/history
+- frozen JSON snapshot for audit/history (`version_details` on records; `versionDetailsJson` in sidecar metadata)
 
-Example:
+Example (API JSON, snake_case):
 
 ```json
 {
   "backend": "ACE_STEP",
-  "modelVersion": "ace-step-1.5",
-  "styleVersionId": null,
-  "trainingRunId": null,
-  "datasetSliceId": null,
-  "targetConceptId": "concept_dark_piano",
+  "model_version": "ace-step-1.5",
+  "style_version_id": null,
+  "training_run_id": null,
+  "dataset_slice_id": null,
+  "target_concept_id": "concept_dark_piano",
   "seed": 12345,
-  "durationSeconds": 30
+  "duration_seconds": 30
 }
 ```
+
+Legacy snapshots may use camelCase inner keys until normalized on read — new writes use snake_case only.
 
 ## Relationship metadata rule
 
@@ -198,6 +203,8 @@ This makes agents less likely to create inconsistent forms.
 
 ## Job rules
 
+For MVP, **`JobRecord` is the Generation record** (`job_id`; `generation_id` alias). See `09_CONTRACT_CONVENTIONS.md`.
+
 Async jobs should always have:
 - id
 - type
@@ -238,7 +245,7 @@ Each new surface needs at least:
 - one failure-path test
 
 For generation:
-- creates Generation record
+- creates Generation record (`JobRecord`)
 - creates MediaAsset record
 - preserves version details
 - returns stable job status

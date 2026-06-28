@@ -32,14 +32,32 @@ Thumbs.db
 models/
 
 # Runtime data (keep directory placeholders only)
+data/ace_hardware_profile.json
 data/jobs/*.json
+data/media/*
+data/model_outputs/*
 data/outputs/*
 data/logs/*
+data/slices/*
+data/style_versions/*
+data/taxonomy/*
 data/tmp/*
+data/training_runs/*
 !data/jobs/.gitkeep
+!data/media/.gitkeep
+!data/model_outputs/.gitkeep
 !data/outputs/.gitkeep
 !data/logs/.gitkeep
+!data/slices/.gitkeep
+!data/style_versions/.gitkeep
+!data/taxonomy/.gitkeep
 !data/tmp/.gitkeep
+!data/training_runs/.gitkeep
+
+# Local runtime/tool drops
+logs/
+sidestep.log
+tools/
 
 # Generated audio (if saved outside data/outputs)
 *.wav

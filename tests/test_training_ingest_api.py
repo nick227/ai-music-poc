@@ -167,7 +167,7 @@ def test_ready_audio_returns_after_tag_change(client):
     assert any(item["id"] == tagged["id"] for item in c.get("/api/training/ready-audio").json()["items"])
 
 
-def test_generate_with_style_version_sets_version_details(client):
+def test_generate_with_style_version_rejects_procedural_generator(client):
     c, _ = client
     tagged = _tagged_upload(client, filename="style-gen.wav")
     create = c.post("/api/training/packages", json={}).json()["run"]
@@ -184,17 +184,5 @@ def test_generate_with_style_version_sets_version_details(client):
             "style_version_id": style_id,
         },
     )
-    assert gen.status_code == 200
-    job_id = gen.json()["job_id"]
-
-    deadline = time.time() + 3.0
-    job = c.get(f"/api/jobs/{job_id}/status").json()
-    while job["status"] in {"QUEUED", "RUNNING"} and time.time() < deadline:
-        time.sleep(0.02)
-        job = c.get(f"/api/jobs/{job_id}/status").json()
-    assert job["status"] == "SUCCEEDED"
-
-    songs = c.get("/api/songs").json()["songs"]
-    song = next(item for item in songs if item["generation"]["id"] == job_id)
-    assert song["version_details"]["style_version_id"] == style_id
-    assert song["version_details"]["training_run_id"] == detail["id"]
+    assert gen.status_code == 422
+    assert "ACE-Step" in gen.json()["message"]

@@ -42,7 +42,7 @@ class AceTrainingCommandBuilder:
             "output_dir": request.artifacts_dir,
             "artifacts_dir": request.artifacts_dir,
             "model_dir": self.settings.ace_model_dir,
-            "device": self.settings.ace_device,
+            "device": request.run.config.get("device") or self.settings.ace_device,
             "preset": request.run.config_preset,
             "steps": request.run.config.get("steps", ""),
             "rank": request.run.config.get("rank", ""),
@@ -81,7 +81,10 @@ class AceTrainingAdapter:
         run = request.run.model_copy(
             update={
                 "backend": "ACE_STEP_DRY_RUN",
-                "base_model_version": "ace-step",
+                "base_model_id": "ace-step",
+                "base_model_name": "ACE-Step",
+                "training_mode": "lora",
+                "artifact_type": "adapter_dir",
                 "status": JobStatus.SUCCEEDED,
                 "started_at": started,
                 "finished_at": started,

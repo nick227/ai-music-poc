@@ -114,6 +114,7 @@ window.WorkbenchTaxonomy = (() => {
 
   function renderSuggestionChips() {
     const el = document.getElementById('cat-suggestions');
+    if (!el) return;
     const items = buildTitleSuggestions();
     toggleEmpty('cat-suggestions-empty', items.length > 0);
     if (!items.length) {
@@ -128,23 +129,34 @@ window.WorkbenchTaxonomy = (() => {
     });
   }
 
+  let browseRendered = false;
+
   function renderBrowse() {
     const browse = document.getElementById('cat-browse');
-    const grouped = new Map();
-    allCategories.forEach((cat) => {
-      if (!grouped.has(cat.dimension)) grouped.set(cat.dimension, []);
-      grouped.get(cat.dimension).push(cat);
-    });
-    browse.innerHTML = DIMENSION_ORDER.filter((d) => grouped.has(d)).map((dimension) => {
-      const items = grouped.get(dimension).sort((a, b) => a.name.localeCompare(b.name));
-      const chips = items.map((cat) => {
-        const selected = selectedCategoryIds.includes(cat.id) ? ' chip-active' : '';
-        return `<button type="button" class="chip chip-browse${selected}" data-id="${cat.id}">${cat.name}</button>`;
+    if (!browse) return;
+
+    if (!browseRendered) {
+      const grouped = new Map();
+      allCategories.forEach((cat) => {
+        if (!grouped.has(cat.dimension)) grouped.set(cat.dimension, []);
+        grouped.get(cat.dimension).push(cat);
+      });
+      browse.innerHTML = DIMENSION_ORDER.filter((d) => grouped.has(d)).map((dimension) => {
+        const items = grouped.get(dimension).sort((a, b) => a.name.localeCompare(b.name));
+        const chips = items.map((cat) => {
+          return `<button type="button" class="chip chip-browse" data-id="${cat.id}">${cat.name}</button>`;
+        }).join('');
+        return `<details class="browse-dimension" open><summary>${dimensionLabel(dimension)}</summary><div class="chips-container">${chips}</div></details>`;
       }).join('');
-      return `<details class="browse-dimension"><summary>${dimensionLabel(dimension)}</summary><div class="chips-container">${chips}</div></details>`;
-    }).join('');
+      browse.querySelectorAll('.chip-browse').forEach((btn) => {
+        btn.addEventListener('click', () => toggleCategory(btn.dataset.id));
+      });
+      browseRendered = true;
+    }
+
+    // Update active states without rebuilding DOM
     browse.querySelectorAll('.chip-browse').forEach((btn) => {
-      btn.addEventListener('click', () => toggleCategory(btn.dataset.id));
+      btn.classList.toggle('chip-active', selectedCategoryIds.includes(btn.dataset.id));
     });
   }
 

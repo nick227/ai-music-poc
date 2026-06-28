@@ -14,7 +14,7 @@
 
       <section class="studio-hero">
         <p class="eyebrow">Media</p>
-        <h1>Audio library</h1>
+        <h1>Upload and categorize</h1>
       </section>
 
       <div class="toolbar card">
@@ -34,11 +34,22 @@
         <span id="table-count" class="muted"></span>
       </div>
 
+      <div id="bulk-action-bar" class="card" hidden style="background: var(--surface-2); border-color: var(--primary); display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+        <div style="display: flex; align-items: center; gap: 16px;">
+          <strong id="bulk-count">0 items selected</strong>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <button type="button" id="bulk-assign-btn" class="small">Assign Categories</button>
+          <button type="button" id="bulk-clear-btn" class="ghost small">Clear Selection</button>
+        </div>
+      </div>
+
       <div id="dropzone" class="media-dropzone media-table">
         <div class="data-table-wrap">
           <table class="data-table">
             <thead>
               <tr>
+                <th style="width: 40px; text-align: center;"><input type="checkbox" id="bulk-select-all" /></th>
                 <th>Track</th>
                 <th></th>
               </tr>
@@ -48,6 +59,29 @@
         </div>
       </div>
     </main>
+
+    <dialog id="category-picker-modal" class="card" style="width: 380px; max-height: 80vh; padding: 0; margin: 0; position: fixed; bottom: 24px; right: 24px; left: auto; top: auto; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.5);">
+      <div style="display: flex; flex-direction: column; max-height: 80vh; padding: 20px; box-sizing: border-box; gap: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <h2 style="margin: 0; font-size: 16px;">Assign Categories</h2>
+          <button type="button" id="close-category-picker" class="ghost small">Close</button>
+        </div>
+        
+        <div id="category-selected-section" style="padding: 12px; background: rgba(0,0,0,0.2); border-radius: 8px; min-height: 48px; max-height: 120px; overflow-y: auto; display: flex; flex-wrap: wrap; gap: 6px; align-content: flex-start; border: 1px solid rgba(255,255,255,0.05);">
+        </div>
+
+        <input type="search" id="category-search" placeholder="Search categories..." style="width: 100%; box-sizing: border-box;" />
+        
+        <div id="category-grid" style="overflow-y: auto; display: flex; flex-direction: column; gap: 20px; padding-bottom: 8px;">
+        </div>
+        
+        <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 16px; margin-top: auto;">
+          <span id="category-picker-status" class="muted" style="font-size: 13px;" hidden>Saving...</span>
+          <button type="button" id="apply-categories-btn" style="flex: 1;">Apply</button>
+        </div>
+      </div>
+    </dialog>
+
     <script src="/assets/js/studio-routes.js"></script>
     <script src="/assets/js/studio-api.js"></script>
     <script src="/assets/js/studio-nav.js"></script>

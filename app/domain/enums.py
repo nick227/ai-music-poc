@@ -73,5 +73,6 @@ class IngestionStatus(str, Enum):
 
 
 class StyleVersionStatus(str, Enum):
+    CANDIDATE = "CANDIDATE"
     ACTIVE = "ACTIVE"
     ARCHIVED = "ARCHIVED"

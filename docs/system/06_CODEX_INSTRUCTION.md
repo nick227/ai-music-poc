@@ -17,6 +17,8 @@ Generated songs are first-class from day one. Every generated song should create
 
 Use “Version Details,” not “lineage.”
 
+**Conventions:** `09_CONTRACT_CONVENTIONS.md` (JobRecord = Generation for MVP, enum source of truth, casing).
+
 ## Primary objectives
 
 1. Harden the current generation job path.
@@ -72,9 +74,9 @@ Avoid:
 ### Task 1 — generation persistence contract
 
 Verify that every successful generation:
-- has a stable generation id
+- has a stable generation id (`job_id`; alias `generation_id`)
 - writes output WAV to persistent storage
-- creates/updates a Generation record
+- creates/updates a Generation record (`JobRecord`)
 - creates MediaAsset record with `kind = GENERATED_SONG`
 - stores backend/model version/settings
 - stores target concept/categories if supplied

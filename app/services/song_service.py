@@ -31,13 +31,19 @@ class SongService:
         limit: int = 25,
         review_status: Optional[ReviewStatus] = None,
         review_decision: Optional[ReviewDecision] = None,
+        style_version_id: Optional[str] = None,
     ) -> list[SongResponse]:
-        assets = self.media_store.list_generated_songs(limit=limit)
+        assets = self.media_store.list_generated_songs(limit=500 if style_version_id else limit)
         if review_status is not None:
             assets = [item for item in assets if item.review_status == review_status]
         if review_decision is not None:
             assets = [item for item in assets if item.review_decision == review_decision]
-        return [self.to_response(asset) for asset in assets]
+        if style_version_id is not None:
+            assets = [
+                item for item in assets
+                if normalize_version_details(item.version_details or {}).get("style_version_id") == style_version_id
+            ]
+        return [self.to_response(asset) for asset in assets[:limit]]
 
     def list_by_style_version(self, style_version_id: str, limit: int = 50) -> list[SongResponse]:
         assets = self.media_store.list_generated_songs(limit=500)

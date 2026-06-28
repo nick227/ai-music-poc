@@ -10,13 +10,19 @@
   </head>
   <body data-studio-tab="generate">
     <main class="shell studio-shell">
+      <!-- ========================================== -->
+      <!-- NAVIGATION & HERO                          -->
+      <!-- ========================================== -->
       <nav id="studio-nav" class="studio-nav"></nav>
       <section class="studio-hero">
         <p class="eyebrow">Songs</p>
-        <h1>Generate and review songs</h1>
+        <h1>Generate music</h1>
         <p class="muted">Line-aware formant vocals, chorus harmony, and optional vocal stems in balanced/high quality. Wire ACE-Step for neural singing.</p>
       </section>
 
+      <!-- ========================================== -->
+      <!-- CONTEXT BANNER                             -->
+      <!-- ========================================== -->
       <section id="context-banner" class="card" hidden>
         <p class="muted">Baseline from reference track: <strong id="context-title"></strong></p>
         <p id="context-cats" class="table-meta"></p>
@@ -24,8 +30,14 @@
         <a id="context-workbench" class="button ghost small" href="/workbench/">Open Workbench</a>
       </section>
 
+      <!-- ========================================== -->
+      <!-- MODEL STATUS                               -->
+      <!-- ========================================== -->
       <section id="model-status" class="status-strip muted">Loading model status…</section>
 
+      <!-- ========================================== -->
+      <!-- GENERATION FORM & CURRENT SONG             -->
+      <!-- ========================================== -->
       <section class="grid">
         <form id="generate-form" class="card">
           <label>
@@ -53,10 +65,9 @@
           <label>
             Lyrics / vocal guide
             <span class="help">Procedural mode sings lyrics line-by-line with formant voices. Use balanced/high quality for vocal stems. ACE-Step is required for neural singing.</span>
-            <textarea id="lyrics" name="lyrics" maxlength="10000" rows="8">I saw your shadow in the blue light
-Dancing where the city ends
-Hold the night a little tighter
-Before the morning breaks again</textarea>
+            <textarea id="lyrics" name="lyrics" maxlength="10000" rows="8">
+              Twinkle twinkly little star
+          </textarea>
           </label>
 
           <div class="row">
@@ -108,11 +119,17 @@ Before the morning breaks again</textarea>
         </section>
       </section>
 
+      <!-- ========================================== -->
+      <!-- RECENT SONGS                               -->
+      <!-- ========================================== -->
       <section class="card">
         <div class="section-head"><h2>Recent songs</h2><button id="refresh" class="small" type="button">Refresh</button></div>
         <div id="jobs" class="jobs muted">No songs found.</div>
       </section>
 
+      <!-- ========================================== -->
+      <!-- SONGS REVIEW & DETAILS                     -->
+      <!-- ========================================== -->
       <section class="songs-combined">
         <div class="section-head">
           <h2>Songs</h2>

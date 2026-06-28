@@ -15,6 +15,10 @@ class StyleVersion(BaseModel):
     dataset_slice_id: str
     artifact_path: str
     backend: str = "MOCK"
+    base_model_id: str = "ace-v1"
+    base_model_name: str = "ACE v1.0"
+    training_mode: str = "lora"
+    artifact_type: str = "adapter"
     status: StyleVersionStatus = StyleVersionStatus.ACTIVE
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

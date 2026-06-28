@@ -71,6 +71,11 @@ class AssignmentStore:
         items.sort(key=lambda item: item.created_at)
         return items
 
+    def list_category_assignments(self) -> list[MediaCategoryAssignment]:
+        items = self.category_store.list_all()
+        items.sort(key=lambda item: item.created_at)
+        return items
+
     def list_concept_assignments_for_media(self, media_asset_id: str) -> list[MediaConceptAssignment]:
         items = [item for item in self.concept_store.list_all() if item.media_asset_id == media_asset_id]
         items.sort(key=lambda item: item.created_at)

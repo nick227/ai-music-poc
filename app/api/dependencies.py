@@ -30,6 +30,7 @@ from app.training.ace_real_adapter import AceRealTrainingAdapter
 from app.training.mock_adapter import MockTrainingAdapter
 from app.services.slice_package_service import SlicePackageService
 from app.services.slice_service import SliceService
+from app.services.dataset_generator_service import DatasetGeneratorService
 from app.storage.slice_store import SliceStore
 
 
@@ -167,6 +168,17 @@ def get_slice_service():
         get_category_service(),
         get_concept_service(),
         get_slice_package_service(),
+    )
+
+
+@lru_cache
+def get_dataset_generator_service():
+    return DatasetGeneratorService(
+        get_slice_service(),
+        get_category_service(),
+        get_assignment_store(),
+        get_media_store(),
+        get_ready_audio_service(),
     )
 
 

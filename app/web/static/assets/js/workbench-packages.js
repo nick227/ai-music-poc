@@ -16,7 +16,7 @@ window.WorkbenchPackages = (() => {
   }
 
   function selectedConceptId() {
-    return document.getElementById('concept-filter').value || null;
+    return null;
   }
 
   function activeRun() {
@@ -36,55 +36,32 @@ window.WorkbenchPackages = (() => {
     return `${tags.join(' · ') || 'tagged'} · ${role} · updated ${formatWhen(item.updated_at)}`;
   }
 
-  function renderReadyAudio() {
-    const list = document.getElementById('ready-audio-list');
-    const createBtn = document.getElementById('create-package-btn');
-    const inFlight = activeRun();
 
-    if (!readyAudio.total) {
-      list.innerHTML = '<p class="empty-hint muted">No ready audio yet. Import audio in Media, add a category or concept, then return here.</p>';
-      createBtn.disabled = true;
-      return;
-    }
-
-    list.innerHTML = readyAudio.groups.map((group) => `
-      <div class="audio-group">
-        <h3 class="audio-group-title">${group.label} <span class="tag-count">(${group.items.length})</span></h3>
-        ${group.items.map((item) => `
-          <div class="inbox-row">
-            <div class="inbox-main">
-              <a class="track-title" href="${StudioRoutes.mediaDetail(item.id)}">${item.title}</a>
-              ${item.primary_role ? `<span class="status-pill draft">${item.primary_role.replace(/_/g, ' ').toLowerCase()}</span>` : ''}
-            </div>
-            <p class="inbox-meta">${trackMeta(item)}</p>
-          </div>
-        `).join('')}
-      </div>
-    `).join('');
-
-    createBtn.disabled = !!inFlight || readyAudio.total === 0;
-    setStatus(`${readyAudio.total} track${readyAudio.total === 1 ? '' : 's'} ready`);
-  }
 
   function renderPackages() {
     const list = document.getElementById('packages-list');
     if (!packages.length) {
-      list.innerHTML = '<p class="empty-hint muted">No training packages yet. Create one from ready audio above.</p>';
+      list.innerHTML = '<p class="empty-hint muted">No datasets yet. Create or generate one to begin.</p>';
       return;
     }
     list.innerHTML = packages.map((pkg) => `
       <div class="history-row">
         <div class="history-main">
-          <span class="history-kind">Package</span>
+          <span class="history-kind">${pkg.is_auto_generated && pkg.status === 'DRAFT' ? 'Dataset Candidate' : 'Dataset'}</span>
           <span class="history-title">${pkg.name}</span>
           <span class="status-pill ready">${StudioTrainingStatus.packageSummary(pkg)}</span>
         </div>
         <p class="history-meta">${pkg.track_count} track${pkg.track_count === 1 ? '' : 's'} · ${formatWhen(pkg.created_at)}</p>
         <div class="panel-actions package-actions">
-          <a class="button ghost small" href="${pkg.download_url}" download>Download Package</a>
+          <a class="button ghost small" href="${pkg.download_url}" download>Download</a>
+          <button type="button" class="button small start-training-btn" data-slice-id="${pkg.id}">Start Fine-Tuning</button>
         </div>
       </div>
     `).join('');
+
+    list.querySelectorAll('.start-training-btn').forEach((btn) => {
+      btn.addEventListener('click', () => startFineTuning(btn.dataset.sliceId, btn).catch((err) => setStatus(err.message, true)));
+    });
   }
 
   function renderRuns() {
@@ -105,21 +82,38 @@ window.WorkbenchPackages = (() => {
       `).join('');
   }
 
-  function renderActiveStyle() {
-    const line = document.getElementById('active-style-line');
-    const mockStyles = styleVersions.filter((v) => v.status === 'ACTIVE');
-    const latestMock = runs.find((run) => run.mock_training && run.style_version_created);
-    if (!mockStyles.length && !latestMock) {
-      line.classList.add('hidden');
+  function renderModels() {
+    const list = document.getElementById('models-list');
+    if (!list) return;
+    
+    if (!styleVersions.length) {
+      list.innerHTML = '<p class="muted">No model versions yet. Complete a training run to generate one.</p>';
       return;
     }
-    line.classList.remove('hidden');
-    if (mockStyles.length) {
-      line.textContent = `Mock style versions available from prior runs: ${mockStyles.map((v) => v.name).join(', ')}.`;
-      return;
-    }
-    line.textContent = 'Latest run produced a mock artifact only. Real ACE training is not enabled.';
+    
+    list.innerHTML = styleVersions.map((model) => {
+      // Find lineage
+      const run = runs.find(r => r.id === model.training_run_id);
+      const pkg = run ? packages.find(p => p.id === run.dataset_slice_id) : null;
+      
+      const lineageText = pkg ? `Trained on: ${pkg.name} (via ${run.name})` : (run ? `Trained via ${run.name}` : '');
+      const baseInfo = `Base: ${model.base_model_name || 'ACE v1'} · Mode: ${model.training_mode || 'lora'} · Type: ${model.artifact_type || 'adapter'}`;
+      
+      return `
+        <div class="history-row">
+          <div class="history-main">
+            <span class="history-kind">Model</span>
+            <span class="history-title">${model.name}</span>
+            <span class="status-pill ready">${model.status || 'ACTIVE'}</span>
+          </div>
+          <p class="history-meta">${baseInfo}</p>
+          <p class="history-meta" style="margin-top: 4px; font-size: 11px;">${lineageText}</p>
+        </div>
+      `;
+    }).join('');
   }
+
+
 
   function renderLiveRun(run, logText = '') {
     const panel = document.getElementById('live-run-panel');
@@ -150,14 +144,7 @@ window.WorkbenchPackages = (() => {
     document.getElementById('live-run-log').textContent = logText || 'Waiting for logs…';
   }
 
-  function renderConceptFilter() {
-    const select = document.getElementById('concept-filter');
-    const current = select.value;
-    select.innerHTML = '<option value="">All ready audio</option>' + concepts
-      .map((concept) => `<option value="${concept.id}">${concept.name}</option>`)
-      .join('');
-    select.value = current;
-  }
+
 
   async function refreshAll() {
     const conceptId = selectedConceptId();
@@ -173,11 +160,9 @@ window.WorkbenchPackages = (() => {
     runs = runList;
     styleVersions = styles;
     concepts = conceptList;
-    renderConceptFilter();
-    renderReadyAudio();
     renderPackages();
     renderRuns();
-    renderActiveStyle();
+    renderModels();
 
     const running = activeRun();
     if (running) {
@@ -204,7 +189,6 @@ window.WorkbenchPackages = (() => {
     runs = runs.map((item) => (item.id === runId ? run : item));
     renderLiveRun(run, logs.log || '');
     renderRuns();
-    renderActiveStyle();
     if (run.status === 'QUEUED' || run.status === 'RUNNING') return run;
     stopPolling();
     activeRunId = run.id;
@@ -229,6 +213,28 @@ window.WorkbenchPackages = (() => {
     }
   }
 
+  async function startFineTuning(sliceId, btn) {
+    btn.disabled = true;
+    btn.textContent = 'Starting…';
+    try {
+      const run = await StudioApi.createTrainingRun({
+        name: `Training Run`,
+        dataset_slice_id: sliceId,
+        config_preset: 'calibration',
+      });
+      activeRunId = run.id;
+      runs = [run, ...runs.filter((item) => item.id !== run.id)];
+      renderLiveRun(run);
+      startPolling(run.id);
+      setStatus('Training started…');
+      await refreshAll();
+    } catch (err) {
+      btn.disabled = false;
+      btn.textContent = 'Start Fine-Tuning';
+      throw err;
+    }
+  }
+
   async function createPackage() {
     const button = document.getElementById('create-package-btn');
     await StudioSave.run(
@@ -236,18 +242,12 @@ window.WorkbenchPackages = (() => {
       async () => {
         const res = await StudioApi.createTrainingPackage({
           concept_id: selectedConceptId(),
-          start_training: true,
+          start_training: false,
           config_preset: 'calibration',
         });
-        if (res.run) {
-          activeRunId = res.run.id;
-          runs = [res.run, ...runs.filter((item) => item.id !== res.run.id)];
-          renderLiveRun(res.run);
-          startPolling(res.run.id);
-        }
         packages = [res.package, ...packages.filter((item) => item.id !== res.package.id)];
         renderPackages();
-        setStatus('Training package created. Training started…');
+        setStatus('Training package created.');
         await refreshAll();
         return res;
       },
@@ -269,11 +269,25 @@ window.WorkbenchPackages = (() => {
     setStatus('Run cancelled.');
   }
 
+  async function generateRecommendedDatasets() {
+    const btn = document.getElementById('generate-datasets-btn');
+    btn.disabled = true;
+    btn.textContent = 'Generating…';
+    try {
+      await StudioApi.generateRecommendedPackages();
+      setStatus('Recommended datasets generated.');
+      await refreshAll();
+    } catch (err) {
+      setStatus(err.message, true);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Generate Recommended Datasets';
+    }
+  }
+
   async function init() {
-    document.getElementById('concept-filter').addEventListener('change', () => {
-      refreshAll().catch((err) => setStatus(err.message, true));
-    });
     document.getElementById('create-package-btn').addEventListener('click', () => createPackage().catch(() => {}));
+    document.getElementById('generate-datasets-btn').addEventListener('click', () => generateRecommendedDatasets().catch(() => {}));
     document.getElementById('cancel-run-btn').addEventListener('click', () => cancelRun().catch((err) => setStatus(err.message, true)));
     await refreshAll();
   }

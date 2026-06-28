@@ -338,3 +338,61 @@ def test_list_and_get_slice(client):
     detail = c.get(f"/api/slices/{created['id']}").json()
     assert detail["id"] == created["id"]
     assert detail["name"] == "Listed Slice"
+
+
+def test_generate_recommended_slices_excludes_not_trainable_media(client):
+    c, data_dir = client
+    categories = _seed_categories(client)
+    genre = next(item for item in categories if item["dimension"] == "GENRE")
+    store = LocalMediaStore(data_dir / "media")
+
+    ready_ids = []
+    for index in range(3):
+        media = c.post("/api/media/import", files=[wav_upload(f"candidate-{index}.wav", duration_seconds=30)]).json()["media"][0]
+        c.put(
+            f"/api/media/{media['id']}/assignments",
+            json={
+                "mark_reviewed": True,
+                "categories": [
+                    {
+                        "category_id": genre["id"],
+                        "role": "TRAINING_CANDIDATE",
+                        "quality_score": 4,
+                        "fit_score": 4,
+                        "reviewed": True,
+                    }
+                ],
+                "concepts": [],
+            },
+        )
+        asset = store.get(media["id"])
+        store.save(asset.model_copy(update={"rights_status": RightsStatus.CONFIRMED}))
+        ready_ids.append(media["id"])
+
+    blocked = c.post("/api/media/import", files=[wav_upload("blocked-candidate.wav", duration_seconds=30)]).json()["media"][0]
+    c.put(
+        f"/api/media/{blocked['id']}/assignments",
+        json={
+            "mark_reviewed": True,
+            "categories": [
+                {
+                    "category_id": genre["id"],
+                    "role": "TRAINING_CANDIDATE",
+                    "quality_score": 4,
+                    "fit_score": 4,
+                    "reviewed": True,
+                }
+            ],
+            "concepts": [],
+        },
+    )
+    blocked_asset = store.get(blocked["id"])
+    store.save(blocked_asset.model_copy(update={"rights_status": RightsStatus.DO_NOT_TRAIN}))
+
+    generated = c.post("/api/slices/generate-recommended").json()["slices"]
+    genre_candidate = next(item for item in generated if item["filter"]["category_ids"] == [genre["id"]])
+
+    assert genre_candidate["is_auto_generated"] is True
+    assert genre_candidate["status"] == "DRAFT"
+    assert set(genre_candidate["media_ids"]) == set(ready_ids)
+    assert blocked["id"] not in genre_candidate["media_ids"]

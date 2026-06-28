@@ -8,6 +8,8 @@ from pathlib import Path
 from string import Template
 
 from app.core.config import Settings
+from app.core.config import Settings
+from app.core.ace_runtime import load_runtime_profile, AceRuntimeStatus
 from app.domain.models import GenerationRequest, GenerationResult, GeneratorInfo
 from app.generators.procedural import ProceduralGenerator
 
@@ -98,6 +100,17 @@ class AceStepGenerator:
         if not output_path.exists() or output_path.stat().st_size == 0:
             raise RuntimeError("ACE-Step command completed but did not create the expected output WAV.")
 
+        # Load runtime config to record exactly what ran
+        ace_cfg_dict = {}
+        profile_data = load_runtime_profile(self.settings.data_dir)
+        if profile_data:
+            try:
+                status = AceRuntimeStatus.model_validate(profile_data)
+                if status.hardware and status.hardware.safe_recommended_config:
+                    ace_cfg_dict = status.hardware.safe_recommended_config.model_dump()
+            except Exception:
+                pass
+
         return GenerationResult(
             file_name=output_path.name,
             duration_seconds=request.duration_seconds,
@@ -106,9 +119,10 @@ class AceStepGenerator:
             metadata={
                 "engine": "ace-step-adapter-v2.0",
                 "backend": "external-command",
-                "device": self.settings.ace_step_device,
+                "device": ace_cfg_dict.get("device") or self.settings.ace_step_device,
                 "model_dir": str(self.settings.ace_step_model_dir),
                 "stdout_tail": completed.stdout[-1000:],
+                "ace_runtime_config": ace_cfg_dict,
             },
         )
 
@@ -120,6 +134,23 @@ class AceStepGenerator:
         lyrics_file: Path,
         request_file: Path,
     ) -> list[str]:
+        profile_data = load_runtime_profile(self.settings.data_dir)
+        device = self.settings.ace_step_device
+        lm_model = ""
+        batch_size = 1
+        inference_steps = 8
+        if profile_data:
+            try:
+                status = AceRuntimeStatus.model_validate(profile_data)
+                if status.hardware and status.hardware.safe_recommended_config:
+                    cfg = status.hardware.safe_recommended_config
+                    device = cfg.device
+                    lm_model = cfg.lm_model
+                    batch_size = cfg.batch_size
+                    inference_steps = cfg.inference_steps
+            except Exception:
+                pass
+
         values = {
             "prompt": request.prompt,
             "lyrics": request.lyrics,
@@ -138,7 +169,10 @@ class AceStepGenerator:
             "lyrics_file": str(lyrics_file),
             "request_file": str(request_file),
             "model_dir": str(self.settings.ace_step_model_dir),
-            "device": self.settings.ace_step_device,
+            "device": device,
+            "lm_model": lm_model,
+            "batch_size": str(batch_size),
+            "inference_steps": str(inference_steps),
         }
         rendered = Template(self.settings.ace_step_command_template).safe_substitute(values)
         return shlex.split(rendered)

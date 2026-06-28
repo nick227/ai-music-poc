@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 from app.core.errors import NotFoundError, ValidationAppError
 from app.core.config import Settings
-from app.domain.enums import DatasetSliceStatus
+from app.domain.enums import DatasetSliceStatus, StyleVersionStatus
 from app.domain.models import JobStatus
 from app.domain.training import TrainingRun
 from app.domain.training_presets import TRAINING_PRESETS, resolve_training_preset
@@ -16,6 +16,7 @@ from app.services.slice_service import SliceService
 from app.services.style_version_service import StyleVersionService
 from app.storage.training_run_store import TrainingRunStore
 from app.training.adapter import TrainingAdapter, TrainingAdapterResult, TrainingRequest
+from app.core.ace_runtime import load_runtime_profile, AceRuntimeStatus
 
 
 class TrainingService:
@@ -159,6 +160,22 @@ class TrainingService:
         config = resolve_training_preset(config_preset)
         if confirm_real_training:
             config["confirm_real_training"] = True
+
+        ace_cfg = {}
+        profile_data = load_runtime_profile(self.settings.data_dir)
+        if profile_data:
+            try:
+                status = AceRuntimeStatus.model_validate(profile_data)
+                if status.hardware and status.hardware.safe_recommended_config:
+                    ace_cfg = status.hardware.safe_recommended_config.model_dump()
+            except Exception:
+                pass
+        
+        if ace_cfg:
+            config["runtime"] = ace_cfg
+            config["device"] = ace_cfg.get("device")
+            config["batch_size"] = ace_cfg.get("batch_size")
+
         now = datetime.now(timezone.utc)
         run = TrainingRun(
             name=name,
@@ -216,7 +233,15 @@ class TrainingService:
                 self.store.append_log(run.id, f"mock artifact produced; promoted style version {style.id}")
                 self.ingestion_service.finalize_success(media_ids, run.id)
             elif is_real_ace_backend(run.backend):
-                self.store.append_log(run.id, "ACE adapter artifact produced; style version promotion skipped")
+                slice_record = self.slice_service.get_required(run.dataset_slice_id)
+                style = self.style_version_service.create_from_run(
+                    run,
+                    slice_record.name,
+                    status=StyleVersionStatus.CANDIDATE,
+                )
+                run = run.model_copy(update={"style_version_id": style.id, "updated_at": datetime.now(timezone.utc)})
+                self.store.save(run)
+                self.store.append_log(run.id, f"ACE adapter artifact produced; candidate style version {style.id}")
                 self.ingestion_service.finalize_success(media_ids, run.id)
         elif run.status == JobStatus.SUCCEEDED and is_dry_run_backend(run.backend):
             self.store.append_log(run.id, "dry run complete; ready audio unchanged")

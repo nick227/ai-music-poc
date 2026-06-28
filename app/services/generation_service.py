@@ -16,7 +16,6 @@ from app.storage.local_file_store import LocalFileStore
 from app.storage.local_media_store import LocalMediaStore
 from app.storage.log_store import LogStore
 from app.storage.metadata_store import MetadataStore
-
 logger = logging.getLogger(__name__)
 
 
@@ -179,4 +178,6 @@ class GenerationService:
         elif updated.get("loraPath"):
             updated["useLora"] = False
         updated["audio"] = metadata.get("audio")
+        if metadata.get("ace_runtime_config"):
+            updated["aceRuntimeConfig"] = metadata["ace_runtime_config"]
         return updated

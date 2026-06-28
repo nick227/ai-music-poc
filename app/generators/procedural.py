@@ -26,15 +26,15 @@ class StyleProfile:
     __slots__ = (
         "name", "default_bpm", "scale", "drum_pattern", "has_drums",
         "bass_amp", "pad_amp", "lead_amp", "vocal_amp", "noise_amp",
-        "swing", "pluck_kind", "chorus_lift", "lowpass",
+        "swing", "lead_kind", "bass_kind", "pad_kind", "chorus_lift", "lowpass",
     )
 
     def __init__(
         self, name: str, default_bpm: int, scale: list[int], drum_pattern: str,
         has_drums: bool = True, bass_amp: float = 0.22, pad_amp: float = 0.10,
         lead_amp: float = 0.08, vocal_amp: float = 0.065, noise_amp: float = 0.02,
-        swing: float = 0.0, pluck_kind: str = "sine", chorus_lift: float = 1.12,
-        lowpass: float = 1.0,
+        swing: float = 0.0, lead_kind: str = "sine", bass_kind: str = "sine",
+        pad_kind: str = "sine", chorus_lift: float = 1.12, lowpass: float = 1.0,
     ) -> None:
         self.name = name
         self.default_bpm = default_bpm
@@ -47,7 +47,9 @@ class StyleProfile:
         self.vocal_amp = vocal_amp
         self.noise_amp = noise_amp
         self.swing = swing
-        self.pluck_kind = pluck_kind
+        self.lead_kind = lead_kind
+        self.bass_kind = bass_kind
+        self.pad_kind = pad_kind
         self.chorus_lift = chorus_lift
         self.lowpass = lowpass
 
@@ -78,6 +80,7 @@ PENTATONIC_MINOR = [0, 3, 5, 7, 10]
 DORIAN = [0, 2, 3, 5, 7, 9, 10]
 
 # Precomputed semitone frequency ratios — avoids per-sample 2**(x/12) exponentiation
+_R_MAJ2 = 2 ** (2 / 12)   # major 2nd (≈1.122) — used for 9th chord (chord_freq * 2 * _R_MAJ2)
 _R_MAJ3 = 2 ** (4 / 12)   # major 3rd (≈1.260)
 _R_PERF4 = 2 ** (5 / 12)  # perfect 4th (≈1.335)
 _R_PERF5 = 2 ** (7 / 12)  # perfect 5th (≈1.498)
@@ -87,50 +90,117 @@ _R_DET_UP = 2 ** (4 / 1200)   # +4 cents detune (≈1.00231) — pad chorus doub
 _R_DET_DN = 2 ** (-4 / 1200)  # -4 cents detune (≈0.99769) — pad chorus doubler
 
 PROFILES: dict[str, StyleProfile] = {
+    # lead_kind: funky pluck melody; bass_kind: sine (disco octave jumps); pad_kind: sine (strings)
     "disco": StyleProfile(
         "disco", 116, DORIAN, "four_floor",
         bass_amp=0.28, pad_amp=0.10, lead_amp=0.06, vocal_amp=0.090,
-        noise_amp=0.035, pluck_kind="pluck", chorus_lift=1.25,
+        noise_amp=0.035, lead_kind="pluck", bass_kind="sine", pad_kind="sine", chorus_lift=1.25,
     ),
+    # lead_kind: saw (synth lead); bass_kind: saw (acid bass); pad_kind: saw (synth pad)
     "club": StyleProfile(
         "club", 124, MINOR, "four_floor",
         bass_amp=0.30, pad_amp=0.08, lead_amp=0.09, vocal_amp=0.075,
-        noise_amp=0.04, pluck_kind="saw", chorus_lift=1.30,
+        noise_amp=0.04, lead_kind="saw", bass_kind="saw", pad_kind="saw", chorus_lift=1.30,
     ),
+    # lead_kind: square (808-style); bass_kind: saw (punchy 808); pad_kind: sine (hi-hat pad)
     "rap": StyleProfile(
         "rap", 82, PENTATONIC_MINOR, "half_time",
         bass_amp=0.38, pad_amp=0.04, lead_amp=0.04, vocal_amp=0.072,
-        noise_amp=0.025, swing=0.08, pluck_kind="square", chorus_lift=1.10, lowpass=0.92,
+        noise_amp=0.025, swing=0.08, lead_kind="square", bass_kind="saw", pad_kind="sine",
+        chorus_lift=1.10, lowpass=0.92,
     ),
+    # all sine: smooth ambient drones
     "ambient": StyleProfile(
         "ambient", 70, MINOR, "none",
         has_drums=False, bass_amp=0.05, pad_amp=0.22, lead_amp=0.025,
-        vocal_amp=0.055, noise_amp=0.012, pluck_kind="sine", chorus_lift=1.05, lowpass=0.75,
+        vocal_amp=0.055, noise_amp=0.012, lead_kind="sine", bass_kind="sine", pad_kind="sine",
+        chorus_lift=1.05, lowpass=0.75,
     ),
+    # lead_kind: pluck (guitar); bass_kind: pluck (acoustic bass); pad_kind: sine (open chords)
     "acoustic": StyleProfile(
         "acoustic", 98, MAJOR, "soft_backbeat",
         bass_amp=0.14, pad_amp=0.06, lead_amp=0.14, vocal_amp=0.11,
-        noise_amp=0.012, swing=0.04, pluck_kind="pluck", chorus_lift=1.18, lowpass=0.90,
+        noise_amp=0.012, swing=0.04, lead_kind="pluck", bass_kind="pluck", pad_kind="sine",
+        chorus_lift=1.18, lowpass=0.90,
     ),
+    # lead_kind: pluck (tape-warped piano); bass_kind: sine (round sub); pad_kind: sine (mellow keys)
     "lofi": StyleProfile(
         "lofi", 86, DORIAN, "soft_backbeat",
         bass_amp=0.17, pad_amp=0.12, lead_amp=0.07, vocal_amp=0.062,
-        noise_amp=0.018, swing=0.06, pluck_kind="pluck", chorus_lift=1.08, lowpass=0.62,
+        noise_amp=0.018, swing=0.06, lead_kind="pluck", bass_kind="sine", pad_kind="sine",
+        chorus_lift=1.08, lowpass=0.62,
     ),
+    # lead_kind: pluck (piano/strings); bass_kind: sine (cello-like); pad_kind: sine (orchestra swell)
     "cinematic": StyleProfile(
         "cinematic", 92, MINOR, "pulse",
         bass_amp=0.22, pad_amp=0.16, lead_amp=0.068, vocal_amp=0.065,
-        noise_amp=0.018, pluck_kind="pluck", chorus_lift=1.35,
+        noise_amp=0.018, lead_kind="pluck", bass_kind="sine", pad_kind="sine", chorus_lift=1.35,
     ),
+    # lead_kind: sine (smooth); bass_kind: sine (punchy); pad_kind: sine (warm synth)
     "pop": StyleProfile(
         "pop", 108, MAJOR, "pop",
         bass_amp=0.20, pad_amp=0.10, lead_amp=0.085, vocal_amp=0.125,
-        noise_amp=0.025, pluck_kind="sine", chorus_lift=1.28,
+        noise_amp=0.025, lead_kind="sine", bass_kind="sine", pad_kind="sine", chorus_lift=1.28,
     ),
+    # all sine: balanced starter timbre
     "default": StyleProfile(
         "default", 96, MINOR, "soft_backbeat",
         bass_amp=0.18, pad_amp=0.10, lead_amp=0.075, vocal_amp=0.085,
-        noise_amp=0.018, pluck_kind="sine",
+        noise_amp=0.018, lead_kind="sine", bass_kind="sine", pad_kind="sine",
+    ),
+    # lead_kind: KS guitar; bass_kind: KS (acoustic upright feel); pad_kind: sine (open strums)
+    "folk": StyleProfile(
+        "folk", 92, MAJOR, "soft_backbeat",
+        bass_amp=0.13, pad_amp=0.08, lead_amp=0.15, vocal_amp=0.11,
+        noise_amp=0.014, swing=0.03, lead_kind="karplusstrong", bass_kind="karplusstrong",
+        pad_kind="sine", chorus_lift=1.15, lowpass=0.92,
+    ),
+    # lead_kind: pluck (piano/sax feel); bass_kind: pluck (walking upright); pad_kind: sine (comping)
+    "jazz": StyleProfile(
+        "jazz", 112, DORIAN, "jazz",
+        bass_amp=0.16, pad_amp=0.14, lead_amp=0.10, vocal_amp=0.09,
+        noise_amp=0.016, swing=0.10, lead_kind="pluck", bass_kind="pluck", pad_kind="sine",
+        chorus_lift=1.10, lowpass=0.88,
+    ),
+    # lead_kind: sine (smooth melody); bass_kind: sine (warm round sub); pad_kind: sine (lush keys)
+    "rnb": StyleProfile(
+        "rnb", 88, MINOR, "half_time",
+        bass_amp=0.22, pad_amp=0.14, lead_amp=0.07, vocal_amp=0.14,
+        noise_amp=0.022, swing=0.06, lead_kind="sine", bass_kind="sine", pad_kind="sine",
+        chorus_lift=1.28, lowpass=0.95,
+    ),
+    # lead_kind: pluck (guitar skank); bass_kind: sine (roots reggae sub-bass); pad_kind: sine (organ)
+    "reggae": StyleProfile(
+        "reggae", 80, MAJOR, "reggae",
+        bass_amp=0.28, pad_amp=0.10, lead_amp=0.06, vocal_amp=0.10,
+        noise_amp=0.020, lead_kind="pluck", bass_kind="sine", pad_kind="sine",
+        chorus_lift=1.12, lowpass=0.90,
+    ),
+    # lead_kind: square (distorted guitar); bass_kind: saw (growling bass); pad_kind: square (power chord)
+    "metal": StyleProfile(
+        "metal", 148, MINOR, "four_floor",
+        bass_amp=0.30, pad_amp=0.08, lead_amp=0.14, vocal_amp=0.08,
+        noise_amp=0.038, lead_kind="square", bass_kind="saw", pad_kind="square", chorus_lift=1.35,
+    ),
+    # lead_kind: pluck (nylon guitar); bass_kind: pluck (thumb bass); pad_kind: sine (soft comping)
+    "bossa": StyleProfile(
+        "bossa", 116, MAJOR, "bossa",
+        bass_amp=0.14, pad_amp=0.12, lead_amp=0.09, vocal_amp=0.09,
+        noise_amp=0.014, swing=0.06, lead_kind="pluck", bass_kind="pluck", pad_kind="sine",
+        chorus_lift=1.12, lowpass=0.90,
+    ),
+    # lead_kind: sine (organ/piano); bass_kind: sine (deep organ bass); pad_kind: sine (choir swell)
+    "gospel": StyleProfile(
+        "gospel", 78, MAJOR, "pop",
+        bass_amp=0.18, pad_amp=0.18, lead_amp=0.08, vocal_amp=0.16,
+        noise_amp=0.022, lead_kind="sine", bass_kind="sine", pad_kind="sine", chorus_lift=1.32,
+    ),
+    # lead_kind: KS (Telecaster twang); bass_kind: KS (acoustic bass); pad_kind: sine (pedal steel feel)
+    "country": StyleProfile(
+        "country", 106, MAJOR, "country",
+        bass_amp=0.16, pad_amp=0.08, lead_amp=0.15, vocal_amp=0.11,
+        noise_amp=0.016, swing=0.04, lead_kind="karplusstrong", bass_kind="karplusstrong",
+        pad_kind="sine", chorus_lift=1.20, lowpass=0.92,
     ),
 }
 
@@ -157,6 +227,23 @@ VOICE_PROFILES: dict[str, VoiceProfile] = {
         "whisper", 1.70, 5.0, 0.008, 0.110, 0.45,
         (760.0, 1_180.0, 2_500.0, 3_100.0),
     ),
+    # profile-matched voices
+    "crooner": VoiceProfile(
+        # jazz/bossa: warm baritone, wide slow vibrato, low breath, darker formants
+        "crooner", 1.12, 4.2, 0.022, 0.020, 0.55,
+        (640.0, 1_080.0, 2_350.0, 3_100.0),
+    ),
+    "soul": VoiceProfile(
+        # rnb/gospel: chest-belt female, strong vibrato, pushed F1 for power
+        "soul", 1.88, 6.5, 0.026, 0.022, 0.92,
+        (820.0, 1_300.0, 2_800.0, 3_380.0),
+        blend_count=2,
+    ),
+    "natural": VoiceProfile(
+        # folk/country/acoustic: breathy female, earthier formants, gentle vibrato
+        "natural", 1.82, 5.2, 0.014, 0.028, 0.70,
+        (750.0, 1_200.0, 2_520.0, 3_150.0),
+    ),
 }
 
 VOWEL_FORMANT_SHIFTS: dict[str, tuple[float, float, float, float]] = {
@@ -175,6 +262,8 @@ CHORD_PROGRESSIONS: dict[str, dict[str, list[int]]] = {
         "build": [3, 5, 0, 4],
         "intro": [0, 0, 5, 4],
         "hook": [0, 3, 5, 4],
+        "bridge": [2, 4, 5, 3],
+        "breakdown": [0, 0, 5, 5],
         "outro": [0, 5, 3, 0],
     },
     "club": {
@@ -183,6 +272,8 @@ CHORD_PROGRESSIONS: dict[str, dict[str, list[int]]] = {
         "build": [0, 0, 6, 4],
         "intro": [0, 0, 0, 6],
         "hook": [0, 6, 3, 4],
+        "bridge": [5, 6, 4, 0],
+        "breakdown": [0, 0, 6, 6],
         "outro": [0, 6, 3, 0],
     },
     "rap": {
@@ -191,6 +282,7 @@ CHORD_PROGRESSIONS: dict[str, dict[str, list[int]]] = {
         "build": [0, 2, 4, 2],
         "intro": [0, 0, 0, 2],
         "hook": [0, 0, 2, 4],
+        "bridge": [2, 3, 4, 2],
         "outro": [0, 2, 0, 0],
     },
     "ambient": {
@@ -199,6 +291,7 @@ CHORD_PROGRESSIONS: dict[str, dict[str, list[int]]] = {
         "build": [2, 4, 5, 4],
         "intro": [0, 0, 2, 0],
         "hook": [0, 2, 4, 0],
+        "bridge": [4, 2, 5, 0],
         "outro": [4, 2, 0, 0],
     },
     "acoustic": {
@@ -207,6 +300,7 @@ CHORD_PROGRESSIONS: dict[str, dict[str, list[int]]] = {
         "build": [3, 4, 5, 4],
         "intro": [0, 4, 3, 4],
         "hook": [0, 3, 5, 4],
+        "bridge": [5, 3, 4, 0],
         "outro": [5, 3, 4, 0],
     },
     "lofi": {
@@ -215,6 +309,7 @@ CHORD_PROGRESSIONS: dict[str, dict[str, list[int]]] = {
         "build": [0, 5, 3, 4],
         "intro": [0, 0, 5, 3],
         "hook": [0, 3, 5, 4],
+        "bridge": [2, 5, 3, 0],
         "outro": [5, 3, 0, 0],
     },
     "cinematic": {
@@ -223,6 +318,7 @@ CHORD_PROGRESSIONS: dict[str, dict[str, list[int]]] = {
         "build": [3, 6, 0, 4],
         "intro": [0, 0, 6, 6],
         "hook": [0, 6, 3, 0],
+        "bridge": [5, 6, 4, 0],
         "outro": [0, 3, 6, 0],
     },
     "pop": {
@@ -231,6 +327,7 @@ CHORD_PROGRESSIONS: dict[str, dict[str, list[int]]] = {
         "build": [3, 4, 5, 4],
         "intro": [0, 4, 5, 3],
         "hook": [0, 3, 5, 4],
+        "bridge": [5, 3, 4, 0],  # vi-IV-V-I — the Suno bridge (Am-F-G-C in C major)
         "outro": [5, 3, 4, 0],
     },
     "default": {
@@ -239,7 +336,89 @@ CHORD_PROGRESSIONS: dict[str, dict[str, list[int]]] = {
         "build": [3, 5, 0, 4],
         "intro": [0, 0, 5, 4],
         "hook": [0, 3, 5, 4],
+        "bridge": [3, 5, 4, 0],
+        "breakdown": [0, 0, 3, 3],
         "outro": [0, 5, 3, 0],
+    },
+    "folk": {
+        "verse": [0, 4, 5, 3],
+        "chorus": [0, 3, 0, 4],
+        "build": [3, 4, 5, 4],
+        "intro": [0, 4, 3, 4],
+        "hook": [0, 3, 4, 0],
+        "bridge": [5, 3, 4, 0],
+        "breakdown": [0, 0, 3, 3],
+        "outro": [5, 3, 0, 0],
+    },
+    "jazz": {
+        "verse": [0, 3, 5, 1],
+        "chorus": [0, 5, 1, 4],
+        "build": [1, 4, 5, 4],
+        "intro": [0, 0, 1, 4],
+        "hook": [0, 5, 3, 4],
+        "bridge": [1, 4, 0, 5],
+        "breakdown": [0, 0, 1, 1],
+        "outro": [0, 5, 0, 0],
+    },
+    "rnb": {
+        "verse": [0, 5, 3, 6],
+        "chorus": [0, 3, 5, 4],
+        "build": [3, 5, 6, 5],
+        "intro": [0, 0, 5, 6],
+        "hook": [0, 5, 3, 4],
+        "bridge": [5, 3, 6, 0],
+        "breakdown": [0, 0, 5, 5],
+        "outro": [5, 3, 0, 0],
+    },
+    "reggae": {
+        "verse": [0, 4, 3, 4],
+        "chorus": [0, 3, 4, 3],
+        "build": [3, 4, 5, 4],
+        "intro": [0, 0, 4, 3],
+        "hook": [0, 3, 4, 0],
+        "bridge": [5, 3, 4, 0],
+        "breakdown": [0, 0, 0, 4],
+        "outro": [3, 4, 0, 0],
+    },
+    "metal": {
+        "verse": [0, 6, 5, 6],
+        "chorus": [0, 5, 3, 6],
+        "build": [0, 0, 6, 5],
+        "intro": [0, 0, 0, 6],
+        "hook": [0, 5, 6, 0],
+        "bridge": [3, 5, 6, 0],
+        "breakdown": [0, 0, 6, 6],
+        "outro": [0, 6, 0, 0],
+    },
+    "bossa": {
+        "verse": [0, 2, 5, 1],
+        "chorus": [0, 5, 1, 4],
+        "build": [1, 4, 5, 4],
+        "intro": [0, 2, 1, 4],
+        "hook": [0, 5, 3, 4],
+        "bridge": [1, 4, 0, 5],
+        "breakdown": [0, 0, 2, 2],
+        "outro": [0, 2, 0, 0],
+    },
+    "gospel": {
+        "verse": [0, 3, 4, 0],
+        "chorus": [0, 4, 3, 0],
+        "build": [3, 0, 4, 0],
+        "intro": [0, 3, 0, 4],
+        "hook": [0, 3, 4, 0],
+        "bridge": [3, 0, 4, 0],
+        "breakdown": [0, 0, 3, 0],
+        "outro": [3, 4, 0, 0],
+    },
+    "country": {
+        "verse": [0, 4, 3, 4],
+        "chorus": [0, 3, 4, 0],
+        "build": [3, 4, 5, 4],
+        "intro": [0, 4, 0, 4],
+        "hook": [0, 3, 4, 0],
+        "bridge": [5, 3, 4, 0],
+        "breakdown": [0, 0, 3, 4],
+        "outro": [3, 4, 0, 0],
     },
 }
 
@@ -250,11 +429,14 @@ MELODIC_CONTOURS: dict[str, list[int]] = {
     "build":   [0, 2, 3, 4, 5, 4, 5, 6],
     "hook":    [4, 3, 2, 1, 2, 3, 4, 3],
     "intro":   [0, 1, 0, 1, 2, 1, 0, 1],
-    "outro":   [3, 2, 1, 0, 1, 0, 0, 0],
+    "bridge":    [0, 2, 1, 3, 2, 1, 0, 1],
+    "bridge_b":  [4, 5, 4, 3, 4, 5, 3, 2],  # B-phrase: high register, descends to build tension for final chorus
+    "breakdown": [0, 0, 1, 0, 0, 1, 0, 0],
+    "outro":     [3, 2, 1, 0, 1, 0, 0, 0],
 }
 
 
-def _osc(freq: float, t: float, kind: str = "sine") -> float:
+def _osc(freq: float, t: float, kind: str = "sine", note_period: float = 0.5) -> float:
     phase = 2 * math.pi * freq * t
     if kind == "square":
         return 1.0 if math.sin(phase) >= 0 else -1.0
@@ -263,6 +445,23 @@ def _osc(freq: float, t: float, kind: str = "sine") -> float:
     if kind == "pluck":
         local = t % 0.75
         return math.sin(phase) * math.exp(-8.0 * local) + 0.35 * math.sin(phase * 2.01) * math.exp(-11.0 * local)
+    if kind == "karplusstrong":
+        # Karplus-Strong approximation: per-cycle exponential decay, harmonics decay faster
+        # Uses note_period so decay resets on each new melody note
+        local = t % note_period
+        n_cyc = local * freq
+        d0 = math.exp(-n_cyc * 0.022)
+        if d0 < 0.002:
+            return 0.0
+        d1 = math.exp(-n_cyc * 0.040)
+        d2 = math.exp(-n_cyc * 0.072)
+        d3 = math.exp(-n_cyc * 0.115)
+        return (
+            math.sin(phase) * d0
+            + math.sin(phase * 2.001) * 0.50 * d1
+            + math.sin(phase * 2.997) * 0.25 * d2
+            + math.sin(phase * 4.003) * 0.12 * d3
+        )
     return math.sin(phase)
 
 
@@ -297,7 +496,7 @@ def _melody_freq(profile: StyleProfile, root: float, bar: int, section: str, phr
 
 class ProceduralGenerator:
     name = "procedural-v3"
-    label = "Procedural V3.23 Fallback"
+    label = "Procedural V3.32 Fallback"
     supports_lyrics = True
     supports_seed = True
     supports_duration = True
@@ -332,7 +531,8 @@ class ProceduralGenerator:
                 profile = StyleProfile(
                     profile.name, profile.default_bpm, MINOR, profile.drum_pattern,
                     profile.has_drums, profile.bass_amp, profile.pad_amp, profile.lead_amp,
-                    profile.vocal_amp, profile.noise_amp, profile.swing, profile.pluck_kind,
+                    profile.vocal_amp, profile.noise_amp, profile.swing,
+                    profile.lead_kind, profile.bass_kind, profile.pad_kind,
                     profile.chorus_lift, profile.lowpass,
                 )
         elif any(k in positive_text for k in ["happy", "joyful", "cheerful", "uplifting", "bright", "positive", "sunshine", "celebration"]) or "major" in positive_text:
@@ -340,9 +540,11 @@ class ProceduralGenerator:
                 profile = StyleProfile(
                     profile.name, profile.default_bpm, MAJOR, profile.drum_pattern,
                     profile.has_drums, profile.bass_amp, profile.pad_amp, profile.lead_amp,
-                    profile.vocal_amp, profile.noise_amp, profile.swing, profile.pluck_kind,
+                    profile.vocal_amp, profile.noise_amp, profile.swing,
+                    profile.lead_kind, profile.bass_kind, profile.pad_kind,
                     profile.chorus_lift, profile.lowpass,
                 )
+        profile = self._apply_instrumentation_hints(profile, positive_text)
         quality = quality_for(request)
         rng = random.Random(request.seed if request.seed is not None else sum(ord(c) for c in request.prompt) % 2_147_483_647)
         duration = request.duration_seconds
@@ -355,7 +557,7 @@ class ProceduralGenerator:
         duration_beats = duration / beat
         lyric_events = build_lyric_timeline(request.lyrics, duration_beats)
         lyric_idx_map: dict[int, int] = {id(ev): i for i, ev in enumerate(lyric_events)}
-        voice_profile = self._voice(request, positive_text)
+        voice_profile = self._voice(request, positive_text, profile)
 
         drums_enabled = profile.has_drums and request.mode != "instrumental"
         if profile.name in ("ambient",) or request.structure == "ambient_loop":
@@ -370,6 +572,7 @@ class ProceduralGenerator:
         low_l = low_r = 0.0
         total_samples = int(SAMPLE_RATE * duration)
         motif_shift = rng.randrange(0, 2)
+        _verse_motif = self._motif_notes(profile, root)
 
         # Pre-compute section time boundaries for use in arrangement logic
         _sec_bounds: dict[str, tuple[float, float]] = {}
@@ -477,6 +680,20 @@ class ProceduralGenerator:
                 _kick_sect = _fade
                 _rev_mult = 0.85 + 0.15 * _fade
                 _pan_depth = 0.14
+            elif section == "bridge":
+                # Bridge: stripped-back, more reverb — creates space before the final chorus payoff
+                section_gain = profile.chorus_lift * 0.72
+                _voc_sect = 0.95
+                _kick_sect = 0.62
+                _rev_mult = 1.45
+                _pan_depth = 0.18
+            elif section == "breakdown":
+                # EDM breakdown: only pad + hihat survive; kick/bass/lead silenced below
+                section_gain = 0.28
+                _voc_sect = 0.0
+                _kick_sect = 0.0
+                _rev_mult = 1.90
+                _pan_depth = 0.22
             else:  # hook or unrecognized
                 section_gain = 1.0
                 _voc_sect = 1.0
@@ -486,7 +703,7 @@ class ProceduralGenerator:
 
             chord_freq = _chord_freq(profile, root, bar, section)
 
-            bass = self._bass(profile, chord_freq, t, beat_pos, section_gain)
+            bass = self._bass(profile, chord_freq, t, beat_pos, section_gain, beat)
             # Sub-bass layer in chorus for club/disco: deep sine at 2 octaves below root
             if profile.name in ("disco", "club") and section in ("chorus", "hook"):
                 bass += profile.bass_amp * 0.32 * math.sin(2 * math.pi * (chord_freq / 4) * t) * section_gain
@@ -496,7 +713,7 @@ class ProceduralGenerator:
                 _pad_rev_buf[_pad_rev_ptr] = pad * 0.40 + _pr_out * 0.48
                 _pad_rev_ptr = (_pad_rev_ptr + 1) % _pad_rev_len
                 pad += _pr_out * 0.14
-            lead = self._lead(profile, root, t, beat_pos, bar, section, section_gain, beat)
+            lead = self._lead(profile, root, t, beat_pos, bar, section, section_gain, beat, _verse_motif)
             if lead != 0.0 and profile.name not in ("ambient", "lofi"):
                 _lr_out = _lead_rev_buf[_lead_rev_ptr]
                 _lead_rev_buf[_lead_rev_ptr] = lead * 0.45 + _lr_out * 0.35
@@ -540,6 +757,12 @@ class ProceduralGenerator:
                     lead *= max(0.0, (_ip - 0.46) / 0.24)
                 elif _ip < 0.88:
                     vocal *= max(0.0, (_ip - 0.70) / 0.18)
+
+            # EDM breakdown: kill kick/bass/lead; keep pad + hihat for tension
+            elif section == "breakdown":
+                bass = kick = lead = vocal = 0.0
+                snare *= 0.12
+                hat *= 0.60
 
             # Outro: mirror breakdown — instruments drop out in reverse order
             elif section == "outro":
@@ -655,7 +878,7 @@ class ProceduralGenerator:
 
         voice = self._voice(request, positive_text)
         metadata: dict = {
-            "engine": "procedural-v3.23",
+            "engine": "procedural-v3.32",
             "style_profile": profile.name,
             "lyrics_behavior": "formant_singing" if request.mode in ("song", "vocal_demo") and lyric_events else "none",
             "singing_voice": voice.name,
@@ -770,7 +993,23 @@ class ProceduralGenerator:
             return PROFILES["rap"]
         if any(k in text for k in ["lofi", "lo-fi", "lo fi", "dusty", "tape wobble", "chillhop"]):
             return PROFILES["lofi"]
-        if any(k in text for k in ["acoustic", "guitar", "indie", "folk", "singer-songwriter"]):
+        if any(k in text for k in ["reggae", "dub", "ska", "dancehall", "jamaican", "ragga"]):
+            return PROFILES["reggae"]
+        if any(k in text for k in ["bossa nova", "bossanova", "bossa", "samba", "latin jazz", "brazilian"]):
+            return PROFILES["bossa"]
+        if any(k in text for k in ["jazz", "bebop", "swing jazz", "big band", "smooth jazz", "jazz club"]):
+            return PROFILES["jazz"]
+        if any(k in text for k in ["gospel", "hymn", "spiritual", "praise", "worship", "church"]):
+            return PROFILES["gospel"]
+        if any(k in text for k in ["r&b", "rnb", "neo-soul", "neo soul", "soul music", "motown", "contemporary r&b"]):
+            return PROFILES["rnb"]
+        if any(k in text for k in ["metal", "heavy metal", "hard rock", "thrash", "punk", "grunge", "hardcore", "death metal"]):
+            return PROFILES["metal"]
+        if any(k in text for k in ["country", "western", "country pop", "twang", "bluegrass", "nashville", "southern rock"]):
+            return PROFILES["country"]
+        if any(k in text for k in ["folk", "singer-songwriter", "celtic", "americana", "folk rock"]):
+            return PROFILES["folk"]
+        if any(k in text for k in ["acoustic", "guitar", "indie", "unplugged"]):
             return PROFILES["acoustic"]
         if any(k in text for k in ["club", "warehouse", "rave", "techno", "house", "edm", "electro", "synthwave"]):
             return PROFILES["club"]
@@ -783,6 +1022,56 @@ class ProceduralGenerator:
         if "ambient" in text or (mode == "instrumental" and not any(k in text for k in ["cinematic", "trailer", "epic"])):
             return PROFILES["ambient"]
         return PROFILES["default"]
+
+    def _apply_instrumentation_hints(self, profile: StyleProfile, text: str) -> StyleProfile:
+        bass_amp = profile.bass_amp
+        pad_amp = profile.pad_amp
+        lead_amp = profile.lead_amp
+        vocal_amp = profile.vocal_amp
+        noise_amp = profile.noise_amp
+        has_drums = profile.has_drums
+        lead_kind = profile.lead_kind
+
+        if any(k in text for k in ["solo piano", "piano only", "piano piece", "piano solo"]):
+            pad_amp = max(pad_amp, 0.22)
+            bass_amp = 0.0
+            lead_amp = 0.0
+            vocal_amp = 0.0
+            has_drums = False
+            lead_kind = "pluck"
+        elif any(k in text for k in ["no bass", "without bass", "bass-free"]):
+            bass_amp = 0.0
+        if any(k in text for k in ["no lead", "no melody", "no melodic"]):
+            lead_amp = 0.0
+        if any(k in text for k in ["sparse", "minimal", "stripped", "stripped back", "stripped-back", "bare"]):
+            bass_amp *= 0.65
+            pad_amp *= 0.70
+            lead_amp *= 0.65
+            vocal_amp *= 0.75
+            noise_amp *= 0.50
+        if any(k in text for k in ["lush", "full", "orchestral", "rich", "dense", "layered", "wall of sound"]):
+            pad_amp = min(pad_amp * 1.35, 0.40)
+            lead_amp = min(lead_amp * 1.20, 0.30)
+            bass_amp = min(bass_amp * 1.15, 0.35)
+        if any(k in text for k in ["a cappella", "acappella", "vocals only", "voice only", "choir only"]):
+            bass_amp = 0.0
+            lead_amp = 0.0
+            has_drums = False
+            pad_amp = 0.0
+            vocal_amp = min(vocal_amp * 1.60, 0.30)
+
+        if (bass_amp == profile.bass_amp and pad_amp == profile.pad_amp
+                and lead_amp == profile.lead_amp and vocal_amp == profile.vocal_amp
+                and noise_amp == profile.noise_amp and has_drums == profile.has_drums
+                and lead_kind == profile.lead_kind):
+            return profile
+
+        return StyleProfile(
+            profile.name, profile.default_bpm, profile.scale, profile.drum_pattern,
+            has_drums, bass_amp, pad_amp, lead_amp, vocal_amp, noise_amp,
+            profile.swing, lead_kind, profile.bass_kind, profile.pad_kind,
+            profile.chorus_lift, profile.lowpass,
+        )
 
     def _infer_bpm(self, text: str, mode: str, profile: StyleProfile) -> int:
         if any(k in text for k in ["slow", "ballad", "lullaby", "meditation", "chill", "mellow", "dreamy", "relaxed", "calm", "gentle"]):
@@ -822,12 +1111,22 @@ class ProceduralGenerator:
         if structure in ("hook_loop", "ambient_loop"):
             return [(0, "hook"), (duration * 0.78, "outro")]
         if structure == "intro_verse_chorus":
-            return [(0, "intro"), (duration * 0.18, "verse"), (duration * 0.55, "chorus"), (duration * 0.86, "outro")]
+            return [
+                (0, "intro"), (duration * 0.18, "verse"), (duration * 0.48, "chorus"),
+                (duration * 0.65, "bridge"), (duration * 0.78, "chorus"), (duration * 0.90, "outro"),
+            ]
         if structure == "club_build" or profile_name == "club":
-            return [(0, "intro"), (duration * 0.30, "build"), (duration * 0.66, "chorus"), (duration * 0.9, "outro")]
+            return [
+                (0, "intro"), (duration * 0.25, "build"),
+                (duration * 0.52, "chorus"), (duration * 0.70, "breakdown"),
+                (duration * 0.82, "chorus"), (duration * 0.93, "outro"),
+            ]
         if profile_name == "ambient":
             return [(0, "intro"), (duration * 0.38, "build"), (duration * 0.82, "outro")]
-        return [(0, "verse"), (duration * 0.50, "chorus"), (duration * 0.85, "outro")]
+        return [
+            (0, "verse"), (duration * 0.40, "chorus"),
+            (duration * 0.60, "bridge"), (duration * 0.75, "chorus"), (duration * 0.88, "outro"),
+        ]
 
     def _section_at(self, t: float, sections: list[tuple[float, str]]) -> str:
         active = sections[0][1]
@@ -836,25 +1135,26 @@ class ProceduralGenerator:
                 active = name
         return active
 
-    def _bass(self, profile: StyleProfile, chord_freq: float, t: float, beat_pos: float, section_gain: float) -> float:
+    def _bass(self, profile: StyleProfile, chord_freq: float, t: float, beat_pos: float, section_gain: float, beat: float = 0.5) -> float:
+        bk = profile.bass_kind
         if profile.name == "rap":
             beat_gate = 1.0 if int(beat_pos * 2) % 4 in (0, 3) else 0.35
             pitch = chord_freq / 2 * (0.5 if int(beat_pos // 8) % 2 else 1.0)
-            return profile.bass_amp * math.sin(2 * math.pi * pitch * t) * beat_gate
+            return profile.bass_amp * _osc(pitch, t, bk, beat) * beat_gate
         if profile.name in ("disco", "club"):
             octave = 1.0 if int(beat_pos * 2) % 2 == 0 else 2.0
             pulse = 0.72 + 0.28 * math.sin(2 * math.pi * beat_pos)
             fifth = 1.0 if (int(beat_pos * 4) % 4 != 3) else 1.5
-            return profile.bass_amp * math.sin(2 * math.pi * (chord_freq / 2) * octave * fifth * t) * pulse * section_gain
+            return profile.bass_amp * _osc((chord_freq / 2) * octave * fifth, t, bk, beat) * pulse * section_gain
         if profile.name == "ambient":
-            return profile.bass_amp * math.sin(2 * math.pi * (chord_freq / 4) * t)
-        # Walking bass: root → maj3 → perf5 → maj6 over 4 beats (lofi/acoustic feel)
-        if profile.name in ("lofi", "acoustic"):
+            return profile.bass_amp * _osc(chord_freq / 4, t, bk, beat * 4)
+        # Walking bass: root → maj3 → perf5 → maj6 over 4 beats
+        if profile.name in ("lofi", "acoustic", "pop", "default", "folk", "country", "jazz", "bossa"):
             _walk = (1.0, _R_MAJ3, _R_PERF5, _R_MAJ6)[int(beat_pos) % 4]
-            return profile.bass_amp * math.sin(2 * math.pi * (chord_freq / 2 * _walk) * t) * (0.8 + 0.2 * math.sin(2 * math.pi * beat_pos))
-        # Default: root on beats 1/2/4, 5th on beat 3
+            return profile.bass_amp * _osc(chord_freq / 2 * _walk, t, bk, beat) * (0.8 + 0.2 * math.sin(2 * math.pi * beat_pos))
+        # Cinematic/other: root on beats 1/2/4, 5th on beat 3
         pitch = chord_freq / 2 * (_R_PERF5 if int(beat_pos) % 4 == 2 else 1.0)
-        return profile.bass_amp * math.sin(2 * math.pi * pitch * t) * (0.75 + 0.25 * math.sin(2 * math.pi * beat_pos))
+        return profile.bass_amp * _osc(pitch, t, bk, beat) * (0.75 + 0.25 * math.sin(2 * math.pi * beat_pos))
 
     def _pad(self, profile: StyleProfile, chord_freq: float, t: float, section_gain: float, section: str = "") -> float:
         slow = 0.7 + 0.3 * math.sin(2 * math.pi * 0.06 * t)
@@ -862,18 +1162,23 @@ class ProceduralGenerator:
             return profile.pad_amp * (
                 _osc(chord_freq / 2, t, "sine") + 0.6 * _osc(chord_freq * 0.75, t, "sine") + 0.4 * _osc(chord_freq, t, "sine")
             ) * slow
+        pk = profile.pad_kind
         fifth_freq = chord_freq * _R_PERF5
-        third_freq = chord_freq * _R_MAJ3
-        seventh_freq = chord_freq * _R_MIN7  # dominant 7th — richens chorus harmony
+        # Sus4 in build: suspended 4th replaces 3rd — creates unresolved tension before chorus
+        third_freq = chord_freq * (_R_PERF4 if section == "build" else _R_MAJ3)
+        seventh_freq = chord_freq * _R_MIN7
+        ninth_freq = chord_freq * 2 * _R_MAJ2   # major 9th (octave above 2nd)
         pad = profile.pad_amp * (
-            _osc(chord_freq, t, "sine")
-            + _osc(third_freq, t, "sine") * 0.28
-            + _osc(fifth_freq, t, "sine") * 0.35
-            + _osc(chord_freq * 2, t, "sine") * 0.14
+            _osc(chord_freq, t, pk)
+            + _osc(third_freq, t, pk) * 0.28
+            + _osc(fifth_freq, t, pk) * 0.35
+            + _osc(chord_freq * 2, t, pk) * 0.14
         ) * section_gain
+        if section == "verse":
+            pad += profile.pad_amp * _osc(ninth_freq, t, "sine") * 0.12 * section_gain
         if section in ("chorus", "hook"):
             pad += profile.pad_amp * _osc(seventh_freq, t, "sine") * 0.20 * section_gain
-            # Detuned doubler: ±4 cents beating at ~1Hz creates lush chorus-pad width
+            # Detuned doubler: always sine so beating is clean regardless of pad_kind
             pad += profile.pad_amp * (
                 _osc(chord_freq * _R_DET_UP, t, "sine") * 0.18
                 + _osc(chord_freq * _R_DET_DN, t, "sine") * 0.18
@@ -881,7 +1186,11 @@ class ProceduralGenerator:
             ) * section_gain
         return pad
 
-    def _lead(self, profile: StyleProfile, root: float, t: float, beat_pos: float, bar: int, section: str, section_gain: float, beat: float) -> float:
+    def _motif_notes(self, profile: StyleProfile, root: float) -> list[float]:
+        octave = 2.0 if profile.name not in ("rap", "ambient") else 1.0
+        return [_melody_freq(profile, root, 0, "verse", step, octave) for step in range(4)]
+
+    def _lead(self, profile: StyleProfile, root: float, t: float, beat_pos: float, bar: int, section: str, section_gain: float, beat: float, motif: list[float] | None = None) -> float:
         if profile.name == "ambient":
             phrase_speed = 0.5
         elif profile.name == "rap":
@@ -892,32 +1201,51 @@ class ProceduralGenerator:
             phrase_speed = 2.0
         phrase_step = int(beat_pos * phrase_speed) + (bar // 8) % 2
         octave = 1.0 if profile.name in ("rap", "ambient") else 2.0
-        freq = _melody_freq(profile, root, bar, section, phrase_step, octave)
         frac = (beat_pos * max(1.0, phrase_speed)) % 1
-        
+
+        # Bridge B-phrase: alternate contour every 4 bars for distinct B-section feel
+        _eff_section = "bridge_b" if section == "bridge" and (bar // 4) % 2 == 1 else section
+
+        # Motif replay: chorus/hook use captured verse motif transposed up a 5th
+        _use_motif = section in ("chorus", "hook") and motif is not None and len(motif) > 0
+        if _use_motif:
+            _mi = phrase_step % len(motif)
+            _step_lift = _R_MAJ2 if _mi % 3 == 2 else 1.0  # every 3rd note raised a whole tone for hook movement
+            freq = motif[_mi] * _R_PERF5 * _step_lift
+        else:
+            _oct = 1.75 if _eff_section == "bridge_b" else octave
+            freq = _melody_freq(profile, root, bar, _eff_section, phrase_step, _oct)
+
         if phrase_step > 0:
             time_in_note = frac * beat / max(1.0, phrase_speed)
             port_frac = min(1.0, time_in_note / LEAD_PORTAMENTO_SECONDS)
             if port_frac < 1.0:
-                prev_freq = _melody_freq(profile, root, bar, section, phrase_step - 1, octave)
+                if _use_motif:
+                    _mi_p = (phrase_step - 1) % len(motif)
+                    _lift_p = _R_MAJ2 if _mi_p % 3 == 2 else 1.0
+                    prev_freq = motif[_mi_p] * _R_PERF5 * _lift_p
+                else:
+                    _oct_p = 1.75 if _eff_section == "bridge_b" else octave
+                    prev_freq = _melody_freq(profile, root, bar, _eff_section, phrase_step - 1, _oct_p)
                 freq = prev_freq + (freq - prev_freq) * port_frac
 
         if profile.name == "rap":
-            return profile.lead_amp * _osc(freq * 0.5, t, "square") * _env(frac, 0.01, 0.42) * 0.55
+            return profile.lead_amp * _osc(freq * 0.5, t, profile.lead_kind) * _env(frac, 0.01, 0.42) * 0.55
         if profile.name == "ambient":
-            return profile.lead_amp * _osc(freq, t, "sine") * (0.5 + 0.5 * math.sin(2 * math.pi * 0.04 * t))
+            return profile.lead_amp * _osc(freq, t, profile.lead_kind) * (0.5 + 0.5 * math.sin(2 * math.pi * 0.04 * t))
         # Melody rest: skip every 8th phrase step in verse sections for breathing room
         if section == "verse" and phrase_step % 8 == 7 and profile.name not in ("rap", "ambient", "disco", "club"):
             return 0.0
         # Vibrato: ramps in over first 25% of note so the attack stays clean
         freq *= 1.0 + 0.011 * min(1.0, frac / 0.25) * math.sin(2 * math.pi * 5.5 * t)
-        base = profile.lead_amp * _osc(freq, t, profile.pluck_kind) * _env(frac, 0.01, 0.28) * section_gain
+        note_period = beat / max(1.0, phrase_speed)
+        base = profile.lead_amp * _osc(freq, t, profile.lead_kind, note_period) * _env(frac, 0.01, 0.28) * section_gain
         if section in ("chorus", "hook"):
-            harm_freq = freq * _R_PERF4  # perfect 4th above — classic harmony doubling
-            base += profile.lead_amp * 0.28 * _osc(harm_freq, t, profile.pluck_kind) * _env(frac, 0.01, 0.28) * section_gain
+            harm_freq = freq * _R_PERF4
+            base += profile.lead_amp * 0.28 * _osc(harm_freq, t, profile.lead_kind, note_period) * _env(frac, 0.01, 0.28) * section_gain
         return base
 
-    def _voice(self, request: GenerationRequest, text: str) -> VoiceProfile:
+    def _voice(self, request: GenerationRequest, text: str, profile: StyleProfile | None = None) -> VoiceProfile:
         requested = request.singing_voice
         if requested == "auto":
             style = (request.vocal_style or "").lower() + " " + text
@@ -931,6 +1259,20 @@ class ProceduralGenerator:
                 requested = "male"
             elif any(term in style for term in ["female", "soprano", "alto", "woman", "girl"]):
                 requested = "female"
+            elif profile is not None:
+                # No explicit voice style — pick based on genre profile
+                if profile.name in ("jazz", "bossa"):
+                    requested = "crooner"
+                elif profile.name in ("gospel", "rnb"):
+                    requested = "soul"
+                elif profile.name in ("folk", "country", "acoustic"):
+                    requested = "natural"
+                elif profile.name in ("metal", "rap"):
+                    requested = "male"
+                elif profile.name in ("choir",):
+                    requested = "choir"
+                else:
+                    requested = "female"
             else:
                 requested = "female"
         return VOICE_PROFILES.get(requested, VOICE_PROFILES["female"])
@@ -985,10 +1327,11 @@ class ProceduralGenerator:
         vowel = self._vowel_at(word, syllable_x)
         vowel_shift = VOWEL_FORMANT_SHIFTS[vowel]
 
-        # Vibrato: cycle 3 gets stronger vibrato; onset delay + rate modulation
+        # Vibrato: cycle 3 gets stronger vibrato; chorus gets extra depth for expressiveness
         vibrato_onset = min(1.0, syllable_x / 0.20)
         vibrato_rate_mod = 1.0 + 0.07 * math.sin(2 * math.pi * 0.88 * t)
-        _vib_depth = voice.vibrato_depth * (1.42 if phrase_cycle == 3 else 1.0)
+        _vib_sect = 1.30 if section in ("chorus", "hook") else 1.0
+        _vib_depth = voice.vibrato_depth * (1.42 if phrase_cycle == 3 else 1.0) * _vib_sect
         vibrato = _vib_depth * math.sin(2 * math.pi * voice.vibrato_rate * vibrato_rate_mod * t) * vibrato_onset
 
         # Jitter: slow quasi-random pitch micro-variation for naturalness
@@ -1060,7 +1403,10 @@ class ProceduralGenerator:
         # Cycle 2: softer overall level to match the softer attack
         if phrase_cycle == 2:
             level *= 0.82
-        return level * envelope * (0.80 * voiced + breath_noise + consonant)
+        # Pitch-coupled dynamics: higher notes naturally louder, lower notes softer
+        _ref_pitch = root * voice.base_multiplier
+        _pitch_dyn = max(0.65, min(1.50, 1.0 + 0.20 * math.log2(max(0.5, pitch / _ref_pitch))))
+        return level * envelope * _pitch_dyn * (0.80 * voiced + breath_noise + consonant)
 
     def _vowel_at(self, word: str, syllable_x: float) -> str:
         """Return the active vowel at position syllable_x (0→1) through the word.
@@ -1264,5 +1610,73 @@ class ProceduralGenerator:
                     perc = math.sin(2 * math.pi * 1100 * t) * math.exp(-beat_frac * 60) * 0.030
             if int(drum_bp * 2) % 2 == 1:
                 hat = (rng.random() * 2 - 1) * profile.noise_amp * 0.42
+
+        elif pat == "reggae":
+            # Kick on beats 1 and 3 only (no on-2-and-4 backbeat)
+            if bar_beat in (0, 2) and beat_frac < 0.12:
+                kick = 0.32 * math.sin(2 * math.pi * (55 + 50 * math.exp(-beat_frac * 18)) * t) * math.exp(-beat_frac * 10)
+            # Snare on beat 3 (light rim)
+            if bar_beat == 2 and beat_frac < 0.10:
+                snare = (rng.random() * 2 - 1) * 0.032 * math.exp(-beat_frac * 14)
+            # Skank: short chord stab on upbeats (and of every beat) — the reggae trademark
+            _ub = drum_bp * 2 % 1
+            if int(drum_bp * 2) % 2 == 1 and _ub < 0.10:
+                perc = math.sin(2 * math.pi * 360 * t) * math.exp(-_ub * 32) * 0.045
+                perc += (rng.random() * 2 - 1) * profile.noise_amp * 0.50
+            elif int(drum_bp * 2) % 2 == 1:
+                hat = (rng.random() * 2 - 1) * profile.noise_amp * 0.28
+
+        elif pat == "jazz":
+            # Ride cymbal: quarter-note pulse, chick accent on 2 and 4
+            if beat_frac < 0.20:
+                _ride_vel = 0.92 if bar_beat in (1, 3) else 0.58
+                hat = (rng.random() * 2 - 1) * profile.noise_amp * _ride_vel * 1.25
+            # Light kick on 1; occasional ghost on 3 (every 2 bars)
+            if bar_beat == 0 and beat_frac < 0.09:
+                kick = 0.20 * math.sin(2 * math.pi * (48 + 55 * math.exp(-beat_frac * 18)) * t) * math.exp(-beat_frac * 12)
+            elif bar_beat == 2 and beat_frac < 0.07 and int(drum_bp / 4) % 2 == 0:
+                kick = 0.13 * math.sin(2 * math.pi * (46 + 40 * math.exp(-beat_frac * 18)) * t) * math.exp(-beat_frac * 12)
+            # Brush snare on 2 and 4 (long decay = brushed skin sound)
+            if bar_beat in (1, 3) and beat_frac < 0.30:
+                snare = (rng.random() * 2 - 1) * 0.040 * math.exp(-beat_frac * 7)
+            # Rimshot tap between beats (triplet feel)
+            if int(drum_bp * 3) % 3 == 2 and beat_frac < 0.05 and int(drum_bp / 2) % 3 == 1:
+                perc = math.sin(2 * math.pi * 940 * t) * math.exp(-beat_frac * 50) * 0.020
+
+        elif pat == "bossa":
+            # Pandeiro: 8th notes, upbeat accent (gives bossa the rhythmic bounce)
+            _bub = int(drum_bp * 2) % 2
+            if beat_frac < 0.15:
+                hat = (rng.random() * 2 - 1) * profile.noise_amp * (0.72 if _bub == 1 else 0.38)
+            # Light kick on beat 1; chorus adds beat 3
+            if bar_beat == 0 and beat_frac < 0.09:
+                kick = 0.18 * math.sin(2 * math.pi * (58 + 45 * math.exp(-beat_frac * 16)) * t) * math.exp(-beat_frac * 10)
+            elif bar_beat == 2 and beat_frac < 0.07 and section in ("chorus", "hook"):
+                kick = 0.12 * math.sin(2 * math.pi * (52 + 35 * math.exp(-beat_frac * 16)) * t) * math.exp(-beat_frac * 10)
+            # Rim on beat 3
+            if bar_beat == 2 and beat_frac < 0.07:
+                snare = (rng.random() * 2 - 1) * 0.025 * math.exp(-beat_frac * 20)
+                perc = math.sin(2 * math.pi * 1_050 * t) * math.exp(-beat_frac * 55) * 0.016
+            # Clave accent: "and of 2" (index 3 in 8th-note grid)
+            if int(drum_bp * 4) % 8 == 3 and beat_frac < 0.05:
+                perc += math.sin(2 * math.pi * 1_480 * t) * math.exp(-beat_frac * 70) * 0.028
+
+        elif pat == "country":
+            # Kick on 1 (strong) and 3 (medium)
+            if bar_beat == 0 and beat_frac < 0.12:
+                kick = 0.36 * math.sin(2 * math.pi * (60 + 65 * math.exp(-beat_frac * 18)) * t) * math.exp(-beat_frac * 12)
+            elif bar_beat == 2 and beat_frac < 0.10:
+                kick = 0.26 * math.sin(2 * math.pi * (58 + 52 * math.exp(-beat_frac * 18)) * t) * math.exp(-beat_frac * 12)
+            # Tight snare crack on 2 and 4
+            if bar_beat in (1, 3) and beat_frac < 0.10:
+                snare = (rng.random() * 2 - 1) * 0.072 * math.exp(-beat_frac * 20)
+                snare += math.sin(2 * math.pi * 310 * t) * math.exp(-beat_frac * 24) * 0.020
+            # Shuffle hihat: downbeats quieter, upbeats accented
+            _ch = int(drum_bp * 2) % 2
+            if beat_frac < 0.12:
+                hat = (rng.random() * 2 - 1) * profile.noise_amp * (0.70 if _ch == 1 else 0.42)
+            # Ghost snare on "e of 3" — country shuffle signature
+            if int(drum_bp * 4) % 8 == 5 and beat_frac < 0.04:
+                perc = (rng.random() * 2 - 1) * 0.018 * math.exp(-beat_frac * 30)
 
         return kick, hat, snare, perc

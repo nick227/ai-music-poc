@@ -13,12 +13,14 @@ def list_songs(
     limit: int = Query(default=25, ge=1, le=100),
     review_status: ReviewStatus | None = Query(default=None),
     review_decision: ReviewDecision | None = Query(default=None),
+    style_version_id: str | None = Query(default=None, max_length=80),
     song_service: SongService = Depends(get_song_service),
 ):
     songs = song_service.list_songs(
         limit=limit,
         review_status=review_status,
         review_decision=review_decision,
+        style_version_id=style_version_id,
     )
     return SongListResponse(songs=songs)
 

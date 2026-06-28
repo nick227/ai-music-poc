@@ -48,6 +48,8 @@ class SliceResponse(BaseModel):
     status: DatasetSliceStatus
     version: int
     asset_count: int
+    is_auto_generated: bool = False
+    lineage_parent_id: Optional[str] = None
     frozen_at: Optional[str] = None
     created_at: str
     updated_at: str
@@ -88,6 +90,8 @@ def slice_to_response(record: DatasetSlice) -> SliceResponse:
         status=record.status,
         version=record.version,
         asset_count=record.asset_count,
+        is_auto_generated=record.is_auto_generated,
+        lineage_parent_id=record.lineage_parent_id,
         frozen_at=record.frozen_at.isoformat() if record.frozen_at else None,
         created_at=record.created_at.isoformat(),
         updated_at=record.updated_at.isoformat(),

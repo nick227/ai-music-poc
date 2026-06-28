@@ -21,10 +21,10 @@ class Settings(BaseSettings):
     cors_origins: str = Field(default="http://localhost:8000,http://localhost:5173", alias="CORS_ORIGINS")
 
     ace_enabled: bool = Field(default=False, alias="ACE_ENABLED")
-    ace_step_dir: Path | None = Field(default=None, alias="ACE_STEP_DIR")
-    ace_python: Path = Field(default=Path("python"), alias="ACE_PYTHON")
-    ace_script: Path = Field(default=Path("./models/ACE-Step/infer.py"), alias="ACE_SCRIPT")
-    ace_model_dir: Path = Field(default=Path("./models/ace-step"), alias="ACE_MODEL_DIR")
+    ace_step_dir: Path | None = Field(default=Path("/home/administrator/models/ACE-Step-1.5"), alias="ACE_STEP_DIR")
+    ace_python: Path = Field(default=Path("/home/administrator/models/ACE-Step-1.5/.venv/bin/python"), alias="ACE_PYTHON")
+    ace_script: Path = Field(default=Path("./scripts/ace_runner.py"), alias="ACE_SCRIPT")
+    ace_model_dir: Path = Field(default=Path("/home/administrator/models/ACE-Step-1.5/checkpoints"), alias="ACE_MODEL_DIR")
     ace_output_dir: Path = Field(default=Path("./data/model_outputs"), alias="ACE_OUTPUT_DIR")
     ace_timeout_seconds: int = Field(default=900, alias="ACE_TIMEOUT_SECONDS")
     ace_device: str = Field(default="auto", alias="ACE_DEVICE")
@@ -36,13 +36,13 @@ class Settings(BaseSettings):
     training_enabled: bool = Field(default=True, alias="TRAINING_ENABLED")
     training_adapter: str = Field(default="mock-training", alias="TRAINING_ADAPTER")
     training_mock_step_delay_seconds: float = Field(default=0.05, alias="TRAINING_MOCK_STEP_DELAY_SECONDS")
-    ace_train_python: Path = Field(default=Path("python"), alias="ACE_TRAIN_PYTHON")
+    ace_train_python: Path = Field(default=Path("/home/administrator/models/ACE-Step-1.5/.venv/bin/python"), alias="ACE_TRAIN_PYTHON")
     ace_train_script: Path = Field(default=Path("./scripts/ace_train_runner.py"), alias="ACE_TRAIN_SCRIPT")
     ace_train_command_template: str = Field(default="", alias="ACE_TRAIN_COMMAND_TEMPLATE")
     ace_train_timeout_seconds: int = Field(default=7200, alias="ACE_TRAIN_TIMEOUT_SECONDS")
     ace_real_training_enabled: bool = Field(default=False, alias="ACE_REAL_TRAINING_ENABLED")
     ace_train_dry_run: bool = Field(default=True, alias="ACE_TRAIN_DRY_RUN")
-    ace_train_checkpoint_dir: Path | None = Field(default=None, alias="ACE_TRAIN_CHECKPOINT_DIR")
+    ace_train_checkpoint_dir: Path | None = Field(default=Path("/home/administrator/models/ACE-Step-1.5/checkpoints"), alias="ACE_TRAIN_CHECKPOINT_DIR")
 
     @property
     def job_dir(self) -> Path:

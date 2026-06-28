@@ -23,7 +23,8 @@ ACE_ENABLED=true
 ACE_STEP_DIR=/home/administrator/models/ACE-Step-1.5
 ACE_PYTHON=/home/administrator/models/ACE-Step-1.5/.venv/bin/python
 ACE_SCRIPT=./scripts/ace_runner.py
-ACE_MODEL_DIR=/mnt/c/Users/Administrator/.cache/huggingface/ace-step-checkpoints
+ACE_MODEL_DIR=/home/administrator/models/ACE-Step-1.5/checkpoints
+ACE_TRAIN_CHECKPOINT_DIR=/home/administrator/models/ACE-Step-1.5/checkpoints
 ACE_TIMEOUT_SECONDS=1200
 ACE_DEVICE=cuda
 ACE_ALLOW_FALLBACK=true
@@ -39,7 +40,8 @@ Set `HF_CACHE_DIR` to one shared Hugging Face cache to avoid duplicate WSL downl
 
 ```env
 HF_CACHE_DIR=/mnt/c/Users/Administrator/.cache/huggingface
-ACE_MODEL_DIR=/mnt/c/Users/Administrator/.cache/huggingface/ace-step-checkpoints
+ACE_MODEL_DIR=/home/administrator/models/ACE-Step-1.5/checkpoints
+ACE_TRAIN_CHECKPOINT_DIR=/home/administrator/models/ACE-Step-1.5/checkpoints
 ```
 
 When set, the app passes these values into ACE subprocesses:

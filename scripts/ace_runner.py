@@ -16,11 +16,12 @@ import sys
 import tempfile
 from pathlib import Path
 
-DEFAULT_ACE_STEP_DIR = Path(__file__).resolve().parent.parent.parent / "models" / "ACE-Step-1.5"
 
-
-def ace_step_dir() -> Path:
-    return Path(os.environ.get("ACE_STEP_DIR", str(DEFAULT_ACE_STEP_DIR))).expanduser().resolve()
+def ace_step_dir() -> Path | None:
+    raw = os.environ.get("ACE_STEP_DIR", "").strip()
+    if not raw:
+        return None
+    return Path(raw).expanduser().resolve()
 
 
 def ace_venv_python(step_dir: Path) -> Path:
@@ -73,7 +74,12 @@ def write_lora_sitecustomize(path: Path) -> None:
         """
 import json
 import os
+import sys
 from pathlib import Path
+
+_step_dir = os.environ.get("ACE_STUDIO_STEP_DIR", "").strip()
+if _step_dir:
+    sys.path.insert(0, _step_dir)
 
 from acestep.handler import AceStepHandler
 
@@ -181,8 +187,8 @@ def emit_lora_meta_line(payload: dict[str, object]) -> None:
 
 def dry_run_lines(args: argparse.Namespace) -> list[str]:
     step_dir = ace_step_dir()
-    venv_python = ace_venv_python(step_dir)
-    cli_script = ace_cli_script(step_dir)
+    venv_python = ace_venv_python(step_dir) if step_dir else None
+    cli_script = ace_cli_script(step_dir) if step_dir else None
 
     prompt_file = resolve_optional_path(args.prompt_file)
     lyrics_file = resolve_optional_path(args.lyrics_file)
@@ -195,9 +201,9 @@ def dry_run_lines(args: argparse.Namespace) -> list[str]:
         "[ace_runner] dry-run ok",
         "",
         "== ACE paths ==",
-        f"ACE_STEP_DIR={step_dir} exists={step_dir.exists()}",
-        f"ACE_VENV={venv_python} exists={venv_python.exists()}",
-        f"ACE_CLI={cli_script} exists={cli_script.exists()}",
+        f"ACE_STEP_DIR={step_dir if step_dir else '(not set)'} exists={step_dir.exists() if step_dir else False}",
+        f"ACE_VENV={venv_python if venv_python else '(not set)'} exists={venv_python.exists() if venv_python else False}",
+        f"ACE_CLI={cli_script if cli_script else '(not set)'} exists={cli_script.exists() if cli_script else False}",
         "",
         "== Hugging Face cache (subprocess env) ==",
         f"HF_HOME={os.environ.get('HF_HOME', '')}",
@@ -215,6 +221,7 @@ def dry_run_lines(args: argparse.Namespace) -> list[str]:
         f"model_dir={model_dir} exists={model_dir.exists() if model_dir else False}",
         f"device={args.device}",
         f"duration={args.duration} seed={args.seed} quality={args.quality} guidance_scale={args.guidance_scale}",
+        f"offload_to_cpu={args.offload_to_cpu} use_lm={args.use_lm} lm_model={args.lm_model or '(none)'}",
         f"use_lora={args.use_lora} lora_path={args.lora_path or '(not set)'} lora_scale={args.lora_scale}",
         "",
         "== Voice passthrough (app template only; ACE CLI ignores today) ==",
@@ -225,6 +232,8 @@ def dry_run_lines(args: argparse.Namespace) -> list[str]:
 
 def missing_dry_run_paths() -> list[str]:
     step_dir = ace_step_dir()
+    if step_dir is None:
+        return ["ACE_STEP_DIR"]
     missing: list[str] = []
     for label, path in [
         ("ACE_STEP_DIR", step_dir),
@@ -266,6 +275,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--lora-path", default="")
     parser.add_argument("--lora-scale", type=float, default=1.0)
     parser.add_argument("--use-lora", default="false")
+    parser.add_argument("--offload-to-cpu", action="store_true", help="Enable CPU offload to reduce GPU VRAM usage")
+    parser.add_argument("--use-lm", default="false", help="Enable 5Hz language model preprocessing (true/false)")
+    parser.add_argument("--lm-model", default="", help="LM model subfolder or path (e.g. acestep-5Hz-lm-0.6B)")
     parser.add_argument("--dry-run", action="store_true", help="Validate wiring without running ACE-Step inference")
     return parser
 
@@ -279,6 +291,9 @@ def main(argv: list[str] | None = None) -> int:
         build_parser().error("--prompt-file, --lyrics-file, and --output are required unless --dry-run is set")
 
     step_dir = ace_step_dir()
+    if step_dir is None:
+        print("[ace_runner] ERROR: ACE_STEP_DIR is required", file=sys.stderr)
+        return 2
     venv_python = ace_venv_python(step_dir)
     cli_script = ace_cli_script(step_dir)
 
@@ -307,9 +322,22 @@ def main(argv: list[str] | None = None) -> int:
         config_path = Path(save_dir) / "ace_config.toml"
         quality_steps = {"draft": 8, "balanced": 24, "high": 50}
         seed = args.seed if args.seed is not None and args.seed >= 0 else -1
+        use_lm = str(args.use_lm).lower() in {"1", "true", "yes", "on"}
+        lm_model_name = args.lm_model.strip() if args.lm_model else ""
+        checkpoint_dir_str = str(Path(args.model_dir).expanduser().resolve()) if args.model_dir else os.environ.get("ACESTEP_CHECKPOINTS_DIR", "")
+        # Resolve lm_model_path: name relative to checkpoint_dir, or absolute path
+        lm_model_path: str | None = None
+        if use_lm and lm_model_name:
+            candidate = Path(checkpoint_dir_str) / lm_model_name
+            if candidate.exists():
+                lm_model_path = str(candidate)
+            elif Path(lm_model_name).is_absolute() and Path(lm_model_name).exists():
+                lm_model_path = lm_model_name
+            else:
+                lm_model_path = lm_model_name  # pass as-is; ACE will resolve or error
         write_config(config_path, {
             "project_root": str(step_dir),
-            "checkpoint_dir": str(Path(args.model_dir).expanduser().resolve()) if args.model_dir else os.environ.get("ACESTEP_CHECKPOINTS_DIR", ""),
+            "checkpoint_dir": checkpoint_dir_str,
             "backend": "pt",
             "device": args.device,
             "save_dir": save_dir,
@@ -322,7 +350,9 @@ def main(argv: list[str] | None = None) -> int:
             "guidance_scale": args.guidance_scale,
             "inference_steps": quality_steps.get(args.quality, 24),
             "batch_size": 1,
-            "thinking": False,
+            "offload_to_cpu": args.offload_to_cpu,
+            "thinking": use_lm,
+            "lm_model_path": lm_model_path or "",
             "use_cot_metas": False,
             "use_cot_caption": False,
             "use_cot_lyrics": False,
@@ -354,6 +384,7 @@ def main(argv: list[str] | None = None) -> int:
             write_lora_sitecustomize(hook_dir / "sitecustomize.py")
             env["ACE_STUDIO_LORA_PATH"] = str(lora_path)
             env["ACE_STUDIO_LORA_SCALE"] = str(args.lora_scale)
+            env["ACE_STUDIO_STEP_DIR"] = str(step_dir)
             env["ACE_STUDIO_LORA_META_FILE"] = str(meta_file)
             env["PYTHONPATH"] = f"{hook_dir}{os.pathsep}{env.get('PYTHONPATH', '')}".rstrip(os.pathsep)
         print(f"[ace_runner] Running: {shlex.join(cmd)}", flush=True)

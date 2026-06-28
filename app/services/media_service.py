@@ -73,8 +73,8 @@ class MediaService:
             concept_assignments,
             {
                 **asset.model_dump(mode="json"),
-                "category_assignments": [],
-                "concept_assignments": [],
+                "category_assignments": [item.model_dump(mode="json") for item in category_assignments],
+                "concept_assignments": [item.model_dump(mode="json") for item in concept_assignments],
                 "category_assignment_count": len(category_assignments),
                 "concept_assignment_count": len(concept_assignments),
                 "primary_role": primary.role.value if primary else None,

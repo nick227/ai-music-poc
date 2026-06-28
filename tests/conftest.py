@@ -27,6 +27,7 @@ def clear_caches():
     dependencies.get_slice_store.cache_clear()
     dependencies.get_slice_package_service.cache_clear()
     dependencies.get_slice_service.cache_clear()
+    dependencies.get_dataset_generator_service.cache_clear()
     dependencies.get_style_version_store.cache_clear()
     dependencies.get_style_version_service.cache_clear()
     dependencies.get_ingestion_service.cache_clear()

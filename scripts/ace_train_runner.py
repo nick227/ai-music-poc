@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -18,7 +19,6 @@ from app.training.ace_subprocess_env import ace_training_env
 from app.training.ace_package_converter import unpack_studio_package, write_ace_dataset_json
 from app.training.ace_train_commands import (
     adapter_artifacts_valid,
-    ace_checkpoint_dir,
     build_preprocess_command,
     build_train_command,
     preprocess_command_with_shim,
@@ -29,9 +29,6 @@ from app.training.ace_train_commands import (
     run_artifacts_dir,
     run_tensors_dir,
 )
-
-DEFAULT_ACE_STEP_DIR = Path("/home/administrator/models/ACE-Step-1.5")
-
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Convert Studio package and run ACE turbo LoRA training")
@@ -44,6 +41,19 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--ace-step-dir", default=None, help="ACE-Step checkout root")
     parser.add_argument("--dry-run", action="store_true", help="Prepare commands only; do not run ACE subprocesses")
     return parser.parse_args(argv)
+
+
+def _required_path_from_arg_or_env(arg_value: str | None, *env_names: str, label: str) -> Path:
+    raw = arg_value.strip() if isinstance(arg_value, str) else ""
+    if not raw:
+        for env_name in env_names:
+            raw = os.environ.get(env_name, "").strip()
+            if raw:
+                break
+    if not raw:
+        names = ", ".join(env_names)
+        raise SystemExit(f"{label} is required; pass CLI arg or set one of: {names}")
+    return Path(raw).expanduser().resolve()
 
 
 def load_config(path: Path) -> dict:
@@ -115,12 +125,14 @@ def main(argv: list[str] | None = None) -> int:
     config_path = Path(args.config).expanduser().resolve()
     run_dir = Path(args.output_dir).expanduser().resolve()
     log_path = Path(args.log).expanduser().resolve()
-    ace_step_dir = Path(args.ace_step_dir or os.environ.get("ACE_STEP_DIR", str(DEFAULT_ACE_STEP_DIR))).resolve()
+    ace_step_dir = _required_path_from_arg_or_env(args.ace_step_dir, "ACE_STEP_DIR", label="ACE-Step directory")
     ace_python = ace_step_dir / ".venv" / "bin" / "python"
     train_script = ace_step_dir / "train.py"
-    checkpoint_dir = ace_checkpoint_dir(
-        ace_step_dir,
-        Path(args.checkpoint_dir).expanduser().resolve() if args.checkpoint_dir else None,
+    checkpoint_dir = _required_path_from_arg_or_env(
+        args.checkpoint_dir,
+        "ACE_TRAIN_CHECKPOINT_DIR",
+        "ACE_MODEL_DIR",
+        label="ACE checkpoint directory",
     )
 
     config = load_config(config_path)

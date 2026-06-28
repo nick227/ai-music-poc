@@ -16,6 +16,10 @@ class StyleVersionResponse(BaseModel):
     dataset_slice_id: str
     artifact_path: str
     backend: str
+    base_model_id: str
+    base_model_name: str
+    training_mode: str
+    artifact_type: str
     status: StyleVersionStatus
     created_at: str
     updated_at: str
@@ -46,6 +50,10 @@ def style_version_to_response(record: StyleVersion) -> StyleVersionResponse:
         dataset_slice_id=record.dataset_slice_id,
         artifact_path=record.artifact_path,
         backend=record.backend,
+        base_model_id=record.base_model_id,
+        base_model_name=record.base_model_name,
+        training_mode=record.training_mode,
+        artifact_type=record.artifact_type,
         status=record.status,
         created_at=record.created_at.isoformat(),
         updated_at=record.updated_at.isoformat(),
