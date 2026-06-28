@@ -354,7 +354,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--use-lm", default="false", help="Enable 5Hz language model preprocessing (true/false)")
     parser.add_argument("--lm-model", default="", help="LM model subfolder or path (e.g. acestep-5Hz-lm-0.6B)")
     parser.add_argument("--inference-steps", type=int, default=None, help="Override diffusion steps (default: quality preset)")
-    parser.add_argument("--config-path", default="", help="DiT checkpoint subfolder (e.g. acestep-v15-sft)")
+    parser.add_argument("--config-path", default="", help="DiT checkpoint subfolder (e.g. acestep-v15-xl-sft)")
     parser.add_argument("--batch-size", type=int, default=1, help="Generation batch size")
     parser.add_argument("--dry-run", action="store_true", help="Validate wiring without running ACE-Step inference")
     return parser

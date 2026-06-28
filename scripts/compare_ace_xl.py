@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
-"""Compare turbo 8-step vs SFT 24/50-step ACE generation on identical inputs."""
+"""Compare 2B turbo vs XL turbo/SFT ACE generation on identical inputs."""
 
 from __future__ import annotations
 
 import argparse
 import json
-import os
+import shutil
 import subprocess
 import sys
+import threading
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -22,7 +23,13 @@ try:
 except Exception:  # pragma: no cover
     load_dotenv = None
 
-from app.core.ace_profiles import FINAL_SFT_CHECKPOINT, build_final_sft_profile, final_sft_installed
+from app.core.ace_profiles import (
+    SAFE_TURBO_CHECKPOINT,
+    XL_SFT_CHECKPOINT,
+    XL_TURBO_CHECKPOINT,
+    xl_sft_installed,
+    xl_turbo_installed,
+)
 from app.core.ace_runtime import validate_with_ffprobe
 from app.core.audio_validation import validate_wav_output
 from app.core.config import get_settings
@@ -33,16 +40,30 @@ DEFAULT_LYRICS = "[Instrumental]"
 DEFAULT_SEED = 4242
 DEFAULT_DURATION = 30
 
-TURBO_VARIANT = {
+TURBO_8 = {
     "id": "turbo_8",
-    "label": "turbo 8 steps",
-    "checkpoint": "acestep-v15-turbo",
+    "label": "2B turbo 8 steps",
+    "checkpoint": SAFE_TURBO_CHECKPOINT,
     "inference_steps": 8,
 }
-SFT_VARIANTS = (
-    {"id": "sft_24", "label": "sft 24 steps", "checkpoint": FINAL_SFT_CHECKPOINT, "inference_steps": 24},
-    {"id": "sft_50", "label": "sft 50 steps", "checkpoint": FINAL_SFT_CHECKPOINT, "inference_steps": 50},
-)
+XL_TURBO_8 = {
+    "id": "xl_turbo_8",
+    "label": "XL turbo 8 steps",
+    "checkpoint": XL_TURBO_CHECKPOINT,
+    "inference_steps": 8,
+}
+XL_SFT_24 = {
+    "id": "xl_sft_24",
+    "label": "XL SFT 24 steps",
+    "checkpoint": XL_SFT_CHECKPOINT,
+    "inference_steps": 24,
+}
+XL_SFT_50 = {
+    "id": "xl_sft_50",
+    "label": "XL SFT 50 steps",
+    "checkpoint": XL_SFT_CHECKPOINT,
+    "inference_steps": 50,
+}
 
 
 def _write_text(path: Path, text: str) -> None:
@@ -50,11 +71,61 @@ def _write_text(path: Path, text: str) -> None:
     path.write_text(text, encoding="utf-8")
 
 
-def build_variants(*, include_sft: bool) -> list[dict[str, Any]]:
-    variants = [TURBO_VARIANT]
-    if include_sft:
-        variants.extend(SFT_VARIANTS)
-    return variants
+def build_variants(*, xl_sft_ready: bool, xl_turbo_ready: bool) -> tuple[list[dict[str, Any]], list[str]]:
+    variants: list[dict[str, Any]] = [TURBO_8]
+    skipped: list[str] = []
+    if xl_turbo_ready:
+        variants.append(XL_TURBO_8)
+    else:
+        skipped.append(XL_TURBO_8["id"])
+    if xl_sft_ready:
+        variants.extend([XL_SFT_24, XL_SFT_50])
+    else:
+        skipped.extend([XL_SFT_24["id"], XL_SFT_50["id"]])
+    return variants, skipped
+
+
+def query_gpu_vram_mb() -> int | None:
+    smi = shutil.which("nvidia-smi")
+    if not smi:
+        return None
+    try:
+        result = subprocess.run(
+            [smi, "--query-gpu=memory.used", "--format=csv,noheader,nounits"],
+            text=True,
+            capture_output=True,
+            timeout=5,
+            check=False,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            return int(result.stdout.strip().splitlines()[0].strip())
+    except Exception:
+        pass
+    return None
+
+
+class _VramSampler:
+    def __init__(self) -> None:
+        self._peak_mb = 0
+        self._stop = threading.Event()
+        self._thread: threading.Thread | None = None
+
+    def start(self) -> None:
+        def _loop() -> None:
+            while not self._stop.is_set():
+                used = query_gpu_vram_mb()
+                if used is not None and used > self._peak_mb:
+                    self._peak_mb = used
+                self._stop.wait(0.5)
+
+        self._thread = threading.Thread(target=_loop, daemon=True)
+        self._thread.start()
+
+    def stop(self) -> int | None:
+        self._stop.set()
+        if self._thread is not None:
+            self._thread.join(timeout=2)
+        return self._peak_mb or None
 
 
 def build_generation_command(
@@ -146,8 +217,10 @@ def _run_generation(
     stdout_path: Path,
     stderr_path: Path,
     timeout: int,
-) -> tuple[int, float]:
+) -> tuple[int, float, int | None]:
     stdout_path.parent.mkdir(parents=True, exist_ok=True)
+    sampler = _VramSampler()
+    sampler.start()
     started = time.monotonic()
     try:
         with stdout_path.open("w", encoding="utf-8") as stdout, stderr_path.open("w", encoding="utf-8") as stderr:
@@ -161,22 +234,26 @@ def _run_generation(
                 timeout=timeout,
                 check=False,
             )
-        return result.returncode, round(time.monotonic() - started, 3)
+        peak_vram_mb = sampler.stop()
+        return result.returncode, round(time.monotonic() - started, 3), peak_vram_mb
     except subprocess.TimeoutExpired as exc:
+        peak_vram_mb = sampler.stop()
         stderr_path.write_text(f"Timed out after {exc.timeout} seconds\n", encoding="utf-8")
-        return 124, round(time.monotonic() - started, 3)
+        return 124, round(time.monotonic() - started, 3), peak_vram_mb
 
 
 def _write_markdown_report(report: dict[str, Any], path: Path) -> None:
     lines = [
-        "# ACE Turbo vs SFT Comparison",
+        "# ACE XL Comparison",
         "",
-        "Same prompt, seed, and duration; only checkpoint and inference steps differ.",
+        "Same prompt, seed, and duration; checkpoint and steps vary per variant.",
+        "Quality must be judged by listening — this report only validates generation succeeded.",
         "",
         f"- Prompt: {report['prompt']}",
         f"- Seed: `{report['seed']}`",
         f"- Duration: `{report['duration_seconds']}s`",
-        f"- Final SFT installed: `{report['final_sft_available']}`",
+        f"- XL SFT installed: `{report['xl_sft_available']}`",
+        f"- XL Turbo installed: `{report['xl_turbo_available']}`",
         "",
         "## Variants",
         "",
@@ -191,9 +268,12 @@ def _write_markdown_report(report: dict[str, Any], path: Path) -> None:
                 f"- Steps: `{variant['inference_steps']}`",
                 f"- Output: `{variant.get('output_path', '')}`",
                 f"- Return code: `{variant.get('returncode')}`",
-                f"- Elapsed: `{variant.get('elapsed_seconds')}s`",
-                f"- Audio OK: `{audio.get('ok')}`",
+                f"- Render time: `{variant.get('elapsed_seconds')}s`",
+                f"- Peak VRAM: `{variant.get('peak_vram_mb', 'n/a')} MiB`",
+                f"- ffprobe OK: `{audio.get('ok')}`",
                 f"- Duration: `{audio.get('duration_seconds')}s`",
+                f"- RMS: `{audio.get('rms')}`",
+                f"- Peak sample: `{audio.get('peak_abs_sample')}`",
                 "",
             ]
         )
@@ -202,11 +282,11 @@ def _write_markdown_report(report: dict[str, Any], path: Path) -> None:
     lines.append(f"- All attempted variants succeeded: `{summary['all_succeeded']}`")
     lines.append(f"- All WAVs valid: `{summary['all_audio_valid']}`")
     if summary.get("skipped"):
-        lines.append(f"- Skipped: {', '.join(summary['skipped'])}")
+        lines.append(f"- Skipped (not installed): {', '.join(summary['skipped'])}")
     path.write_text("\n".join(lines), encoding="utf-8")
 
 
-def compare_ace_turbo_vs_sft(
+def compare_ace_xl(
     *,
     prompt: str = DEFAULT_PROMPT,
     lyrics: str = DEFAULT_LYRICS,
@@ -221,12 +301,12 @@ def compare_ace_turbo_vs_sft(
     settings = get_settings()
 
     checkpoint_dir = settings.ace_model_dir.expanduser().resolve()
-    sft_ready = final_sft_installed(checkpoint_dir)
-    variants = build_variants(include_sft=sft_ready)
-    skipped = [] if sft_ready else [v["id"] for v in SFT_VARIANTS]
+    xl_sft_ready = xl_sft_installed(checkpoint_dir)
+    xl_turbo_ready = xl_turbo_installed(checkpoint_dir)
+    variants, skipped = build_variants(xl_sft_ready=xl_sft_ready, xl_turbo_ready=xl_turbo_ready)
 
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    experiment_dir = settings.data_dir / "experiments" / "ace-turbo-vs-sft" / timestamp
+    experiment_dir = settings.data_dir / "experiments" / "ace-xl-comparison" / timestamp
     outputs_dir = experiment_dir / "outputs"
     requests_dir = experiment_dir / "requests"
     logs_dir = experiment_dir / "logs"
@@ -261,7 +341,7 @@ def compare_ace_turbo_vs_sft(
             inference_steps=variant["inference_steps"],
             offload_to_cpu=offload_to_cpu,
         )
-        returncode, elapsed = _run_generation(
+        returncode, elapsed, peak_vram_mb = _run_generation(
             command,
             env=env,
             stdout_path=stdout_path,
@@ -273,9 +353,6 @@ def compare_ace_turbo_vs_sft(
             ffprobe=ffprobe,
             expected_duration_seconds=duration_seconds,
         )
-        profile = None
-        if variant["checkpoint"] == FINAL_SFT_CHECKPOINT:
-            profile = build_final_sft_profile(inference_steps=variant["inference_steps"]).model_dump()
         variant_reports.append({
             **variant,
             "output_path": str(output_path),
@@ -284,8 +361,8 @@ def compare_ace_turbo_vs_sft(
             "command": command,
             "returncode": returncode,
             "elapsed_seconds": elapsed,
+            "peak_vram_mb": peak_vram_mb,
             "audio": audio,
-            "final_sft_profile": profile,
             "success": returncode == 0 and bool(audio["ok"]),
         })
 
@@ -297,9 +374,11 @@ def compare_ace_turbo_vs_sft(
         "lyrics": lyrics,
         "seed": seed,
         "duration_seconds": duration_seconds,
-        "final_sft_available": sft_ready,
+        "xl_sft_available": xl_sft_ready,
+        "xl_turbo_available": xl_turbo_ready,
         "offload_to_cpu": offload_to_cpu,
         "model_dir": str(checkpoint_dir),
+        "quality_note": "Subjective quality must be judged by listening.",
         "variants": variant_reports,
         "summary": {
             "variant_count": len(variant_reports),
@@ -319,7 +398,7 @@ def compare_ace_turbo_vs_sft(
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Compare turbo 8-step vs SFT 24/50-step ACE generation")
+    parser = argparse.ArgumentParser(description="Compare 2B turbo vs XL turbo/SFT ACE generation")
     parser.add_argument("--prompt", default=DEFAULT_PROMPT)
     parser.add_argument("--lyrics", default=DEFAULT_LYRICS)
     parser.add_argument("--seed", type=int, default=DEFAULT_SEED)
@@ -328,7 +407,7 @@ def main() -> int:
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
 
-    report = compare_ace_turbo_vs_sft(
+    report = compare_ace_xl(
         prompt=args.prompt,
         lyrics=args.lyrics,
         seed=args.seed,
@@ -338,17 +417,19 @@ def main() -> int:
     if args.json:
         print(json.dumps(report, indent=2))
     else:
-        print("ACE turbo vs SFT comparison")
-        print(f"Final SFT installed: {report['final_sft_available']}")
+        print("ACE XL comparison")
+        print(f"XL SFT installed: {report['xl_sft_available']}")
+        print(f"XL Turbo installed: {report['xl_turbo_available']}")
         print(f"Variants run: {report['summary']['variant_count']}")
         if report["summary"]["skipped"]:
-            print(f"Skipped (missing SFT): {', '.join(report['summary']['skipped'])}")
+            print(f"Skipped: {', '.join(report['summary']['skipped'])}")
         for variant in report["variants"]:
             ok = variant["audio"]["ok"]
             print(
                 f"  - {variant['label']}: ok={ok} "
                 f"duration={variant['audio'].get('duration_seconds')}s "
-                f"elapsed={variant['elapsed_seconds']}s"
+                f"elapsed={variant['elapsed_seconds']}s "
+                f"peak_vram={variant.get('peak_vram_mb')}MiB"
             )
         print(f"Report: {report['report_path']}")
         print(f"Markdown: {report['markdown_report_path']}")

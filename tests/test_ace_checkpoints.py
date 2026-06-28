@@ -1,21 +1,22 @@
 from pathlib import Path
 
+from app.core.ace_profiles import XL_SFT_CHECKPOINT
 from app.generators.ace_step.checkpoints import resolve_generation_plan
 
 
-def test_balanced_uses_sft_when_installed(tmp_path: Path) -> None:
+def test_balanced_uses_xl_sft_when_installed(tmp_path: Path) -> None:
     (tmp_path / "acestep-v15-turbo").mkdir()
-    (tmp_path / "acestep-v15-sft").mkdir()
+    (tmp_path / XL_SFT_CHECKPOINT).mkdir()
     checkpoint, steps, is_turbo = resolve_generation_plan(quality="balanced", checkpoint_dir=tmp_path)
-    assert checkpoint == "acestep-v15-sft"
+    assert checkpoint == XL_SFT_CHECKPOINT
     assert steps == 24
     assert is_turbo is False
 
 
-def test_high_uses_fifty_steps_with_sft(tmp_path: Path) -> None:
-    (tmp_path / "acestep-v15-sft").mkdir()
+def test_high_uses_fifty_steps_with_xl_sft(tmp_path: Path) -> None:
+    (tmp_path / XL_SFT_CHECKPOINT).mkdir()
     checkpoint, steps, is_turbo = resolve_generation_plan(quality="high", checkpoint_dir=tmp_path)
-    assert checkpoint == "acestep-v15-sft"
+    assert checkpoint == XL_SFT_CHECKPOINT
     assert steps == 50
     assert is_turbo is False
 

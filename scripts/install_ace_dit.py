@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-Install a non-turbo ACE DiT checkpoint for 24–50 step generation.
+Install ACE DiT checkpoints into ACE_MODEL_DIR (outside the app repo).
 
-Recommended for RTX 3060 12GB: acestep-v15-sft (supports up to 50 steps with offload).
+Recommended top-quality model: acestep-v15-xl-sft (4B XL, 24–50 steps with offload).
+Optional fast XL: acestep-v15-xl-turbo.
 
 After installation, run:
   python scripts/ace_readiness.py --keep-output
-to re-validate and update data/ace_hardware_profile.json.
 """
 from __future__ import annotations
 
@@ -23,8 +23,12 @@ from dotenv import load_dotenv
 from app.core.config import get_settings
 from app.generators.ace_step.env import ace_subprocess_env
 
-DEFAULT_MODEL = "acestep-v15-sft"
+DEFAULT_MODEL = "acestep-v15-xl-sft"
 HF_REPOS = {
+    "acestep-v15-xl-sft": "ACE-Step/acestep-v15-xl-sft",
+    "acestep-v15-xl-turbo": "ACE-Step/acestep-v15-xl-turbo",
+    "acestep-v15-xl-base": "ACE-Step/acestep-v15-xl-base",
+    # Legacy 2B — install only if explicitly requested
     "acestep-v15-sft": "ACE-Step/acestep-v15-sft",
     "acestep-v15-base": "ACE-Step/acestep-v15-base",
 }
@@ -43,7 +47,7 @@ def _ace_step_dir(settings, override: str | None = None) -> Path:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Download a non-turbo ACE DiT checkpoint into ACE_MODEL_DIR")
+    parser = argparse.ArgumentParser(description="Download an ACE DiT checkpoint into ACE_MODEL_DIR")
     parser.add_argument(
         "--model",
         default=DEFAULT_MODEL,
@@ -75,7 +79,8 @@ def main() -> int:
     weights = target / "model.safetensors"
     if weights.is_file() and not args.force:
         print(f"Already installed at {target}")
-        print("Balanced/High quality will use 24/50 diffusion steps.")
+        if model_name.startswith("acestep-v15-xl"):
+            print("XL model ready for experimental final-render profiles.")
         print("\nRe-run validation:  python scripts/ace_readiness.py --keep-output")
         return 0
 

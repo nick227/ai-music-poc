@@ -17,7 +17,12 @@ except Exception:  # pragma: no cover - lets the doctor report paths in minimal 
     load_dotenv = None
 
 from app.core.config import get_settings
-from app.core.ace_profiles import FINAL_SFT_CHECKPOINT, final_sft_installed
+from app.core.ace_profiles import (
+    XL_SFT_CHECKPOINT,
+    XL_TURBO_CHECKPOINT,
+    xl_sft_installed,
+    xl_turbo_installed,
+)
 
 LM_SAFE = "acestep-5Hz-lm-0.6B"
 LM_ADVANCED = "acestep-5Hz-lm-1.7B"
@@ -96,10 +101,15 @@ def main() -> int:
         warnings.append("ACE_TRAIN_CHECKPOINT_DIR does not match ACE_MODEL_DIR.")
 
     if ace_model_dir is not None and ace_model_dir.is_dir():
-        if not final_sft_installed(ace_model_dir):
+        if not xl_sft_installed(ace_model_dir):
             optional_notes.append(
-                f"optional final-render checkpoint missing ({FINAL_SFT_CHECKPOINT}). "
-                "Turbo readiness is unaffected. Install: python scripts/install_ace_dit.py"
+                f"optional top-model checkpoint missing ({XL_SFT_CHECKPOINT}). "
+                "Turbo readiness is unaffected. Install: python scripts/install_ace_dit.py --model acestep-v15-xl-sft"
+            )
+        if not xl_turbo_installed(ace_model_dir):
+            optional_notes.append(
+                f"optional fast XL checkpoint missing ({XL_TURBO_CHECKPOINT}). "
+                "Install: python scripts/install_ace_dit.py --model acestep-v15-xl-turbo"
             )
 
     if len(repos) > 1:
@@ -123,9 +133,11 @@ def main() -> int:
     print(f"{LM_SAFE} exists:     {LM_SAFE in checkpoint_folders}")
     print(f"{LM_ADVANCED} exists: {LM_ADVANCED in checkpoint_folders}")
     print(f"{TURBO_CHECKPOINT} exists: {TURBO_CHECKPOINT in checkpoint_folders}")
-    print(f"{FINAL_SFT_CHECKPOINT} exists: {FINAL_SFT_CHECKPOINT in checkpoint_folders}")
+    print(f"{XL_SFT_CHECKPOINT} exists: {XL_SFT_CHECKPOINT in checkpoint_folders}")
+    print(f"{XL_TURBO_CHECKPOINT} exists: {XL_TURBO_CHECKPOINT in checkpoint_folders}")
     if ace_model_dir is not None:
-        print(f"{FINAL_SFT_CHECKPOINT} weights ready: {final_sft_installed(ace_model_dir)}")
+        print(f"{XL_SFT_CHECKPOINT} weights ready: {xl_sft_installed(ace_model_dir)}")
+        print(f"{XL_TURBO_CHECKPOINT} weights ready: {xl_turbo_installed(ace_model_dir)}")
     print()
     print(f"multiple ACE-Step repos under ~: {len(repos) > 1}")
     for repo in repos:
