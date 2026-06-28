@@ -64,6 +64,12 @@ class DatasetSliceStatus(str, Enum):
     ARCHIVED = "ARCHIVED"
 
 
+class ConfidenceTier(str, Enum):
+    CANDIDATE = "CANDIDATE"
+    TRAINABLE = "TRAINABLE"
+    STRONG = "STRONG"
+
+
 class IngestionStatus(str, Enum):
     PENDING = "PENDING"
     INGESTING = "INGESTING"

@@ -46,11 +46,14 @@ def _build_runtime_config_record(
 ) -> dict[str, Any]:
     """Build the ace_runtime_config dict that gets stored on the song."""
     quality_steps = _QUALITY_STEPS.get(request.quality, 24)
+    if safe_cfg and safe_cfg.inference_steps:
+        quality_steps = safe_cfg.inference_steps
+    batch_size = safe_cfg.batch_size if safe_cfg and safe_cfg.batch_size else 1
     return {
         "checkpoint": safe_cfg.checkpoint if safe_cfg else "",
         "lm_model": lm_model or "none",
         "inference_steps": quality_steps,
-        "batch_size": 1,
+        "batch_size": batch_size,
         "offload_to_cpu": offload_to_cpu,
         "device": safe_cfg.device if safe_cfg else "cuda",
         "seed": request.seed,
@@ -116,14 +119,17 @@ class AceStepCommandGenerator:
         # Load safe recommended config from persisted hardware profile
         safe_cfg = _load_safe_config(self.settings)
         profile_detected_at = ""
-        if safe_cfg is not None:
-            raw = load_runtime_profile(self.settings.data_dir) or {}
-            try:
-                _status = AceRuntimeStatus.model_validate(raw)
-                profile_detected_at = (_status.hardware.detected_at if _status.hardware else "")
-            except Exception:
-                pass
-
+        raw = load_runtime_profile(self.settings.data_dir) or {}
+        try:
+            _status = AceRuntimeStatus.model_validate(raw)
+            profile_detected_at = (_status.hardware.detected_at if _status.hardware else "")
+            if not _status.ace_usable:
+                raise RuntimeError("ACE runtime is not usable: " + (_status.user_message or "Unknown reason"))
+        except RuntimeError:
+            raise
+        except Exception:
+            pass
+            
         # Determine safe defaults: offload_to_cpu from profile, LM model from safe tier
         offload_to_cpu = safe_cfg.offload_to_cpu if safe_cfg is not None else True
         lm_model = safe_cfg.lm_model if safe_cfg is not None else ""
@@ -138,6 +144,12 @@ class AceStepCommandGenerator:
             cmd += ["--use-lm", "true" if lm_model else "false"]
         if "--lm-model" not in cmd_str and lm_model:
             cmd += ["--lm-model", lm_model]
+        if "--inference-steps" not in cmd_str and "--steps" not in cmd_str:
+            q_steps = safe_cfg.inference_steps if safe_cfg and safe_cfg.inference_steps else _QUALITY_STEPS.get(request.quality, 24)
+            cmd += ["--inference-steps", str(q_steps)]
+        if "--batch-size" not in cmd_str:
+            bs = safe_cfg.batch_size if safe_cfg and safe_cfg.batch_size else 1
+            cmd += ["--batch-size", str(bs)]
 
         logger.info(
             "ace_command_start output=%s offload=%s lm=%s cmd=%s",

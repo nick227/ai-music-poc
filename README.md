@@ -1,114 +1,101 @@
-# AI Music POC – Developer Handoff
+# AI Music Studio
 
-Welcome to the AI Music POC (v3.4). This document serves as the primary handoff and onboarding guide for developers joining the project.
+A local web app for making music from prompts and lyrics. Upload reference tracks, organize them into datasets, generate new songs, and train style models — all from one interface at **http://localhost:8000**.
 
-## Project Overview
-
-This is a local, prompt-and-lyrics music generation console. It features persistent generation jobs, downloadable WAVs/bundles, instant parametric drafts using a procedural synthesizer, and a command-bridge to an external **ACE-Step** neural model for final vocal renders.
-
-**Current State (v3.4):**
-- **Procedural Engine:** Supports line-aware lyric timing, formant singing voices (female, male, choir, robot, whisper), vocal harmony, and style-specific chord progressions.
-- **Neural Engine (ACE-Step):** Connected via a command adapter. We route based on quality tiers (`draft` -> procedural, `balanced/high` -> ACE-Step).
-- **Architecture:** API decoupled from generation. Uses local disk JSON for job state (no DB yet) to keep iterations fast and robust.
-
-Users only use **this app's UI** at http://localhost:8000. ACE-Step is never exposed as a separate product surface.
+Drafts can be made instantly on CPU. Higher-quality renders use **ACE-Step**, a separate neural model that lives outside this repo.
 
 ---
 
-## 1. Architecture & Core Concepts
+## How it works
 
-The application uses FastAPI and is structured to keep HTTP routes thin while pushing orchestration to services and rendering to generators.
-
-- **`app/api/`**: HTTP endpoints. They validate requests, create jobs, and return JSON.
-- **`app/domain/`**: Typed Pydantic models for requests, responses, and jobs.
-- **`app/generators/`**: The swappable generator boundary.
-  - `procedural.py` (CPU fallback with formant synthesis)
-  - `ace_step/` (External subprocess caller)
-- **`app/services/`**: Orchestrates workflows (`JobService`, `GenerationService`, `BundleService`).
-- **`app/storage/`**: Local disk persistence (`metadata_store`, `log_store`).
-- **`app/web/`**: Static browser console UI.
-
-**Job Flow:**
-1. UI POSTs to `/api/generate`.
-2. `JobService` creates a `QUEUED` JSON file.
-3. A FastAPI background task picks it up, transitioning to `RUNNING`.
-4. `GenerationService` routes to the selected generator.
-5. Generator produces a WAV in `data/outputs`.
-6. Job completes (`SUCCEEDED` or `FAILED`).
-
-For deeper architectural details, see `docs/V3_ARCHITECTURE.md` and `docs/ARCHITECTURE.md`.
-
----
-
-## 2. Local Setup & Development
-
-### Day-to-day configuration (recommended)
-
-Use `./scripts/dev_bootstrap.sh` as the runtime source of truth. It:
-
-1. Starts the external ACE-Step runtime from `~/models/ACE-Step-1.5` (`uv run acestep`)
-2. Waits for ACE, then starts this app from `~/web/ai-music-poc`
-3. Exports canonical ACE paths into the app process (`ACE_STEP_DIR`, `ACE_PYTHON`, `ACE_MODEL_DIR`, `ACE_TRAIN_CHECKPOINT_DIR`) so config cannot drift to stale cache paths
-
-Users only visit **this app's UI** at http://localhost:8000. ACE generation/training jobs also use ACE as a **subprocess** (`scripts/ace_runner.py`, `scripts/ace_train_runner.py`) against the same checkout.
-
-| Work | Bootstrap (`dev_bootstrap.sh`) | ACE checkout on disk |
-|------|------------------------------|----------------------|
-| UI, media, taxonomy, slices | yes | no |
-| Procedural generation | yes | no |
-| ACE neural generation | yes | yes |
-| ACE LoRA training | yes | yes |
-
-**`.env` essentials** (bootstrap exports override these at runtime; keep `.env` aligned for direct `python run.py` use):
-
-```env
-DEFAULT_GENERATOR=auto-render
-ACE_ENABLED=true
-ACE_STEP_DIR=/home/administrator/models/ACE-Step-1.5
-ACE_PYTHON=/home/administrator/models/ACE-Step-1.5/.venv/bin/python
-ACE_SCRIPT=./scripts/ace_runner.py
-ACE_MODEL_DIR=/home/administrator/models/ACE-Step-1.5/checkpoints
-ACE_DEVICE=cuda
-ACE_ALLOW_FALLBACK=true
+```
+You write a prompt + lyrics
+        ↓
+App creates a job and picks an engine
+        ↓
+   draft quality  →  fast CPU preview (procedural)
+   balanced/high  →  ACE-Step neural render
+        ↓
+WAV saved to disk, shown in the UI
 ```
 
-For real LoRA training (when ready), also set `TRAINING_ADAPTER=ace-step-real`, `ACE_REAL_TRAINING_ENABLED=true`, and `ACE_TRAIN_DRY_RUN=false`.
+**Dataset & training flow:**
 
-**Start everything:**
+```
+Upload audio  →  tag with categories  →  build a dataset slice
+        ↓
+Package tracks for training  →  run a training job
+        ↓
+Trained style available for future generations
+```
+
+Everything runs locally. Job state is stored as JSON files under `data/` — no database required.
+
+---
+
+## Install
+
+**You need:** Python 3.10+, `git`, `curl`, `ffmpeg`, and [`uv`](https://docs.astral.sh/uv/) (for ACE-Step's environment).
+
+```bash
+git clone <this-repo>
+cd <this-repo>
+./scripts/dev_bootstrap.sh
+```
+
+On first run the bootstrap will:
+
+- Create `.env` from `.env.example` if missing
+- Create the app `.venv` and install `requirements.txt` if missing
+- Clone ACE-Step into `~/models/ACE-Step-1.5` if missing
+- Run `uv sync` in ACE if its `.venv` is missing
+
+Set `AUTO_SETUP=0` to skip clone/venv creation and only validate paths.
+
+**Manual install** (optional):
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+```
+
+After bootstrap, download ACE model weights once:
+
+```bash
+cd ~/models/ACE-Step-1.5 && uv run acestep-download
+```
+
+---
+
+## Run
+
+**Recommended** — validates ACE paths, exports canonical env vars, starts the app:
 
 ```bash
 ./scripts/dev_bootstrap.sh
 ```
 
-Logs: `logs/ace-step.log`, `logs/app.log` (truncated each boot). ACE Gradio: http://localhost:7860. App UI: http://localhost:8000.
+Default mode is **app/subprocess**: ACE runs per job via `scripts/ace_runner.py`. No ACE daemon is started.
 
-**App only** (no ACE daemon, subprocess jobs still work if `.env` paths are correct):
+Paths resolve automatically: app repo = wherever you cloned this project; ACE = `~/models/ACE-Step-1.5` (override with `ACE_STEP_DIR` or `ACE_MODELS_ROOT`).
+
+| Mode | Command | What starts |
+|------|---------|-------------|
+| App only (default) | `./scripts/dev_bootstrap.sh` | App at http://localhost:8000 |
+| ACE Gradio + app | `ACE_MODE=gradio ./scripts/dev_bootstrap.sh` | Gradio at :7860, then app |
+| ACE API + app | `ACE_MODE=api ./scripts/dev_bootstrap.sh` | API at :8001, then app |
+
+Log: `logs/app.log` (plus `logs/ace-step-gradio.log` or `logs/ace-step-api.log` in daemon modes).
+
+**Without bootstrap** (paths must already be correct in `.env`):
 
 ```bash
 python run.py
 ```
 
-**Verify ACE wiring** after first start: `GET /api/model-status` and `POST /api/model-status/test`.
-
-### Prerequisites
-
-- Python 3.10+
-- `ffmpeg` on PATH (required for ACE subprocess jobs)
-- ACE-Step checkout with `.venv` and checkpoints (for neural generation/training)
-- CUDA (recommended for ACE neural work)
-
-### Installation
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-pip install -r requirements.txt
-cp .env.example .env
-# Edit .env — set ACE paths for your machine
-```
-
-### Running Tests
+**Tests:**
 
 ```bash
 pytest
@@ -116,44 +103,80 @@ pytest
 
 ---
 
-## 3. The Generator Engines
+## ACE-Step
 
-### 3.1 Procedural Fallback (`procedural-v3`)
+ACE-Step is **not part of this repo**. It installs separately:
 
-Pure CPU synthesis for fast drafts. No ACE install required.
+```
+~/models/ACE-Step-1.5/     ← neural model + its own Python env
+~/web/ai-music-poc/        ← this app
+```
 
-### 3.2 ACE-Step Integration
+The bootstrap script validates ACE paths and passes them into the app. By default it starts **only this app** — ACE runs as a per-job subprocess, not as a background service.
 
-Neural renders call ACE via subprocess. Setup:
+When you generate or train, the app calls `scripts/ace_runner.py` or `scripts/ace_train_runner.py`. It does not call `acestep-api`.
 
-1. Install ACE-Step separately (e.g. `~/models/ACE-Step-1.5`).
-2. Set `ACE_ENABLED=true` and ACE paths in `.env` (runner is already `scripts/ace_runner.py`).
-3. Confirm with `GET /api/model-status`.
+**Check that ACE is wired up:**
 
-**Testing ACE integration:**
+- Open http://localhost:8000 and generate something at balanced/high quality, or
+- Hit `GET /api/model-status` in the browser or API client
 
-- Readiness: `python scripts/ace_readiness.py`
-- Smoke test: `python scripts/ace_smoke_test.py --run-generation --duration 10`
+**Key `.env` settings** (also set automatically by the bootstrap):
 
----
-
-## 4. Helpful Endpoints
-
-- **`GET /api/health`**: Basic uptime check.
-- **`GET /api/model-status`**: Diagnostics for ACE-Step wiring, HuggingFace cache presence, and fallback state.
-- **`POST /api/model-status/test`**: Runs subprocess checks for CUDA and model dependencies without full inference.
-- **`GET /api/presets`**: Available prompt/style templates.
-
-*See `docs/API.md` for full API specifications.*
+```env
+ACE_ENABLED=true
+ACE_STEP_DIR=/home/administrator/models/ACE-Step-1.5
+ACE_PYTHON=/home/administrator/models/ACE-Step-1.5/.venv/bin/python
+ACE_MODEL_DIR=/home/administrator/models/ACE-Step-1.5/checkpoints
+```
 
 ---
 
-## 5. Next Steps / Roadmap
+## API endpoints
 
-As you take over, focus on these upcoming priorities from `docs/ROADMAP.md`:
+| Endpoint | What it does |
+|----------|--------------|
+| `GET /api/health` | Is the app up? |
+| `GET /api/generators` | List available engines |
+| `POST /api/generate` | Start a new song job |
+| `GET /api/jobs/{id}` | Job status and result |
+| `GET /api/songs` | Browse finished songs |
+| `POST /api/media/import` | Upload audio files |
+| `GET /api/slices` | List dataset slices |
+| `POST /api/slices` | Create a dataset slice |
+| `POST /api/training/runs` | Start a training run |
+| `GET /api/training/runs/{id}` | Training progress |
+| `GET /api/model-status` | Is ACE configured correctly? |
+| `POST /api/model-status/test` | Run ACE dependency checks |
+| `GET /api/presets` | Prompt/style templates |
 
-1. **Stabilize ACE-Step Rendering:** Move beyond fallback mode and lock in a reliable local neural song generation.
-2. **Local Style Packs:** Curated presets (e.g., "dark cinematic piano", "French disco") to act as a product-control layer.
-3. **Advanced Integrations:** Phase 3 includes LoRA/fine-tuning pipelines using user-uploaded reference tracks.
+Full API reference: [`docs/API.md`](docs/API.md)
 
-Please refer to the `docs/` folder for comprehensive specs, API routes, and operational playbooks.
+---
+
+## Scripts
+
+| Script | Purpose |
+|--------|---------|
+| `scripts/dev_bootstrap.sh` | Start ACE + app together (day-to-day entry point) |
+| `scripts/ace_runner.py` | Called by the app to generate audio via ACE |
+| `scripts/ace_train_runner.py` | Called by the app to run LoRA training via ACE |
+| `scripts/ace_readiness.py` | Check GPU, ffmpeg, checkpoints, run a smoke test |
+| `scripts/ace_smoke_test.py` | Quick ACE integration test |
+| `scripts/ace_paths_doctor.py` | Diagnose ACE path / config problems |
+
+---
+
+## Project layout
+
+```
+app/api/          HTTP routes
+app/services/     Business logic
+app/generators/   Song engines (procedural + ACE)
+app/web/static/   Browser UI
+data/             Songs, media, jobs, training runs
+docs/             Detailed specs and runbooks
+scripts/          Bootstrap, ACE runners, dev tools
+```
+
+More depth: [`docs/V3_ARCHITECTURE.md`](docs/V3_ARCHITECTURE.md) · [`docs/ROADMAP.md`](docs/ROADMAP.md)

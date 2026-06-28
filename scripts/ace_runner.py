@@ -69,13 +69,58 @@ def write_config(path: Path, values: dict[str, object]) -> None:
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+def write_lm_sitecustomize(path: Path) -> None:
+    """Patch builtins.input so the ACE LM thinking hook never blocks headlessly.
+
+    ACE's _edit_formatted_prompt_via_file writes the LM-generated CoT to
+    instruction.txt, calls input() to wait for user edits, then reads the file
+    back.  When stdin is not a TTY (our subprocess case), input() raises
+    EOFError and the generation crashes.  This patch makes input() return ""
+    immediately when stdin is not interactive, which causes the function to
+    read instruction.txt right back — effectively using the LM's own output
+    without interactive editing.
+    """
+    path.write_text(
+        """
+import builtins
+import sys
+
+_orig_input = builtins.input
+
+
+def _headless_input(prompt=""):
+    if not sys.stdin.isatty():
+        return ""
+    return _orig_input(prompt)
+
+
+builtins.input = _headless_input
+""".lstrip(),
+        encoding="utf-8",
+    )
+
+
 def write_lora_sitecustomize(path: Path) -> None:
     path.write_text(
         """
+import builtins
 import json
 import os
 import sys
 from pathlib import Path
+
+# Patch input() so the ACE LM thinking hook never blocks headlessly.
+_orig_input = builtins.input
+
+
+def _headless_input(prompt=""):
+    if not sys.stdin.isatty():
+        return ""
+    return _orig_input(prompt)
+
+
+builtins.input = _headless_input
+
 
 _step_dir = os.environ.get("ACE_STUDIO_STEP_DIR", "").strip()
 if _step_dir:
@@ -378,6 +423,15 @@ def main(argv: list[str] | None = None) -> int:
             env["ACESTEP_CHECKPOINTS_DIR"] = str(Path(args.model_dir).expanduser().resolve())
         meta_file = ace_meta_sidecar_path(output_path)
         hook_meta: dict[str, object] | None = None
+
+        # When using the LM (thinking=True) inject a sitecustomize that patches
+        # builtins.input so the ACE prompt-editing hook doesn't block headlessly.
+        if use_lm:
+            lm_hook_dir = Path(save_dir) / "studio_lm_hook"
+            lm_hook_dir.mkdir(parents=True, exist_ok=True)
+            write_lm_sitecustomize(lm_hook_dir / "sitecustomize.py")
+            env["PYTHONPATH"] = f"{lm_hook_dir}{os.pathsep}{env.get('PYTHONPATH', '')}".rstrip(os.pathsep)
+
         if use_lora:
             hook_dir = Path(save_dir) / "studio_lora_hook"
             hook_dir.mkdir(parents=True, exist_ok=True)

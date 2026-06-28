@@ -75,6 +75,21 @@ class AceStepGenerator:
             })
             return result
 
+        profile_data = load_runtime_profile(self.settings.data_dir)
+        ace_cfg_dict = {}
+        if profile_data:
+            try:
+                status = AceRuntimeStatus.model_validate(profile_data)
+                if not status.ace_usable:
+                    raise RuntimeError(f"ACE runtime is not usable: {status.user_message}")
+                if status.hardware and status.hardware.safe_recommended_config:
+                    ace_cfg_dict = status.hardware.safe_recommended_config.model_dump()
+                    ace_cfg_dict["config_tier"] = "safe_recommended"
+                    ace_cfg_dict["profile_timestamp"] = status.checked_at
+            except Exception as exc:
+                if isinstance(exc, RuntimeError):
+                    raise
+
         tmp_dir = self.settings.tmp_dir / output_path.stem
         tmp_dir.mkdir(parents=True, exist_ok=True)
         prompt_file = tmp_dir / "prompt.txt"
@@ -84,7 +99,7 @@ class AceStepGenerator:
         lyrics_file.write_text(request.lyrics, encoding="utf-8")
         request_file.write_text(request.model_dump_json(indent=2), encoding="utf-8")
 
-        cmd = self._render_command(request, output_path, prompt_file, lyrics_file, request_file)
+        cmd = self._render_command(request, output_path, prompt_file, lyrics_file, request_file, ace_cfg_dict)
         logger.info("ace_step_command job_output=%s cmd=%s", output_path, " ".join(cmd))
         completed = subprocess.run(
             cmd,
@@ -99,17 +114,6 @@ class AceStepGenerator:
             raise RuntimeError(message[:1200])
         if not output_path.exists() or output_path.stat().st_size == 0:
             raise RuntimeError("ACE-Step command completed but did not create the expected output WAV.")
-
-        # Load runtime config to record exactly what ran
-        ace_cfg_dict = {}
-        profile_data = load_runtime_profile(self.settings.data_dir)
-        if profile_data:
-            try:
-                status = AceRuntimeStatus.model_validate(profile_data)
-                if status.hardware and status.hardware.safe_recommended_config:
-                    ace_cfg_dict = status.hardware.safe_recommended_config.model_dump()
-            except Exception:
-                pass
 
         return GenerationResult(
             file_name=output_path.name,
@@ -133,23 +137,12 @@ class AceStepGenerator:
         prompt_file: Path,
         lyrics_file: Path,
         request_file: Path,
+        ace_cfg_dict: dict,
     ) -> list[str]:
-        profile_data = load_runtime_profile(self.settings.data_dir)
-        device = self.settings.ace_step_device
-        lm_model = ""
-        batch_size = 1
-        inference_steps = 8
-        if profile_data:
-            try:
-                status = AceRuntimeStatus.model_validate(profile_data)
-                if status.hardware and status.hardware.safe_recommended_config:
-                    cfg = status.hardware.safe_recommended_config
-                    device = cfg.device
-                    lm_model = cfg.lm_model
-                    batch_size = cfg.batch_size
-                    inference_steps = cfg.inference_steps
-            except Exception:
-                pass
+        device = ace_cfg_dict.get("device", self.settings.ace_step_device)
+        lm_model = ace_cfg_dict.get("lm_model", "")
+        batch_size = ace_cfg_dict.get("batch_size", 1)
+        inference_steps = ace_cfg_dict.get("inference_steps", 8)
 
         values = {
             "prompt": request.prompt,

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -141,6 +143,7 @@ class SliceService:
         frozen_ids = list(record.media_ids)
         self.package_service.copy_audio_for_freeze(record.id, frozen_ids)
         now = datetime.now(timezone.utc)
+        tracks = [self._frozen_track_manifest(media_id) for media_id in frozen_ids]
         manifest = {
             "format_version": 1,
             "slice_id": record.id,
@@ -148,10 +151,13 @@ class SliceService:
             "version": record.version,
             "concept_id": record.filter.concept_id,
             "track_count": len(frozen_ids),
+            "total_duration_seconds": round(sum(item.get("duration_seconds") or 0 for item in tracks), 3),
             "filters": record.filter.model_dump(mode="json"),
             "media_ids": frozen_ids,
+            "tracks": tracks,
             "frozen_at": now.isoformat(),
         }
+        manifest["manifest_hash"] = self._manifest_hash(manifest)
         self.slice_store.write_manifest(record.id, manifest)
 
         updated = record.model_copy(
@@ -213,3 +219,36 @@ class SliceService:
             "concept_ids": [item.concept_id for item in concepts],
             "primary_role": categories[0].role.value if categories else (concepts[0].role.value if concepts else None),
         }
+
+    def _frozen_track_manifest(self, media_id: str) -> dict:
+        asset = self.media_store.get(media_id)
+        categories = self.assignment_store.list_category_assignments_for_media(media_id)
+        category_rows = []
+        for assignment in categories:
+            category = self.category_service.get_required(assignment.category_id)
+            category_rows.append(
+                {
+                    "category_id": category.id,
+                    "name": category.name,
+                    "slug": category.slug,
+                    "dimension": category.dimension.value,
+                    "role": assignment.role.value,
+                    "quality_score": assignment.quality_score,
+                    "fit_score": assignment.fit_score,
+                }
+            )
+        return {
+            "media_id": media_id,
+            "title": asset.title if asset else "",
+            "file_path": asset.file_path if asset else None,
+            "duration_seconds": asset.duration_seconds if asset else None,
+            "sample_rate": asset.sample_rate if asset else None,
+            "channels": asset.channels if asset else None,
+            "categories": category_rows,
+        }
+
+    @staticmethod
+    def _manifest_hash(manifest: dict) -> str:
+        payload = {key: value for key, value in manifest.items() if key != "manifest_hash"}
+        encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")
+        return hashlib.sha256(encoded).hexdigest()

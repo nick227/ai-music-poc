@@ -6,7 +6,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field, field_validator
 
-from app.domain.enums import AssignmentRole, DatasetSliceStatus
+from app.domain.enums import AssignmentRole, DatasetSliceStatus, ConfidenceTier
 from app.domain.models import ReviewStatus, RightsStatus
 
 
@@ -29,6 +29,7 @@ class DatasetSlice(BaseModel):
     media_ids: list[str] = Field(default_factory=list)
     frozen_media_ids: list[str] = Field(default_factory=list)
     status: DatasetSliceStatus = DatasetSliceStatus.DRAFT
+    confidence_tier: ConfidenceTier = ConfidenceTier.CANDIDATE
     version: int = 1
     asset_count: int = 0
     is_auto_generated: bool = False

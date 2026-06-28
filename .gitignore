@@ -12,6 +12,7 @@ htmlcov/
 dist/
 build/
 *.egg-info/
+.cache/
 
 # Environment & secrets
 .env
@@ -30,9 +31,12 @@ Thumbs.db
 
 # Local ML weights (install outside repo)
 models/
+checkpoints/
 
 # Runtime data (keep directory placeholders only)
 data/ace_hardware_profile.json
+data/experiments/*
+data/fixtures/*
 data/jobs/*.json
 data/media/*
 data/model_outputs/*
@@ -44,6 +48,8 @@ data/taxonomy/*
 data/tmp/*
 data/training_runs/*
 !data/jobs/.gitkeep
+!data/experiments/.gitkeep
+!data/fixtures/.gitkeep
 !data/media/.gitkeep
 !data/model_outputs/.gitkeep
 !data/outputs/.gitkeep

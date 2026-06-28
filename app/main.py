@@ -60,5 +60,17 @@ app = create_app()
 
 
 def run_dev_server() -> None:
+    import os
+
     settings = get_settings()
-    uvicorn.run("app.main:app", host=settings.app_host, port=settings.app_port, reload=settings.app_env == "development")
+    reload_enabled = (
+        settings.app_env == "development"
+        and os.getenv("APP_RELOAD", "true").lower() not in {"0", "false", "no"}
+    )
+    uvicorn.run(
+        "app.main:app",
+        host=settings.app_host,
+        port=settings.app_port,
+        reload=reload_enabled,
+        reload_excludes=["logs", "logs/*", "data", "data/*"] if reload_enabled else None,
+    )

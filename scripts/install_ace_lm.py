@@ -35,6 +35,10 @@ def _ace_step_dir(settings, override: str | None = None) -> Path:
         return Path(raw).expanduser().resolve()
     if settings.ace_step_dir:
         return Path(settings.ace_step_dir).expanduser().resolve()
+    # Hard fallback so the script always uses the canonical installation
+    default = Path("/home/administrator/models/ACE-Step-1.5")
+    if default.is_dir():
+        return default
     raise SystemExit("ACE_STEP_DIR is required; set it in .env or pass --ace-step-dir")
 
 

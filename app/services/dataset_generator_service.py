@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 import itertools
 
-from app.domain.enums import DatasetSliceStatus
+from app.domain.enums import DatasetSliceStatus, ConfidenceTier
 from app.domain.slices import DatasetSlice, DatasetSliceFilter
 from app.services.category_service import CategoryService
 from app.services.ready_audio_service import ReadyAudioService
@@ -62,12 +62,18 @@ class DatasetGeneratorService:
         for cids, assets in candidates_map.items():
             total_dur = sum(a.duration_seconds for a in assets)
             if len(assets) >= MIN_TRACKS and total_dur >= MIN_DURATION:
-                candidates.append((list(cids), assets))
+                if len(assets) >= 10 and total_dur >= 300.0:
+                    tier = ConfidenceTier.STRONG
+                elif len(assets) >= 5 and total_dur >= 120.0:
+                    tier = ConfidenceTier.TRAINABLE
+                else:
+                    tier = ConfidenceTier.CANDIDATE
+                candidates.append((list(cids), assets, tier))
 
         existing_slices = self.slice_service.list_slices()
         results = []
 
-        for cids, assets in candidates:
+        for cids, assets, tier in candidates:
             media_ids = sorted([a.id for a in assets])
             filter_obj = DatasetSliceFilter(category_ids=cids)
             
@@ -78,8 +84,14 @@ class DatasetGeneratorService:
                     break
 
             if existing is not None:
+                updates = {}
                 if sorted(existing.media_ids) != media_ids:
-                    existing = self.slice_service.update(existing.id, media_ids=media_ids)
+                    updates["media_ids"] = media_ids
+                if getattr(existing, "confidence_tier", None) != tier:
+                    updates["confidence_tier"] = tier
+                    
+                if updates:
+                    existing = self.slice_service.update(existing.id, **updates)
                 results.append(existing)
             else:
                 lineage_parent = None
@@ -100,7 +112,7 @@ class DatasetGeneratorService:
                     media_ids=media_ids,
                 )
                 
-                updates = {"is_auto_generated": True}
+                updates = {"is_auto_generated": True, "confidence_tier": tier}
                 if lineage_parent:
                     updates["lineage_parent_id"] = lineage_parent.id
                     updates["version"] = lineage_parent.version + 1
