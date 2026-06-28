@@ -27,7 +27,7 @@ function formPayload() {
     title: document.querySelector('#title').value,
     prompt: document.querySelector('#prompt').value,
     lyrics: document.querySelector('#lyrics').value,
-    generator: generatorEl.value,
+    generator: 'auto-render',
     duration_seconds: Number(document.querySelector('#duration').value),
     mode: document.querySelector('#mode').value,
     structure: document.querySelector('#structure').value,
@@ -53,9 +53,6 @@ function syncStyleVersionControls() {
   loraScaleWrap.hidden = !styled;
   if (styled) {
     document.querySelector('#fallback').checked = false;
-    if ([...generatorEl.options].some((o) => o.value === 'ace-step-command')) {
-      generatorEl.value = 'ace-step-command';
-    }
     const qualityEl = document.querySelector('#quality');
     if (qualityEl.value === 'draft') qualityEl.value = 'balanced';
   }
@@ -69,24 +66,13 @@ async function api(url, options = {}) {
 }
 async function loadStyleVersions() {
   const versions = await api('/api/style-versions').then((r) => r.style_versions || []);
-  styleVersionEl.innerHTML = '<option value="">Base Model: ACE-Step v1.5 Turbo (no LoRA)</option>' + versions
-    .filter((v) => v.status === 'ACTIVE' || v.status === 'CANDIDATE')
-    .map((v) => {
-      const loadable = v.ace_loadable === true;
-      const suffix = loadable ? v.status.toLowerCase() : `${v.status.toLowerCase()} · mock evidence only`;
-      const disabled = loadable ? '' : ' disabled';
-      return `<option value="${v.id}"${disabled}>Model Version: ${v.name} · ${v.type || 'LoRA'} (${suffix})</option>`;
-    })
+  const loadable = versions.filter((v) => v.ace_loadable === true);
+  styleVersionEl.innerHTML = '<option value="">Base model only (no LoRA)</option>' + loadable
+    .map((v) => `<option value="${v.id}">LoRA: ${v.name}</option>`)
     .join('');
   syncStyleVersionControls();
 }
 styleVersionEl.addEventListener('change', syncStyleVersionControls);
-async function loadGenerators() {
-  const data = await api('/api/generators');
-  generatorEl.innerHTML = data.generators.map(g => `<option value="${g.name}">${g.label} — ${g.status}</option>`).join('');
-  if ([...generatorEl.options].some(o => o.value === 'auto-render')) generatorEl.value = 'auto-render';
-  else if ([...generatorEl.options].some(o => o.value === 'procedural-v3')) generatorEl.value = 'procedural-v3';
-}
 async function loadPresets() {
   const data = await api('/api/presets');
   presets = data.presets;
@@ -146,7 +132,8 @@ async function loadJobs() {
     const req = job.request;
     const meta = [
       job.status,
-      req.generator,
+      req.quality || 'balanced',
+      req.style_version_id ? 'LoRA' : 'base',
       `${req.duration_seconds}s`,
       req.mode,
       req.singing_voice,
@@ -169,7 +156,7 @@ async function loadJobs() {
     document.querySelector('#title').value = req.title || '';
     document.querySelector('#prompt').value = req.prompt || '';
     document.querySelector('#lyrics').value = req.lyrics || '';
-    if (req.generator) document.querySelector('#generator').value = req.generator;
+    if (req.generator) { /* always auto-render */ }
     document.querySelector('#duration').value = req.duration_seconds || 60;
     if (req.mode) document.querySelector('#mode').value = req.mode;
     if (req.structure) document.querySelector('#structure').value = req.structure;
@@ -291,4 +278,4 @@ async function loadContextMedia() {
   }
 }
 
-Promise.all([loadGenerators(), loadPresets(), loadStyleVersions(), loadModelStatus(), loadJobs(), loadContextMedia()]).catch(err => setError(err.message));
+Promise.all([loadPresets(), loadStyleVersions(), loadModelStatus(), loadJobs(), loadContextMedia()]).catch(err => setError(err.message));

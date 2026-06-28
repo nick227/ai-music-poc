@@ -5,6 +5,10 @@ from typing import List
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+_DEFAULT_ACE_ROOT = Path.home() / "models" / "ACE-Step-1.5"
+_DEFAULT_ACE_CHECKPOINTS = _DEFAULT_ACE_ROOT / "checkpoints"
+_DEFAULT_ACE_PYTHON = _DEFAULT_ACE_ROOT / ".venv" / "bin" / "python"
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
@@ -13,7 +17,7 @@ class Settings(BaseSettings):
     app_host: str = Field(default="0.0.0.0", alias="APP_HOST")
     app_port: int = Field(default=8000, alias="APP_PORT")
     data_dir: Path = Field(default=Path("./data"), alias="DATA_DIR")
-    default_generator: str = Field(default="procedural-v3", alias="DEFAULT_GENERATOR")
+    default_generator: str = Field(default="auto-render", alias="DEFAULT_GENERATOR")
     max_duration_seconds: int = Field(default=240, alias="MAX_DURATION_SECONDS")
     max_prompt_chars: int = Field(default=2000, alias="MAX_PROMPT_CHARS")
     max_lyrics_chars: int = Field(default=10000, alias="MAX_LYRICS_CHARS")
@@ -21,10 +25,10 @@ class Settings(BaseSettings):
     cors_origins: str = Field(default="http://localhost:8000,http://localhost:5173", alias="CORS_ORIGINS")
 
     ace_enabled: bool = Field(default=False, alias="ACE_ENABLED")
-    ace_step_dir: Path | None = Field(default=Path("/home/administrator/models/ACE-Step-1.5"), alias="ACE_STEP_DIR")
-    ace_python: Path = Field(default=Path("/home/administrator/models/ACE-Step-1.5/.venv/bin/python"), alias="ACE_PYTHON")
+    ace_step_dir: Path | None = Field(default=_DEFAULT_ACE_ROOT, alias="ACE_STEP_DIR")
+    ace_python: Path = Field(default=_DEFAULT_ACE_PYTHON, alias="ACE_PYTHON")
     ace_script: Path = Field(default=Path("./scripts/ace_runner.py"), alias="ACE_SCRIPT")
-    ace_model_dir: Path = Field(default=Path("/home/administrator/models/ACE-Step-1.5/checkpoints"), alias="ACE_MODEL_DIR")
+    ace_model_dir: Path = Field(default=_DEFAULT_ACE_CHECKPOINTS, alias="ACE_MODEL_DIR")
     ace_output_dir: Path = Field(default=Path("./data/model_outputs"), alias="ACE_OUTPUT_DIR")
     ace_timeout_seconds: int = Field(default=900, alias="ACE_TIMEOUT_SECONDS")
     ace_device: str = Field(default="auto", alias="ACE_DEVICE")
@@ -36,13 +40,13 @@ class Settings(BaseSettings):
     training_enabled: bool = Field(default=True, alias="TRAINING_ENABLED")
     training_adapter: str = Field(default="mock-training", alias="TRAINING_ADAPTER")
     training_mock_step_delay_seconds: float = Field(default=0.05, alias="TRAINING_MOCK_STEP_DELAY_SECONDS")
-    ace_train_python: Path = Field(default=Path("/home/administrator/models/ACE-Step-1.5/.venv/bin/python"), alias="ACE_TRAIN_PYTHON")
+    ace_train_python: Path = Field(default=_DEFAULT_ACE_PYTHON, alias="ACE_TRAIN_PYTHON")
     ace_train_script: Path = Field(default=Path("./scripts/ace_train_runner.py"), alias="ACE_TRAIN_SCRIPT")
     ace_train_command_template: str = Field(default="", alias="ACE_TRAIN_COMMAND_TEMPLATE")
     ace_train_timeout_seconds: int = Field(default=7200, alias="ACE_TRAIN_TIMEOUT_SECONDS")
     ace_real_training_enabled: bool = Field(default=False, alias="ACE_REAL_TRAINING_ENABLED")
     ace_train_dry_run: bool = Field(default=True, alias="ACE_TRAIN_DRY_RUN")
-    ace_train_checkpoint_dir: Path | None = Field(default=Path("/home/administrator/models/ACE-Step-1.5/checkpoints"), alias="ACE_TRAIN_CHECKPOINT_DIR")
+    ace_train_checkpoint_dir: Path | None = Field(default=_DEFAULT_ACE_CHECKPOINTS, alias="ACE_TRAIN_CHECKPOINT_DIR")
 
     @property
     def job_dir(self) -> Path:

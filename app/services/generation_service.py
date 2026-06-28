@@ -185,6 +185,16 @@ class GenerationService:
         elif updated.get("loraPath"):
             updated["useLora"] = False
         updated["audio"] = metadata.get("audio")
+        if metadata.get("render_route"):
+            updated["renderRoute"] = metadata["render_route"]
+        if metadata.get("render_backend"):
+            updated["renderBackend"] = metadata["render_backend"]
+        style_id = updated.get("styleVersionId") or updated.get("style_version_id")
+        if style_id:
+            try:
+                updated["loraAdapterName"] = self.style_version_service.get_required(style_id).name
+            except Exception:
+                pass
         if metadata.get("ace_runtime_config"):
             updated["aceRuntimeConfig"] = metadata["ace_runtime_config"]
         return updated

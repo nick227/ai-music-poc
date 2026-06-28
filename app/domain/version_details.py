@@ -31,6 +31,9 @@ _KEY_ALIASES: dict[str, str] = {
     "loraPath": "lora_path",
     "loraScale": "lora_scale",
     "useLora": "use_lora",
+    "renderRoute": "render_route",
+    "renderBackend": "render_backend",
+    "loraAdapterName": "lora_adapter_name",
 }
 
 

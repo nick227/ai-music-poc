@@ -17,7 +17,7 @@
       <section class="studio-hero">
         <p class="eyebrow">Songs</p>
         <h1>Generate music</h1>
-        <p class="muted">Line-aware formant vocals, chorus harmony, and optional vocal stems in balanced/high quality. Wire ACE-Step for neural singing.</p>
+        <p class="muted">ACE-Step neural generation. Use Draft quality for a fast parametric preview; Balanced/High for real model output. Optional LoRA adapters come from Workbench training.</p>
       </section>
 
       <!-- ========================================== -->
@@ -45,9 +45,10 @@
             <select id="preset" name="preset"><option value="">Custom</option></select>
           </label>
           <label>
-            Style version
+            LoRA adapter
+            <span class="help">Optional fine-tuned weights from Workbench training. Each entry is a real LoRA directory layered on ACE-Step v1.5 Turbo.</span>
             <select id="style_version" name="style_version">
-              <option value="">Base model (no style)</option>
+              <option value="">Base model only (no LoRA)</option>
             </select>
           </label>
           <label id="lora-scale-wrap" hidden>
@@ -64,7 +65,7 @@
           </label>
           <label>
             Lyrics / vocal guide
-            <span class="help">Procedural mode sings lyrics line-by-line with formant voices. Use balanced/high quality for vocal stems. ACE-Step is required for neural singing.</span>
+            <span class="help">Lyrics guide ACE-Step vocals. Draft quality uses a simple parametric voice instead.</span>
             <textarea id="lyrics" name="lyrics" maxlength="10000" rows="8">
               Twinkle twinkly little star
           </textarea>
@@ -77,10 +78,12 @@
           </div>
 
           <div class="row">
-            <label>Generator <select id="generator" name="generator"></select></label>
             <label>Mode <select id="mode" name="mode"><option value="song">Song</option><option value="instrumental">Instrumental</option><option value="vocal_demo">Vocal demo</option><option value="loop">Loop</option></select></label>
             <label>Duration <input id="duration" name="duration" type="number" min="10" max="240" value="60" /></label>
+            <label>Quality <select id="quality" name="quality"><option value="draft">Draft (parametric preview)</option><option value="balanced" selected>Balanced (ACE neural)</option><option value="high">High (ACE neural)</option></select></label>
           </div>
+
+          <input type="hidden" id="generator" name="generator" value="auto-render" />
 
           <details class="advanced">
             <summary>Advanced controls</summary>
@@ -90,14 +93,13 @@
               <label>Structure <select id="structure" name="structure"><option value="auto">Auto</option><option value="verse_chorus">Verse / chorus</option><option value="intro_verse_chorus">Intro / verse / chorus</option><option value="hook_loop">Hook loop</option><option value="club_build">Club build</option><option value="ambient_loop">Ambient loop</option></select></label>
             </div>
             <div class="row">
-              <label>Quality <select id="quality" name="quality"><option value="draft">Draft</option><option value="balanced">Balanced</option><option value="high">High</option></select></label>
               <label>Guidance <input id="guidance" name="guidance" type="number" min="0" max="20" step="0.5" value="7.5" /></label>
               <label>Seed <input id="seed" name="seed" type="number" min="0" placeholder="optional" /></label>
             </div>
             <label>Genre tags <input id="genre_tags" name="genre_tags" placeholder="disco, indie, electronic" /></label>
             <label>Mood tags <input id="mood_tags" name="mood_tags" placeholder="sad, cinematic, cool" /></label>
             <label>Negative prompt <textarea id="negative" name="negative" maxlength="1000" rows="3" placeholder="muddy mix, harsh vocals, distorted drums"></textarea></label>
-            <label class="checkline"><input id="fallback" name="fallback" type="checkbox" checked /> Use procedural fallback if ACE-Step is not ready</label>
+            <label class="checkline"><input id="fallback" name="fallback" type="checkbox" checked /> Use parametric fallback if ACE-Step is not ready</label>
             <label class="checkline"><input id="lyrics_bundle" name="lyrics_bundle" type="checkbox" checked /> Include lyrics in downloaded bundle</label>
           </details>
 
@@ -148,7 +150,7 @@
                 <thead>
                   <tr>
                     <th>Title</th>
-                    <th>Backend</th>
+                    <th>Engine</th>
                     <th>Review</th>
                     <th>Decision</th>
                     <th>Duration</th>
@@ -207,6 +209,7 @@
         </div>
       </section>
     </main>
+    <script src="/assets/js/render-labels.js"></script>
     <script src="/assets/js/studio-routes.js"></script>
     <script src="/assets/js/studio-api.js"></script>
     <script src="/assets/js/studio-nav.js"></script>

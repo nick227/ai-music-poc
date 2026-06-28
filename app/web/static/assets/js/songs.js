@@ -30,9 +30,8 @@ function versionDetailRows(song) {
   const settings = vd.settings || {};
   return [
     ['Generation ID', vd.generation_id || gen.id],
-    ['Backend', vd.backend || gen.backend],
-    ['Model version', vd.model_version || gen.model_version],
-    ['Style version', vd.style_version_id],
+    ['Engine', RenderLabels.engineLabel(song)],
+    ['LoRA adapter', RenderLabels.loraAdapterLabel(vd)],
     ['Training run', vd.training_run_id],
     ['LoRA scale', vd.lora_scale],
     ['LoRA loaded', vd.lora_load_succeeded === true ? 'yes' : vd.lora_load_attempted ? 'attempted' : null],
@@ -135,14 +134,14 @@ function renderTable() {
   }
 
   tbody.innerHTML = songs.map((song) => {
-    const backend = song.generation?.backend || song.version_details?.backend || '—';
+    const engine = RenderLabels.engineLabel(song);
     const reviewClass = reviewPillClass(song.review_status);
     const decision = song.review_decision ? song.review_decision.replace(/_/g, ' ').toLowerCase() : '—';
     const selected = song.id === selectedId ? 'selected' : '';
     return `
       <tr class="${selected}" data-id="${song.id}">
         <td class="table-title">${song.title}</td>
-        <td class="table-meta">${backend}</td>
+        <td class="table-meta">${engine}</td>
         <td><span class="${reviewClass}">${song.review_status.replace(/_/g, ' ').toLowerCase()}</span></td>
         <td class="table-meta">${decision}</td>
         <td>${formatDuration(song.duration_seconds)}</td>
