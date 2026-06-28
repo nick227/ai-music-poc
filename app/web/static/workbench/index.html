@@ -30,7 +30,8 @@
       <section id="live-run-panel" class="card workbench-panel hidden">
         <div class="panel-head">
           <div>
-            <h2>Training status</h2>
+            <h2>Active training run</h2>
+            <p class="panel-lead">Live progress for the run in progress. Only one training job runs at a time.</p>
           </div>
           <span id="live-run-badge" class="status-pill running"></span>
         </div>
@@ -45,21 +46,38 @@
         <div class="panel-head">
           <div>
             <h2>Datasets</h2>
+            <p class="panel-lead">Tagged songs become frozen training packages. Each package can be fine-tuned once or re-run to produce a new model version.</p>
           </div>
         </div>
-        <div class="panel-actions" style="margin-bottom: 16px; display: flex; gap: 8px;">
-          <button type="button" id="generate-datasets-btn" class="button primary">Generate Recommended Datasets</button>
-          <button type="button" id="create-package-btn" class="button ghost">Create Custom Dataset</button>
+
+        <div id="pending-songs-summary" class="pending-summary muted">Loading pending songs…</div>
+
+        <div class="panel-actions dataset-toolbar">
+          <button type="button" id="generate-datasets-btn" class="button primary" title="Group tagged songs by category combos and suggest trainable datasets">Scan for dataset candidates</button>
+          <button type="button" id="run-all-untrained-btn" class="button ghost" title="Start fine-tuning for every frozen package that has never been trained">Run all untrained</button>
+          <button type="button" id="package-all-btn" class="button ghost" title="Freeze all pending tagged songs into one training package">Package all pending songs</button>
           <p id="package-feedback" class="save-feedback" hidden aria-live="polite"></p>
-          <p id="package-status" class="panel-status muted hidden"></p>
         </div>
-        <div id="packages-list" class="history-list"></div>
+        <p id="package-status" class="panel-status muted"></p>
+
+        <div class="dataset-subsection">
+          <h3 class="subsection-title">Dataset candidates</h3>
+          <p class="subsection-hint muted">Suggested groupings from tagged songs. Freeze a candidate to make it trainable.</p>
+          <div id="candidates-list" class="history-list"></div>
+        </div>
+
+        <div class="dataset-subsection">
+          <h3 class="subsection-title">Training packages</h3>
+          <p class="subsection-hint muted">Frozen datasets ready for fine-tuning. Training history is tracked per package.</p>
+          <div id="packages-list" class="history-list"></div>
+        </div>
       </section>
 
       <section class="card workbench-panel">
         <div class="panel-head">
           <div>
             <h2>Training Runs</h2>
+            <p class="panel-lead">History of fine-tuning jobs. Click a run to view its log. Re-running the same package creates a new model version.</p>
           </div>
         </div>
         <div id="runs-list" class="history-list"></div>
@@ -79,6 +97,7 @@
     <script src="/assets/js/studio-save.js"></script>
     <script src="/assets/js/studio-nav.js"></script>
     <script src="/assets/js/studio-training-status.js"></script>
+    <script src="/assets/js/workbench-helpers.js"></script>
     <script src="/assets/js/workbench.js"></script>
     <script src="/assets/js/workbench-packages.js"></script>
   </body>

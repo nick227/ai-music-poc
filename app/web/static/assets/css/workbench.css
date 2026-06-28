@@ -229,6 +229,94 @@
 
 .hidden { display: none !important; }
 
+.pending-summary {
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.pending-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 10px;
+}
+
+.pending-stat strong {
+  color: #fafafa;
+  font-size: 15px;
+}
+
+.pending-groups {
+  margin: 0;
+  padding-left: 18px;
+  color: #a1a1aa;
+}
+
+.pending-groups li { margin: 4px 0; }
+
+.pending-empty { margin: 0; }
+
+.dataset-toolbar {
+  margin-top: 0;
+  margin-bottom: 8px;
+}
+
+.dataset-subsection {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+
+.subsection-title {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #e4e4e7;
+}
+
+.subsection-hint {
+  margin: 0 0 12px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.training-status-line {
+  color: #c4b5fd !important;
+}
+
+.history-row.row-active {
+  border-color: rgba(139,92,246,0.35);
+  background: rgba(139,92,246,0.08);
+}
+
+.history-row.row-expanded {
+  border-color: rgba(255,255,255,0.12);
+}
+
+.run-log-preview {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(0,0,0,0.25);
+  font-size: 11px;
+  line-height: 1.45;
+  color: #d4d4d8;
+  white-space: pre-wrap;
+  max-height: 220px;
+  overflow: auto;
+}
+
+#package-status {
+  text-align: left;
+  max-width: none;
+  margin: 0 0 4px;
+}
+
 #save-slice-btn:disabled,
 #freeze-slice-btn:disabled,
 #start-training-btn:disabled,

@@ -4,7 +4,7 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
-from app.domain.enums import AssignmentRole, DatasetSliceStatus
+from app.domain.enums import AssignmentRole, ConfidenceTier, DatasetSliceStatus
 from app.domain.models import ReviewStatus, RightsStatus
 from app.domain.slices import DatasetSlice, DatasetSliceFilter
 
@@ -49,6 +49,7 @@ class SliceResponse(BaseModel):
     version: int
     asset_count: int
     is_auto_generated: bool = False
+    confidence_tier: ConfidenceTier = ConfidenceTier.CANDIDATE
     lineage_parent_id: Optional[str] = None
     frozen_at: Optional[str] = None
     created_at: str
@@ -91,6 +92,7 @@ def slice_to_response(record: DatasetSlice) -> SliceResponse:
         version=record.version,
         asset_count=record.asset_count,
         is_auto_generated=record.is_auto_generated,
+        confidence_tier=record.confidence_tier,
         lineage_parent_id=record.lineage_parent_id,
         frozen_at=record.frozen_at.isoformat() if record.frozen_at else None,
         created_at=record.created_at.isoformat(),
