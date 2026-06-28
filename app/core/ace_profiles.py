@@ -5,6 +5,8 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
+from app.core.ace_checkpoint_layout import describe_checkpoint_layout, dit_checkpoint_ready
+
 SAFE_TURBO_CHECKPOINT = "acestep-v15-turbo"
 XL_SFT_CHECKPOINT = "acestep-v15-xl-sft"
 XL_TURBO_CHECKPOINT = "acestep-v15-xl-turbo"
@@ -26,7 +28,7 @@ class AceRenderProfile(BaseModel):
 
 
 def checkpoint_has_weights(checkpoint_dir: Path, name: str) -> bool:
-    return (checkpoint_dir / name / "model.safetensors").is_file()
+    return dit_checkpoint_ready(checkpoint_dir, name)
 
 
 def xl_sft_installed(checkpoint_dir: Path) -> bool:
@@ -35,6 +37,10 @@ def xl_sft_installed(checkpoint_dir: Path) -> bool:
 
 def xl_turbo_installed(checkpoint_dir: Path) -> bool:
     return checkpoint_has_weights(checkpoint_dir, XL_TURBO_CHECKPOINT)
+
+
+def checkpoint_layout_summary(checkpoint_dir: Path, name: str) -> str:
+    return describe_checkpoint_layout(checkpoint_dir / name)
 
 
 def build_xl_sft_profile(*, inference_steps: int) -> AceRenderProfile:

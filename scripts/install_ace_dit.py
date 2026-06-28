@@ -20,6 +20,7 @@ sys.path.insert(0, str(ROOT))
 
 from dotenv import load_dotenv
 
+from app.core.ace_checkpoint_layout import dit_checkpoint_folder_ready, describe_checkpoint_layout
 from app.core.config import get_settings
 from app.generators.ace_step.env import ace_subprocess_env
 
@@ -76,8 +77,7 @@ def main() -> int:
     print()
 
     target = checkpoint_dir / model_name
-    weights = target / "model.safetensors"
-    if weights.is_file() and not args.force:
+    if dit_checkpoint_folder_ready(target) and not args.force:
         print(f"Already installed at {target}")
         if model_name.startswith("acestep-v15-xl"):
             print("XL model ready for experimental final-render profiles.")
@@ -85,9 +85,9 @@ def main() -> int:
         return 0
 
     if args.dry_run:
-        status = "present" if weights.is_file() else "NOT installed"
+        status = "present" if dit_checkpoint_folder_ready(target) else "NOT installed"
         print(f"[dry-run] {model_name}: {status}")
-        if not weights.is_file():
+        if not dit_checkpoint_folder_ready(target):
             print(f"[dry-run] Would download from HF repo: {hf_repo}")
         return 0
 
@@ -129,11 +129,14 @@ sys.exit(0 if success else 1)
         )
         return result.returncode
 
-    if not weights.is_file():
-        print(f"\nDownload reported success but {weights} not found.", file=sys.stderr)
+    if not dit_checkpoint_folder_ready(target):
+        print(
+            f"\nDownload reported success but checkpoint weights not found under {target}.",
+            file=sys.stderr,
+        )
         return 1
 
-    print(f"\n{model_name} installed at {target}")
+    print(f"\n{model_name} installed at {target} ({describe_checkpoint_layout(target)})")
     print("\nNext step — re-run the readiness check to update the hardware profile:")
     print("  python scripts/ace_readiness.py --keep-output")
     return 0

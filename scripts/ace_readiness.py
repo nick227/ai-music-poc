@@ -34,6 +34,7 @@ from app.core.ace_runtime import (
     save_runtime_profile,
 )
 from app.core.config import get_settings
+from app.core.ace_profiles import checkpoint_layout_summary, XL_SFT_CHECKPOINT, XL_TURBO_CHECKPOINT, SAFE_TURBO_CHECKPOINT
 from app.core.hardware import build_hardware_profile
 from app.generators.ace_step.env import ace_subprocess_env
 from app.generators.ace_step.health import check_ace_packages
@@ -70,9 +71,15 @@ def main() -> int:
     print(f"ffmpeg:     {hw.ffmpeg_path or 'NOT FOUND'}")
     print(f"ffprobe:    {hw.ffprobe_path or 'NOT FOUND'}")
     print(f"Model dir:  {hw.checkpoint_dir} (exists={hw.checkpoint_dir_exists})")
-    print(f"Turbo ckpt: {hw.turbo_checkpoint or 'NOT FOUND'}")
-    print(f"XL SFT:     {'ready' if hw.xl_sft_available else 'NOT FOUND (optional top model)'}")
-    print(f"XL Turbo:   {'ready' if hw.xl_turbo_available else 'NOT FOUND (optional)'}")
+    print(f"Turbo ckpt: {hw.turbo_checkpoint or 'NOT FOUND'} ({checkpoint_layout_summary(checkpoint_dir, SAFE_TURBO_CHECKPOINT)})")
+    print(
+        f"XL SFT:     {'ready' if hw.xl_sft_available else 'NOT FOUND (optional top model)'} "
+        f"({checkpoint_layout_summary(checkpoint_dir, XL_SFT_CHECKPOINT)})"
+    )
+    print(
+        f"XL Turbo:   {'ready' if hw.xl_turbo_available else 'NOT FOUND (optional)'} "
+        f"({checkpoint_layout_summary(checkpoint_dir, XL_TURBO_CHECKPOINT)})"
+    )
     print(f"LM safe (0.6B): {hw.lm_safe_checkpoint or 'NOT FOUND'}")
     print(f"LM avail:   {hw.lm_checkpoint or 'none'}")
     print(f"VAE:        {'yes' if hw.vae_present else 'NOT FOUND'}")

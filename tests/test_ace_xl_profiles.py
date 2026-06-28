@@ -33,12 +33,16 @@ def test_xl_turbo_profile_shape() -> None:
     assert profile.inference_steps == 8
 
 
-def test_xl_sft_installed_requires_weights(tmp_path: Path) -> None:
-    assert xl_sft_installed(tmp_path) is False
+def test_xl_sft_installed_accepts_sharded_layout(tmp_path: Path) -> None:
     ckpt_dir = tmp_path / XL_SFT_CHECKPOINT
+    import json
+
     ckpt_dir.mkdir()
-    assert xl_sft_installed(tmp_path) is False
-    (ckpt_dir / "model.safetensors").write_bytes(b"x" * 16)
+    shards = [f"model-{i:05d}-of-00004.safetensors" for i in range(1, 5)]
+    weight_map = {f"w{i}": shards[i % 4] for i in range(4)}
+    (ckpt_dir / "model.safetensors.index.json").write_text(json.dumps({"weight_map": weight_map}), encoding="utf-8")
+    for name in shards:
+        (ckpt_dir / name).write_bytes(b"x" * 16)
     assert xl_sft_installed(tmp_path) is True
 
 

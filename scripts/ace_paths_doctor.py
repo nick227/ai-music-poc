@@ -20,6 +20,7 @@ from app.core.config import get_settings
 from app.core.ace_profiles import (
     XL_SFT_CHECKPOINT,
     XL_TURBO_CHECKPOINT,
+    checkpoint_layout_summary,
     xl_sft_installed,
     xl_turbo_installed,
 )
@@ -136,8 +137,11 @@ def main() -> int:
     print(f"{XL_SFT_CHECKPOINT} exists: {XL_SFT_CHECKPOINT in checkpoint_folders}")
     print(f"{XL_TURBO_CHECKPOINT} exists: {XL_TURBO_CHECKPOINT in checkpoint_folders}")
     if ace_model_dir is not None:
-        print(f"{XL_SFT_CHECKPOINT} weights ready: {xl_sft_installed(ace_model_dir)}")
-        print(f"{XL_TURBO_CHECKPOINT} weights ready: {xl_turbo_installed(ace_model_dir)}")
+        print(f"{TURBO_CHECKPOINT} weights: {checkpoint_layout_summary(ace_model_dir, TURBO_CHECKPOINT)}")
+        print(f"{XL_SFT_CHECKPOINT} weights: {checkpoint_layout_summary(ace_model_dir, XL_SFT_CHECKPOINT)}")
+        print(f"{XL_TURBO_CHECKPOINT} weights: {checkpoint_layout_summary(ace_model_dir, XL_TURBO_CHECKPOINT)}")
+        print(f"{XL_SFT_CHECKPOINT} ready: {xl_sft_installed(ace_model_dir)}")
+        print(f"{XL_TURBO_CHECKPOINT} ready: {xl_turbo_installed(ace_model_dir)}")
     print()
     print(f"multiple ACE-Step repos under ~: {len(repos) > 1}")
     for repo in repos:
