@@ -182,7 +182,8 @@ def test_generate_with_style_version_rejects_procedural_generator(client):
             "generator": "procedural-v3",
             "duration_seconds": 10,
             "style_version_id": style_id,
+            "allow_fallback": False,
         },
     )
     assert gen.status_code == 422
-    assert "ACE-Step" in gen.json()["message"]
+    assert "ACE-loadable" in gen.json()["message"] or "ACE-Step" in gen.json()["message"]

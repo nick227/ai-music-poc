@@ -228,6 +228,9 @@ def prepare_peft_lora_dir(lora_path: Path, scratch_dir: Path) -> tuple[Path | No
     expects adapter_config.json and adapter_model.safetensors, so we copy Studio
     names into a temporary compatibility directory when needed.
     """
+    if lora_path.is_file():
+        return None, [f"{lora_path.name} (expected LoRA directory, got file)"]
+
     peft_config = lora_path / "adapter_config.json"
     peft_weights = lora_path / "adapter_model.safetensors"
     if peft_config.is_file() and peft_weights.is_file():

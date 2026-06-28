@@ -227,10 +227,14 @@ class TrainingService:
         if run.status == JobStatus.SUCCEEDED and run.artifact_path and not run.style_version_id:
             if is_mock_backend(run.backend):
                 slice_record = self.slice_service.get_required(run.dataset_slice_id)
-                style = self.style_version_service.create_from_run(run, slice_record.name)
+                style = self.style_version_service.create_from_run(
+                    run,
+                    slice_record.name,
+                    status=StyleVersionStatus.CANDIDATE,
+                )
                 run = run.model_copy(update={"style_version_id": style.id, "updated_at": datetime.now(timezone.utc)})
                 self.store.save(run)
-                self.store.append_log(run.id, f"mock artifact produced; promoted style version {style.id}")
+                self.store.append_log(run.id, f"mock artifact produced; candidate style version {style.id} (not ACE-loadable)")
                 self.ingestion_service.finalize_success(media_ids, run.id)
             elif is_real_ace_backend(run.backend):
                 slice_record = self.slice_service.get_required(run.dataset_slice_id)
@@ -241,7 +245,7 @@ class TrainingService:
                 )
                 run = run.model_copy(update={"style_version_id": style.id, "updated_at": datetime.now(timezone.utc)})
                 self.store.save(run)
-                self.store.append_log(run.id, f"ACE adapter artifact produced; candidate style version {style.id}")
+                self.store.append_log(run.id, f"ACE LoRA produced; candidate Model Version {style.id}")
                 self.ingestion_service.finalize_success(media_ids, run.id)
         elif run.status == JobStatus.SUCCEEDED and is_dry_run_backend(run.backend):
             self.store.append_log(run.id, "dry run complete; ready audio unchanged")

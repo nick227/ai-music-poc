@@ -72,7 +72,7 @@ async function loadStyleVersions() {
   styleVersionEl.innerHTML = '<option value="">Base Model: ACE-Step v1.5 Turbo (no LoRA)</option>' + versions
     .filter((v) => v.status === 'ACTIVE' || v.status === 'CANDIDATE')
     .map((v) => {
-      const loadable = v.ace_loadable !== false;
+      const loadable = v.ace_loadable === true;
       const suffix = loadable ? v.status.toLowerCase() : `${v.status.toLowerCase()} · mock evidence only`;
       const disabled = loadable ? '' : ' disabled';
       return `<option value="${v.id}"${disabled}>Model Version: ${v.name} · ${v.type || 'LoRA'} (${suffix})</option>`;

@@ -133,7 +133,7 @@ def test_style_version_status_patch_promotes_candidate_to_active(client):
 
     versions = c.get("/api/style-versions").json()["style_versions"]
     version = next(v for v in versions if v["id"] == style_id)
-    # mock adapter creates ACTIVE directly; to test the promote path, just verify the endpoint
+    # mock adapter creates CANDIDATE; real ACE runs may also be CANDIDATE until promoted
     assert version["status"] in {"ACTIVE", "CANDIDATE"}
 
     # archive it
