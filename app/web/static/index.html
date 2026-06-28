@@ -17,7 +17,7 @@
       <section class="studio-hero">
         <p class="eyebrow">Songs</p>
         <h1>Generate music</h1>
-        <p class="muted">ACE-Step neural generation. Use Draft quality for a fast parametric preview; Balanced/High for real model output. Optional LoRA adapters come from Workbench training.</p>
+        <p class="muted">ACE-Step v1.5 Turbo neural generation. Draft quality uses a fast parametric preview only. Balanced/High use the real model (turbo caps at 8 diffusion steps). Optional LoRA adapters from Workbench training.</p>
       </section>
 
       <!-- ========================================== -->
@@ -53,7 +53,6 @@
           </label>
           <label id="lora-scale-wrap" hidden>
             LoRA strength
-            <span class="help">How much the trained adapter affects the output. ACE-Step uses a 0–1 blend: 0 = base model only, 0.5 = half blend, 1 = full adapter (start here). Not a percentage — values above 1 are not supported.</span>
             <div class="lora-scale-row">
               <span class="lora-scale-end muted">Off</span>
               <input id="lora_scale" name="lora_scale" type="range" min="0" max="1" step="0.05" value="1" />

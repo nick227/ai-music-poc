@@ -41,18 +41,15 @@ def _build_runtime_config_record(
     request: GenerationRequest,
     safe_cfg: AceGenConfig | None,
     offload_to_cpu: bool,
-    lm_model: str,
     profile_detected_at: str,
 ) -> dict[str, Any]:
     """Build the ace_runtime_config dict that gets stored on the song."""
-    quality_steps = _QUALITY_STEPS.get(request.quality, 24)
-    if safe_cfg and safe_cfg.inference_steps:
-        quality_steps = safe_cfg.inference_steps
-    batch_size = safe_cfg.batch_size if safe_cfg and safe_cfg.batch_size else 1
     return {
-        "checkpoint": safe_cfg.checkpoint if safe_cfg else "",
-        "lm_model": lm_model or "none",
-        "inference_steps": quality_steps,
+        "checkpoint": safe_cfg.checkpoint if safe_cfg else "acestep-v15-turbo",
+        "lm_model": "none",
+        "use_lm": False,
+        "inference_steps": _QUALITY_STEPS.get(request.quality, 24),
+        "turbo_max_steps": 8,
         "batch_size": batch_size,
         "offload_to_cpu": offload_to_cpu,
         "device": safe_cfg.device if safe_cfg else "cuda",
@@ -130,9 +127,8 @@ class AceStepCommandGenerator:
         except Exception:
             pass
             
-        # Determine safe defaults: offload_to_cpu from profile, LM model from safe tier
+        # Safe tier LM breaks full-length generation (clips to ~10s headless). Keep LM off for songs.
         offload_to_cpu = safe_cfg.offload_to_cpu if safe_cfg is not None else True
-        lm_model = safe_cfg.lm_model if safe_cfg is not None else ""
 
         cmd = self.builder.build(request, output_path)
 
@@ -141,19 +137,16 @@ class AceStepCommandGenerator:
         if "--offload-to-cpu" not in cmd_str and offload_to_cpu:
             cmd.append("--offload-to-cpu")
         if "--use-lm" not in cmd_str:
-            cmd += ["--use-lm", "true" if lm_model else "false"]
-        if "--lm-model" not in cmd_str and lm_model:
-            cmd += ["--lm-model", lm_model]
+            cmd += ["--use-lm", "false"]
         if "--inference-steps" not in cmd_str and "--steps" not in cmd_str:
-            q_steps = safe_cfg.inference_steps if safe_cfg and safe_cfg.inference_steps else _QUALITY_STEPS.get(request.quality, 24)
-            cmd += ["--inference-steps", str(q_steps)]
+            cmd += ["--inference-steps", str(_QUALITY_STEPS.get(request.quality, 24))]
         if "--batch-size" not in cmd_str:
             bs = safe_cfg.batch_size if safe_cfg and safe_cfg.batch_size else 1
             cmd += ["--batch-size", str(bs)]
 
         logger.info(
-            "ace_command_start output=%s offload=%s lm=%s cmd=%s",
-            output_path, offload_to_cpu, lm_model or "none", " ".join(cmd),
+            "ace_command_start output=%s offload=%s lm=off turbo_steps=%s cmd=%s",
+            output_path, offload_to_cpu, _QUALITY_STEPS.get(request.quality, 24), " ".join(cmd),
         )
         started = time.monotonic()
         try:
@@ -200,7 +193,7 @@ class AceStepCommandGenerator:
             command_preview = command_preview[:477] + "..."
 
         runtime_config = _build_runtime_config_record(
-            request, safe_cfg, offload_to_cpu, lm_model, profile_detected_at,
+            request, safe_cfg, offload_to_cpu, profile_detected_at,
         )
 
         result_metadata: dict[str, object] = {
