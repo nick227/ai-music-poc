@@ -149,7 +149,7 @@ class AceStepGenerator:
             "lyrics": request.lyrics,
             "title": request.title,
             "duration_seconds": str(request.duration_seconds),
-            "seed": "" if request.seed is None else str(request.seed),
+            "seed": "-1" if request.seed is None else str(request.seed),
             "bpm": "" if request.bpm is None else str(request.bpm),
             "key": request.key or "",
             "mode": request.mode,

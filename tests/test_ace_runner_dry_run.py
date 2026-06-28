@@ -96,3 +96,10 @@ def test_dry_run_missing_paths_exit_two(tmp_path, monkeypatch):
     monkeypatch.setenv("ACE_STEP_DIR", str(missing_dir))
     args = runner.build_parser().parse_args(["--dry-run"])
     assert runner.run_dry_run(args) == 2
+
+
+def test_seed_flag_without_value_parses_as_none():
+    runner = _load_runner_module()
+    args = runner.build_parser().parse_args(["--seed", "--guidance-scale", "7.5"])
+    assert args.seed is None
+    assert args.guidance_scale == 7.5

@@ -112,24 +112,14 @@ def test_command_builder_seed_set_appears_in_command(tmp_path):
     assert "42" in cmd
 
 
-def test_command_builder_seed_none_no_numeric_value_after_flag(tmp_path):
-    """seed=None serialises to empty string; shlex.split drops it from the token list.
-
-    The practical consequence: --seed is followed immediately by the next flag.
-    This documents current behaviour so regressions are caught.  Runner scripts
-    must handle a missing seed value gracefully.
-    """
+def test_command_builder_seed_none_uses_random_marker(tmp_path):
+    """seed=None must render as -1 so ace_runner receives a valid --seed value."""
     builder = _builder(tmp_path)
     req = _req(seed=None)
     output = tmp_path / "out.wav"
     cmd = builder.build(req, output)
-    if "--seed" in cmd:
-        seed_idx = cmd.index("--seed")
-        # The token right after --seed must NOT be a plain integer (seed was dropped)
-        next_token = cmd[seed_idx + 1] if seed_idx + 1 < len(cmd) else ""
-        assert not next_token.lstrip("-").isdigit(), (
-            f"seed=None should not produce a numeric value, got {next_token!r}"
-        )
+    seed_idx = cmd.index("--seed")
+    assert cmd[seed_idx + 1] == "-1"
 
 
 def test_command_builder_bpm_set_appears_in_command(tmp_path):

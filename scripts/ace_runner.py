@@ -141,6 +141,7 @@ def _write_lora_meta(payload):
 def _studio_initialize_service(self, *args, **kwargs):
     result = _original_initialize_service(self, *args, **kwargs)
     lora_path = os.environ.get("ACE_STUDIO_LORA_PATH", "").strip()
+    lora_load_path = os.environ.get("ACE_STUDIO_LORA_LOAD_PATH", "").strip() or lora_path
     scale_raw = os.environ.get("ACE_STUDIO_LORA_SCALE", "1.0")
     try:
         scale = float(scale_raw)
@@ -155,7 +156,7 @@ def _studio_initialize_service(self, *args, **kwargs):
     }
     if lora_path:
         try:
-            message = self.load_lora(lora_path)
+            message = self.load_lora(lora_load_path)
             meta["loraLoadMessage"] = str(message)
             meta["loraLoadSucceeded"] = True
             print(f"[ace_runner] load_lora: {message}", flush=True)
@@ -218,6 +219,31 @@ def build_lora_meta(
         "loraPath": "",
         "loraScale": None,
     }
+
+
+def prepare_peft_lora_dir(lora_path: Path, scratch_dir: Path) -> tuple[Path | None, list[str]]:
+    """Return a PEFT-compatible LoRA directory for ACE load_lora.
+
+    Studio exposes LoRA files as lora_config.json and lora.safetensors. ACE/PEFT
+    expects adapter_config.json and adapter_model.safetensors, so we copy Studio
+    names into a temporary compatibility directory when needed.
+    """
+    peft_config = lora_path / "adapter_config.json"
+    peft_weights = lora_path / "adapter_model.safetensors"
+    if peft_config.is_file() and peft_weights.is_file():
+        return lora_path, []
+
+    studio_config = lora_path / "lora_config.json"
+    studio_weights = lora_path / "lora.safetensors"
+    missing = [path.name for path in (studio_config, studio_weights) if not path.is_file()]
+    if missing:
+        return None, missing
+
+    compat_dir = scratch_dir / "studio_lora_peft"
+    compat_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(studio_config, compat_dir / "adapter_config.json")
+    shutil.copy2(studio_weights, compat_dir / "adapter_model.safetensors")
+    return compat_dir, []
 
 
 def write_ace_meta_sidecar(output_path: Path, payload: dict[str, object]) -> Path:
@@ -309,7 +335,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--request-file")
     parser.add_argument("--output")
     parser.add_argument("--duration", type=int, default=60)
-    parser.add_argument("--seed", type=int, default=None)
+    parser.add_argument("--seed", type=int, default=None, nargs="?")
     parser.add_argument("--guidance-scale", type=float, default=7.5)
     parser.add_argument("--quality", default="balanced")
     parser.add_argument("--model-dir")
@@ -348,15 +374,6 @@ def main(argv: list[str] | None = None) -> int:
     output_path = Path(args.output).resolve()
     lora_path = resolve_optional_path(args.lora_path)
     use_lora = str(args.use_lora).lower() in {"1", "true", "yes", "on"} and lora_path is not None
-    if use_lora:
-        missing = [
-            path.name
-            for path in [lora_path / "adapter_config.json", lora_path / "adapter_model.safetensors"]
-            if not path.is_file()
-        ]
-        if missing:
-            print(f"[ace_runner] ERROR: LoRA adapter is missing required files: {', '.join(missing)}", file=sys.stderr)
-            return 2
     lyrics_text = lyrics_path.read_text(encoding="utf-8").strip() if lyrics_path.exists() else ""
     if negative_file and Path(negative_file).exists():
         negative = Path(negative_file).read_text(encoding="utf-8").strip()
@@ -364,6 +381,13 @@ def main(argv: list[str] | None = None) -> int:
             caption = f"{caption}\n\nAvoid: {negative}"
 
     with tempfile.TemporaryDirectory(prefix="ace_out_") as save_dir:
+        save_path = Path(save_dir)
+        ace_lora_path = lora_path
+        if use_lora and lora_path is not None:
+            ace_lora_path, missing = prepare_peft_lora_dir(lora_path, save_path)
+            if ace_lora_path is None:
+                print(f"[ace_runner] ERROR: LoRA is missing required files: {', '.join(missing)}", file=sys.stderr)
+                return 2
         config_path = Path(save_dir) / "ace_config.toml"
         quality_steps = {"draft": 8, "balanced": 24, "high": 50}
         seed = args.seed if args.seed is not None and args.seed >= 0 else -1
@@ -407,7 +431,7 @@ def main(argv: list[str] | None = None) -> int:
             "instrumental": False,
             "task_type": "text2music",
             "use_lora": use_lora,
-            "lora_path": str(lora_path) if use_lora else "",
+            "lora_path": str(ace_lora_path) if use_lora and ace_lora_path is not None else "",
             "lora_scale": args.lora_scale if use_lora else 1.0,
         })
         cmd: list[str] = [
@@ -437,6 +461,7 @@ def main(argv: list[str] | None = None) -> int:
             hook_dir.mkdir(parents=True, exist_ok=True)
             write_lora_sitecustomize(hook_dir / "sitecustomize.py")
             env["ACE_STUDIO_LORA_PATH"] = str(lora_path)
+            env["ACE_STUDIO_LORA_LOAD_PATH"] = str(ace_lora_path)
             env["ACE_STUDIO_LORA_SCALE"] = str(args.lora_scale)
             env["ACE_STUDIO_STEP_DIR"] = str(step_dir)
             env["ACE_STUDIO_LORA_META_FILE"] = str(meta_file)

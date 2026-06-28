@@ -43,7 +43,7 @@ class AceCommandBuilder:
             "lyrics": request.lyrics,
             "title": request.title,
             "duration_seconds": request.duration_seconds,
-            "seed": "" if request.seed is None else request.seed,
+            "seed": "-1" if request.seed is None else request.seed,
             "bpm": "" if request.bpm is None else request.bpm,
             "key": request.key or "",
             "mode": request.mode,
