@@ -349,6 +349,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--offload-to-cpu", action="store_true", help="Enable CPU offload to reduce GPU VRAM usage")
     parser.add_argument("--use-lm", default="false", help="Enable 5Hz language model preprocessing (true/false)")
     parser.add_argument("--lm-model", default="", help="LM model subfolder or path (e.g. acestep-5Hz-lm-0.6B)")
+    parser.add_argument("--inference-steps", type=int, default=None, help="Override diffusion steps (default: quality preset)")
+    parser.add_argument("--batch-size", type=int, default=1, help="Generation batch size")
     parser.add_argument("--dry-run", action="store_true", help="Validate wiring without running ACE-Step inference")
     return parser
 
@@ -393,6 +395,8 @@ def main(argv: list[str] | None = None) -> int:
         seed = args.seed if args.seed is not None and args.seed >= 0 else -1
         use_lm = str(args.use_lm).lower() in {"1", "true", "yes", "on"}
         lm_model_name = args.lm_model.strip() if args.lm_model else ""
+        inference_steps = args.inference_steps if args.inference_steps is not None else quality_steps.get(args.quality, 24)
+        batch_size = args.batch_size if args.batch_size is not None else 1
         checkpoint_dir_str = str(Path(args.model_dir).expanduser().resolve()) if args.model_dir else os.environ.get("ACESTEP_CHECKPOINTS_DIR", "")
         # Resolve lm_model_path: name relative to checkpoint_dir, or absolute path
         lm_model_path: str | None = None
@@ -417,8 +421,8 @@ def main(argv: list[str] | None = None) -> int:
             "seed": seed,
             "use_random_seed": seed < 0,
             "guidance_scale": args.guidance_scale,
-            "inference_steps": quality_steps.get(args.quality, 24),
-            "batch_size": 1,
+            "inference_steps": inference_steps,
+            "batch_size": batch_size,
             "offload_to_cpu": args.offload_to_cpu,
             "thinking": use_lm,
             "lm_model_path": lm_model_path or "",

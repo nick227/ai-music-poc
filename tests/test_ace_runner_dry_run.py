@@ -103,3 +103,10 @@ def test_seed_flag_without_value_parses_as_none():
     args = runner.build_parser().parse_args(["--seed", "--guidance-scale", "7.5"])
     assert args.seed is None
     assert args.guidance_scale == 7.5
+
+
+def test_inference_steps_and_batch_size_flags_parse():
+    runner = _load_runner_module()
+    args = runner.build_parser().parse_args(["--inference-steps", "8", "--batch-size", "1"])
+    assert args.inference_steps == 8
+    assert args.batch_size == 1

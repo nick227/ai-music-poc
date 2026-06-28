@@ -12,8 +12,11 @@ from app.domain.style_versions import StyleVersion
 class StyleVersionResponse(BaseModel):
     id: str
     name: str
+    type: str = "LoRA"
     training_run_id: str
+    dataset_id: str
     dataset_slice_id: str
+    lora_path: str
     artifact_path: str
     backend: str
     base_model_id: str
@@ -21,6 +24,7 @@ class StyleVersionResponse(BaseModel):
     training_mode: str
     artifact_type: str
     status: StyleVersionStatus
+    ace_loadable: bool = False
     created_at: str
     updated_at: str
 
@@ -42,12 +46,15 @@ class StyleVersionListResponse(BaseModel):
     style_versions: list[StyleVersionResponse]
 
 
-def style_version_to_response(record: StyleVersion) -> StyleVersionResponse:
+def style_version_to_response(record: StyleVersion, *, ace_loadable: bool = False) -> StyleVersionResponse:
     return StyleVersionResponse(
         id=record.id,
         name=record.name,
+        type="LoRA" if record.artifact_type in {"lora", "lora_adapter", "adapter", "adapter_dir"} else record.artifact_type,
         training_run_id=record.training_run_id,
+        dataset_id=record.dataset_slice_id,
         dataset_slice_id=record.dataset_slice_id,
+        lora_path=record.artifact_path,
         artifact_path=record.artifact_path,
         backend=record.backend,
         base_model_id=record.base_model_id,
@@ -55,6 +62,7 @@ def style_version_to_response(record: StyleVersion) -> StyleVersionResponse:
         training_mode=record.training_mode,
         artifact_type=record.artifact_type,
         status=record.status,
+        ace_loadable=ace_loadable,
         created_at=record.created_at.isoformat(),
         updated_at=record.updated_at.isoformat(),
     )
@@ -65,10 +73,13 @@ def style_version_to_detail(
     *,
     load_path: str,
     generated_songs: list[StyleVersionGeneratedSongSummary],
+    ace_loadable: bool = False,
 ) -> StyleVersionDetailResponse:
-    base = style_version_to_response(record)
+    base = style_version_to_response(record, ace_loadable=ace_loadable)
+    payload = base.model_dump()
+    payload["lora_path"] = load_path
     return StyleVersionDetailResponse(
-        **base.model_dump(),
+        **payload,
         load_path=load_path,
         generated_songs=generated_songs,
     )

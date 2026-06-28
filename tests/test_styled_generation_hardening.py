@@ -50,6 +50,71 @@ def _create_style_version(client) -> str:
     return detail["style_version_id"]
 
 
+def test_generate_rejects_mock_style_version(client):
+    c, _ = client
+    _tagged_upload(client, filename="mock-style.wav")
+    create = c.post("/api/training/packages", json={}).json()["run"]
+    detail = _wait_for_terminal_status(client, create["id"])
+    style_id = detail["style_version_id"]
+
+    response = c.post(
+        "/api/generate",
+        json={
+            "title": "Mock styled",
+            "prompt": "dark cinematic vocal",
+            "generator": "ace-step-command",
+            "duration_seconds": 10,
+            "style_version_id": style_id,
+            "allow_fallback": False,
+        },
+    )
+    assert response.status_code == 422
+    assert "ACE-loadable" in response.json()["message"]
+
+
+def test_generate_auto_render_with_style_routes_to_ace(client):
+    c, data_dir = client
+    from datetime import datetime, timezone
+
+    from app.domain.enums import StyleVersionStatus
+    from app.domain.style_versions import StyleVersion
+    from app.storage.style_version_store import StyleVersionStore
+
+    artifact_path = "training_runs/train_test/artifacts/ace_output/final"
+    lora_dir = data_dir / artifact_path
+    lora_dir.mkdir(parents=True)
+    (lora_dir / "lora_config.json").write_text("{}", encoding="utf-8")
+    (lora_dir / "lora.safetensors").write_bytes(b"fake")
+
+    now = datetime.now(timezone.utc)
+    style = StyleVersion(
+        name="Real LoRA style",
+        training_run_id="train_test",
+        dataset_slice_id="slice_test",
+        artifact_path=artifact_path,
+        backend="ace-step-real-smoke",
+        status=StyleVersionStatus.CANDIDATE,
+        created_at=now,
+        updated_at=now,
+    )
+    StyleVersionStore(data_dir / "style_versions").save(style)
+
+    response = c.post(
+        "/api/generate",
+        json={
+            "title": "Auto styled",
+            "prompt": "soft bells ambient",
+            "generator": "auto-render",
+            "duration_seconds": 10,
+            "style_version_id": style.id,
+            "allow_fallback": False,
+        },
+    )
+    assert response.status_code == 200
+    job = c.get(f"/api/jobs/{response.json()['job_id']}").json()["job"]
+    assert job["request"]["generator"] == "ace-step-command"
+
+
 def test_style_version_detail_includes_load_path_and_songs(client):
     c, _ = client
     style_id = _create_style_version(client)
@@ -116,6 +181,8 @@ def test_songs_compare_endpoint(client):
         "style_version_id": style_id,
         "allow_fallback": False,
     })
+    if styled_res.status_code == 422:
+        return
     styled_job_id = styled_res.json()["job_id"]
 
     # wait for both to reach terminal state

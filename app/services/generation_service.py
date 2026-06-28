@@ -44,8 +44,6 @@ class GenerationService:
         generator_name = request.generator or self.settings.default_generator
         if generator_name not in self.registry.names():
             raise ValidationAppError(f"Unknown generator: {generator_name}")
-        if request.style_version_id and generator_name != "ace-step-command":
-            raise ValidationAppError("Style versions can only be used with the ACE-Step generator")
         if request.style_version_id and request.allow_fallback:
             raise ValidationAppError("Styled ACE generation requires allow_fallback=false")
         if not request.style_version_id:
@@ -58,6 +56,15 @@ class GenerationService:
             style = self.style_version_service.get_required(request.style_version_id)
             if style.status not in {StyleVersionStatus.ACTIVE, StyleVersionStatus.CANDIDATE}:
                 raise ValidationAppError("Style version is not active")
+            if not self.style_version_service.is_ace_loadable(style.id, self.settings.data_dir):
+                raise ValidationAppError(
+                    "Style version is not ACE-loadable (mock training evidence only). "
+                    "Train with ACE or pick a real LoRA artifact."
+                )
+            if generator_name == "auto-render":
+                generator_name = "ace-step-command"
+            elif generator_name != "ace-step-command":
+                raise ValidationAppError("Style versions can only be used with the ACE-Step generator")
             lora_path = self.style_version_service.resolve_load_path(style.id, self.settings.data_dir)
         data = request.model_dump()
         data["generator"] = generator_name

@@ -23,8 +23,17 @@ router = APIRouter(prefix="/api/style-versions", tags=["style-versions"])
 
 
 @router.get("", response_model=StyleVersionListResponse)
-def list_style_versions(style_service: StyleVersionService = Depends(get_style_version_service)):
-    versions = [style_version_to_response(item) for item in style_service.list_versions()]
+def list_style_versions(
+    style_service: StyleVersionService = Depends(get_style_version_service),
+    settings: Settings = Depends(get_settings),
+):
+    versions = [
+        style_version_to_response(
+            item,
+            ace_loadable=style_service.is_ace_loadable(item.id, settings.data_dir),
+        )
+        for item in style_service.list_versions()
+    ]
     return StyleVersionListResponse(style_versions=versions)
 
 
@@ -48,7 +57,12 @@ def get_style_version(
         )
         for song in songs
     ]
-    return style_version_to_detail(record, load_path=load_path, generated_songs=generated)
+    return style_version_to_detail(
+        record,
+        load_path=load_path,
+        generated_songs=generated,
+        ace_loadable=style_service.is_ace_loadable(record.id, settings.data_dir),
+    )
 
 
 @router.patch("/{version_id}/status", response_model=StyleVersionResponse)

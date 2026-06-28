@@ -48,10 +48,17 @@ function formPayload() {
     lora_scale: styleVersionEl.value ? Number(loraScaleEl.value) : 1.0,
   };
 }
-function syncLoraScaleVisibility() {
+function syncStyleVersionControls() {
   const styled = Boolean(styleVersionEl.value);
   loraScaleWrap.hidden = !styled;
-  if (styled) document.querySelector('#fallback').checked = false;
+  if (styled) {
+    document.querySelector('#fallback').checked = false;
+    if ([...generatorEl.options].some((o) => o.value === 'ace-step-command')) {
+      generatorEl.value = 'ace-step-command';
+    }
+    const qualityEl = document.querySelector('#quality');
+    if (qualityEl.value === 'draft') qualityEl.value = 'balanced';
+  }
 }
 async function api(url, options = {}) {
   const res = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...options });
@@ -62,13 +69,18 @@ async function api(url, options = {}) {
 }
 async function loadStyleVersions() {
   const versions = await api('/api/style-versions').then((r) => r.style_versions || []);
-  styleVersionEl.innerHTML = '<option value="">Base model (no style)</option>' + versions
+  styleVersionEl.innerHTML = '<option value="">Base Model: ACE-Step v1.5 Turbo (no LoRA)</option>' + versions
     .filter((v) => v.status === 'ACTIVE' || v.status === 'CANDIDATE')
-    .map((v) => `<option value="${v.id}">${v.name} (${v.status.toLowerCase()})</option>`)
+    .map((v) => {
+      const loadable = v.ace_loadable !== false;
+      const suffix = loadable ? v.status.toLowerCase() : `${v.status.toLowerCase()} · mock evidence only`;
+      const disabled = loadable ? '' : ' disabled';
+      return `<option value="${v.id}"${disabled}>Model Version: ${v.name} · ${v.type || 'LoRA'} (${suffix})</option>`;
+    })
     .join('');
-  syncLoraScaleVisibility();
+  syncStyleVersionControls();
 }
-styleVersionEl.addEventListener('change', syncLoraScaleVisibility);
+styleVersionEl.addEventListener('change', syncStyleVersionControls);
 async function loadGenerators() {
   const data = await api('/api/generators');
   generatorEl.innerHTML = data.generators.map(g => `<option value="${g.name}">${g.label} — ${g.status}</option>`).join('');
@@ -180,7 +192,7 @@ async function loadJobs() {
     if (req.style_version_id) document.querySelector('#style_version').value = req.style_version_id;
     else document.querySelector('#style_version').value = '';
     if (req.lora_scale != null) loraScaleEl.value = req.lora_scale;
-    syncLoraScaleVisibility();
+    syncStyleVersionControls();
     
     document.querySelector('#preset').value = ''; // Reset preset since we loaded custom values
     window.scrollTo({ top: 0, behavior: 'smooth' });

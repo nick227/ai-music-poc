@@ -73,9 +73,17 @@ class StyleVersionService:
     def resolve_load_path(self, version_id: str, data_dir: Path) -> str:
         record = self.get_required(version_id)
         run_id = record.training_run_id
-        manifest_path = data_dir / "training_runs" / run_id / "artifacts" / "artifact_manifest.json"
-        if manifest_path.is_file():
+        manifest_paths = [
+            data_dir / "training_runs" / run_id / "artifacts" / "lora_manifest.json",
+            data_dir / "training_runs" / run_id / "artifacts" / "artifact_manifest.json",
+        ]
+        for manifest_path in manifest_paths:
+            if not manifest_path.is_file():
+                continue
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            lora_path = manifest.get("lora_path")
+            if isinstance(lora_path, str) and lora_path.strip():
+                return lora_path.strip()
             load_path = manifest.get("load_path")
             if isinstance(load_path, str) and load_path.strip():
                 return load_path.strip()
@@ -84,3 +92,14 @@ class StyleVersionService:
         if artifact.is_absolute():
             return str(artifact)
         return str((data_dir / artifact).resolve())
+
+    def is_ace_loadable(self, version_id: str, data_dir: Path) -> bool:
+        record = self.get_required(version_id)
+        if "mock" in record.backend.lower():
+            return False
+        load_path = Path(self.resolve_load_path(version_id, data_dir))
+        if load_path.is_file() or not load_path.is_dir():
+            return False
+        studio = (load_path / "lora_config.json").is_file() and (load_path / "lora.safetensors").is_file()
+        peft = (load_path / "adapter_config.json").is_file() and (load_path / "adapter_model.safetensors").is_file()
+        return studio or peft
