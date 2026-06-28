@@ -28,13 +28,24 @@ def test_validate_adapter_artifact_requires_expected_nonzero_files(tmp_path: Pat
     assert missing["artifact_dir_exists"] is False
 
     final_dir.mkdir(parents=True)
-    (final_dir / "adapter_config.json").write_text("{}", encoding="utf-8")
-    (final_dir / "adapter_model.safetensors").write_bytes(b"tiny-real-smoke-fixture")
+    (final_dir / "lora_config.json").write_text("{}", encoding="utf-8")
+    (final_dir / "lora.safetensors").write_bytes(b"tiny-real-smoke-fixture")
 
     valid = validate_adapter_artifact(final_dir)
     assert valid["ok"] is True
-    assert valid["expected_files"]["adapter_config.json"]["nonzero"] is True
-    assert valid["expected_files"]["adapter_model.safetensors"]["nonzero"] is True
+    assert valid["expected_files"]["lora_config.json"]["nonzero"] is True
+    assert valid["expected_files"]["lora.safetensors"]["nonzero"] is True
+
+
+def test_validate_adapter_artifact_accepts_legacy_peft_names(tmp_path: Path) -> None:
+    final_dir = tmp_path / "legacy" / "final"
+    final_dir.mkdir(parents=True)
+    (final_dir / "adapter_config.json").write_text("{}", encoding="utf-8")
+    (final_dir / "adapter_model.safetensors").write_bytes(b"legacy")
+
+    valid = validate_adapter_artifact(final_dir)
+    assert valid["ok"] is True
+    assert valid["legacy_peft_files_accepted"] is True
 
 
 def test_build_report_payload_requires_success_artifact_and_model_version(tmp_path: Path) -> None:

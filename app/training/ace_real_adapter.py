@@ -10,10 +10,11 @@ from app.core.config import Settings
 from app.domain.models import JobStatus
 from app.domain.training_status import real_training_gates_open
 from app.training.ace_train_commands import (
-    adapter_artifacts_valid,
+    LORA_MANIFEST_NAME,
     build_preprocess_command,
     build_train_command,
-    required_adapter_files,
+    normalize_lora_artifact,
+    resolve_lora_files,
     run_adapter_final_dir,
     run_ace_output_dir,
     run_tensors_dir,
@@ -46,9 +47,9 @@ class AceRealTrainingAdapter:
                 update={
                     "backend": "ACE_STEP_REAL_DRY_RUN",
                     "base_model_id": "ace-step-turbo",
-                    "base_model_name": "ACE-Step 1.5 Turbo",
+                    "base_model_name": "ACE-Step v1.5 Turbo",
                     "training_mode": "lora",
-                    "artifact_type": "adapter_dir",
+                    "artifact_type": "lora",
                     "status": JobStatus.SUCCEEDED,
                     "started_at": started,
                     "finished_at": started,
@@ -62,9 +63,9 @@ class AceRealTrainingAdapter:
             update={
                 "backend": "ACE_STEP",
                 "base_model_id": "ace-step-turbo",
-                "base_model_name": "ACE-Step 1.5 Turbo",
+                "base_model_name": "ACE-Step v1.5 Turbo",
                 "training_mode": "lora",
-                "artifact_type": "adapter_dir",
+                "artifact_type": "lora",
                 "status": JobStatus.RUNNING,
                 "started_at": started,
                 "updated_at": started,
@@ -185,23 +186,26 @@ class AceRealTrainingAdapter:
         return result.returncode
 
     def _write_artifact_manifest(self, artifacts_dir: Path, final_dir: Path) -> str | None:
-        if not adapter_artifacts_valid(final_dir):
+        if normalize_lora_artifact(final_dir) is None:
             return None
 
-        config_path, weights_path = required_adapter_files(final_dir)
+        config_path, weights_path = resolve_lora_files(final_dir)
         rel_artifact = f"training_runs/{artifacts_dir.parent.name}/artifacts/ace_output/final"
         payload = {
-            "artifact_type": "ADAPTER_DIR",
+            "artifact_type": "LoRA",
             "artifact_path": "ace_output/final",
             "load_path": str(final_dir.resolve()),
+            "lora_path": str(final_dir.resolve()),
             "required_files": {
-                "adapter_config.json": str(config_path.resolve()),
-                "adapter_model.safetensors": str(weights_path.resolve()),
+                "lora_config.json": str(config_path.resolve()),
+                "lora.safetensors": str(weights_path.resolve()),
             },
             "model_variant": "turbo",
         }
-        manifest_path = artifacts_dir / "artifact_manifest.json"
+        manifest_path = artifacts_dir / LORA_MANIFEST_NAME
         manifest_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        legacy_path = artifacts_dir / "artifact_manifest.json"
+        legacy_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
         return rel_artifact
 
     def _ace_python(self, ace_step_dir: Path) -> Path:

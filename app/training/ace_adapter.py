@@ -22,9 +22,10 @@ class AceTrainingCommandBuilder:
             "backend": "ACE_STEP",
             "config_preset": request.run.config_preset,
             "config": request.run.config,
-            "package_path": str(request.package_path),
             "artifacts_dir": str(request.artifacts_dir),
             "dry_run": True,
+            "reinforcement_mode": request.run.reinforcement_mode,
+            "parent_lora_path": request.run.parent_lora_path,
         }
         safe_write_text(request_file, json.dumps(payload, indent=2))
         return {"request_file": request_file}
@@ -48,6 +49,7 @@ class AceTrainingCommandBuilder:
             "rank": request.run.config.get("rank", ""),
             "learning_rate": request.run.config.get("learning_rate", ""),
             "epochs": request.run.config.get("epochs", ""),
+            "parent_lora_path": request.run.parent_lora_path if request.run.reinforcement_mode == "enabled" else "",
         }
         return render_command(self.settings.ace_train_command_template, values)
 
@@ -82,9 +84,9 @@ class AceTrainingAdapter:
             update={
                 "backend": "ACE_STEP_DRY_RUN",
                 "base_model_id": "ace-step",
-                "base_model_name": "ACE-Step",
+                "base_model_name": "ACE-Step v1.5 Turbo",
                 "training_mode": "lora",
-                "artifact_type": "adapter_dir",
+                "artifact_type": "lora",
                 "status": JobStatus.SUCCEEDED,
                 "started_at": started,
                 "finished_at": started,

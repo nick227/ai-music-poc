@@ -152,13 +152,28 @@ ensure_ace_venv() {
 }
 
 warn_if_checkpoints_missing() {
-  if [[ -d "${ACE_MODEL_DIR}/acestep-v15-turbo" ]]; then
+  local turbo="${ACE_MODEL_DIR}/acestep-v15-turbo/model.safetensors"
+  local symlink_count=0
+
+  if [[ -d "${ACE_MODEL_DIR}" ]]; then
+    symlink_count=$(find "${ACE_MODEL_DIR}" -type l 2>/dev/null | wc -l)
+  fi
+
+  if [[ "$symlink_count" -gt 0 ]]; then
+    echo
+    echo "WARNING: ${symlink_count} symlink(s) under ${ACE_MODEL_DIR}"
+    echo "         Use real weight files there (not /mnt/c HF cache symlinks) for stable Linux inference."
+    echo
+  fi
+
+  if [[ -f "$turbo" && ! -L "$turbo" ]]; then
     return 0
   fi
+
   echo
-  echo "WARNING: ACE checkpoints not found under ${ACE_MODEL_DIR}"
-  echo "         Procedural generation still works. Neural ACE jobs need models."
-  echo "         After bootstrap, run:"
+  echo "WARNING: ACE weight files not ready under ${ACE_MODEL_DIR}"
+  echo "         Procedural generation still works. Neural ACE jobs need model weights."
+  echo "         Download once with:"
   echo "           cd ${ACE_STEP_DIR} && uv run acestep-download"
   echo
 }

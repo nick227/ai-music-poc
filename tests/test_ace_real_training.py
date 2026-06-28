@@ -195,9 +195,9 @@ def test_real_adapter_dry_run_never_starts_subprocess(tmp_path):
     assert result.dry_run is True
     assert result.run.artifact_path is None
     assert result.run.base_model_id == "ace-step-turbo"
-    assert result.run.base_model_name == "ACE-Step 1.5 Turbo"
+    assert result.run.base_model_name == "ACE-Step v1.5 Turbo"
     assert result.run.training_mode == "lora"
-    assert result.run.artifact_type == "adapter_dir"
+    assert result.run.artifact_type == "lora"
     command_path = request.run_dir / "ace_train_command.json"
     payload = json.loads(command_path.read_text(encoding="utf-8"))
     assert payload["preprocess_command"][1:3] == ["-m", "acestep.training_v2.cli.train_fixed"]
@@ -206,7 +206,7 @@ def test_real_adapter_dry_run_never_starts_subprocess(tmp_path):
     assert "--dry-run" in result.command
 
 
-def test_real_adapter_sets_artifact_path_only_when_final_adapter_files_exist(tmp_path):
+def test_real_adapter_normalizes_ace_peft_output_to_studio_lora_files(tmp_path):
     request = _training_request(tmp_path)
     settings = _real_settings(tmp_path)
     final_dir = adapter_final_dir(request.artifacts_dir)
@@ -220,15 +220,18 @@ def test_real_adapter_sets_artifact_path_only_when_final_adapter_files_exist(tmp
     assert result.run.artifact_path is not None
     assert result.run.artifact_path.endswith("artifacts/ace_output/final")
     assert result.run.base_model_id == "ace-step-turbo"
-    assert result.run.base_model_name == "ACE-Step 1.5 Turbo"
+    assert result.run.base_model_name == "ACE-Step v1.5 Turbo"
     assert result.run.training_mode == "lora"
-    assert result.run.artifact_type == "adapter_dir"
-    manifest = json.loads((request.artifacts_dir / "artifact_manifest.json").read_text(encoding="utf-8"))
-    assert manifest["artifact_type"] == "ADAPTER_DIR"
+    assert result.run.artifact_type == "lora"
+    assert (final_dir / "lora_config.json").is_file()
+    assert (final_dir / "lora.safetensors").is_file()
+    manifest = json.loads((request.artifacts_dir / "lora_manifest.json").read_text(encoding="utf-8"))
+    assert manifest["artifact_type"] == "LoRA"
     assert manifest["artifact_path"] == "ace_output/final"
     assert manifest["load_path"] == str(final_dir.resolve())
-    assert "adapter_config.json" in manifest["required_files"]
-    assert "adapter_model.safetensors" in manifest["required_files"]
+    assert manifest["lora_path"] == str(final_dir.resolve())
+    assert "lora_config.json" in manifest["required_files"]
+    assert "lora.safetensors" in manifest["required_files"]
 
 
 def test_real_adapter_leaves_artifact_path_none_when_final_files_missing(tmp_path):
@@ -237,7 +240,7 @@ def test_real_adapter_leaves_artifact_path_none_when_final_files_missing(tmp_pat
     with patch.object(AceRealTrainingAdapter, "_invoke_runner", return_value=0):
         result = AceRealTrainingAdapter(settings).run(request)
     assert result.run.artifact_path is None
-    assert not (request.artifacts_dir / "artifact_manifest.json").exists()
+    assert not (request.artifacts_dir / "lora_manifest.json").exists()
 
 
 def test_build_ace_dataset_requires_tracks(tmp_path):

@@ -1,8 +1,14 @@
 from __future__ import annotations
 
 from pathlib import Path
+import shutil
 
 ACE_MODEL_VARIANT = "turbo"
+LORA_CONFIG_NAME = "lora_config.json"
+LORA_WEIGHTS_NAME = "lora.safetensors"
+LORA_MANIFEST_NAME = "lora_manifest.json"
+PEFT_CONFIG_NAME = "adapter_config.json"
+PEFT_WEIGHTS_NAME = "adapter_model.safetensors"
 
 
 def ace_checkpoint_dir(ace_step_dir: Path, override: Path | None = None) -> Path:
@@ -53,9 +59,10 @@ def build_train_command(
     rank: int,
     learning_rate: float,
     device: str = "auto",
+    parent_lora_path: str | None = None,
 ) -> list[str]:
     """Verified training entry: train.py fixed with dataset-dir and output-dir."""
-    return [
+    cmd = [
         str(ace_python),
         str(train_script),
         "--yes",
@@ -77,6 +84,9 @@ def build_train_command(
         "--device",
         device,
     ]
+    if parent_lora_path:
+        cmd.extend(["--parent-lora", str(parent_lora_path)])
+    return cmd
 
 
 def adapter_final_dir(artifacts_dir: Path) -> Path:
@@ -100,7 +110,18 @@ def run_adapter_final_dir(run_dir: Path) -> Path:
 
 
 def required_adapter_files(final_dir: Path) -> tuple[Path, Path]:
-    return final_dir / "adapter_config.json", final_dir / "adapter_model.safetensors"
+    return final_dir / PEFT_CONFIG_NAME, final_dir / PEFT_WEIGHTS_NAME
+
+
+def required_lora_files(final_dir: Path) -> tuple[Path, Path]:
+    return final_dir / LORA_CONFIG_NAME, final_dir / LORA_WEIGHTS_NAME
+
+
+def resolve_lora_files(final_dir: Path) -> tuple[Path, Path]:
+    lora_config, lora_weights = required_lora_files(final_dir)
+    if lora_config.is_file() and lora_weights.is_file():
+        return lora_config, lora_weights
+    return required_adapter_files(final_dir)
 
 
 def preprocess_command_with_shim(base_command: list[str], project_root: Path) -> list[str]:
@@ -122,3 +143,28 @@ def train_command_with_shim(base_command: list[str], project_root: Path) -> list
 def adapter_artifacts_valid(final_dir: Path) -> bool:
     config_path, weights_path = required_adapter_files(final_dir)
     return config_path.is_file() and weights_path.is_file()
+
+
+def lora_artifacts_valid(final_dir: Path) -> bool:
+    config_path, weights_path = resolve_lora_files(final_dir)
+    return config_path.is_file() and weights_path.is_file() and config_path.stat().st_size > 0 and weights_path.stat().st_size > 0
+
+
+def normalize_lora_artifact(final_dir: Path) -> tuple[Path, Path] | None:
+    """Copy ACE/PEFT LoRA files to Studio's LoRA-named files.
+
+    ACE/PEFT emits adapter_config.json and adapter_model.safetensors. Studio keeps
+    those files for compatibility but exposes lora_config.json and lora.safetensors.
+    """
+    peft_config, peft_weights = required_adapter_files(final_dir)
+    lora_config, lora_weights = required_lora_files(final_dir)
+    if not peft_config.is_file() or not peft_weights.is_file():
+        if lora_config.is_file() and lora_weights.is_file():
+            return lora_config, lora_weights
+        return None
+    final_dir.mkdir(parents=True, exist_ok=True)
+    if not lora_config.exists() or lora_config.read_bytes() != peft_config.read_bytes():
+        shutil.copy2(peft_config, lora_config)
+    if not lora_weights.exists() or lora_weights.stat().st_size != peft_weights.stat().st_size:
+        shutil.copy2(peft_weights, lora_weights)
+    return lora_config, lora_weights

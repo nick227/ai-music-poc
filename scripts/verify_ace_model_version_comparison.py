@@ -29,7 +29,7 @@ from app.domain.models import JobStatus
 from app.storage.slice_store import SliceStore
 from app.storage.style_version_store import StyleVersionStore
 from app.storage.training_run_store import TrainingRunStore
-from app.training.ace_train_commands import required_adapter_files
+from app.training.ace_train_commands import LORA_MANIFEST_NAME, normalize_lora_artifact, required_adapter_files, resolve_lora_files
 
 DEFAULT_TRAINING_RUN_ID = "train_69be1faca5b9490fa4a6cffa1a15ab90"
 DEFAULT_MODEL_VERSION_ID = "style_d09c797de64c4873856ed4506c80b9e3"
@@ -68,13 +68,17 @@ def _path_from_artifact(data_dir: Path, artifact_path: str) -> Path:
     return data_dir / path
 
 
-def validate_adapter_package(adapter_dir: Path, training_run_dir: Path) -> dict[str, Any]:
-    config_path, weights_path = required_adapter_files(adapter_dir)
-    manifest_path = training_run_dir / "artifacts" / "artifact_manifest.json"
+def validate_lora_package(lora_dir: Path, training_run_dir: Path) -> dict[str, Any]:
+    config_path, weights_path = resolve_lora_files(lora_dir)
+    legacy_config_path, legacy_weights_path = required_adapter_files(lora_dir)
+    manifest_path = training_run_dir / "artifacts" / LORA_MANIFEST_NAME
+    legacy_manifest_path = training_run_dir / "artifacts" / "artifact_manifest.json"
+    if not manifest_path.is_file() and legacy_manifest_path.is_file():
+        manifest_path = legacy_manifest_path
     files = {
-        "adapter_config.json": config_path,
-        "adapter_model.safetensors": weights_path,
-        "artifact_manifest.json": manifest_path,
+        config_path.name: config_path,
+        weights_path.name: weights_path,
+        manifest_path.name: manifest_path,
     }
     details: dict[str, dict[str, Any]] = {}
     for name, path in files.items():
@@ -87,9 +91,10 @@ def validate_adapter_package(adapter_dir: Path, training_run_dir: Path) -> dict[
             "nonzero": size > 0,
         }
     return {
-        "adapter_dir": str(adapter_dir),
+        "lora_dir": str(lora_dir),
         "files": details,
-        "ok": adapter_dir.is_dir() and all(item["exists"] and item["nonzero"] for item in details.values()),
+        "legacy_peft_files_accepted": legacy_config_path.is_file() and legacy_weights_path.is_file(),
+        "ok": lora_dir.is_dir() and all(item["exists"] and item["nonzero"] for item in details.values()),
     }
 
 
@@ -138,7 +143,7 @@ def _build_generation_command(
     device: str,
     seed: int,
     use_lora: bool,
-    adapter_dir: Path | None,
+    lora_dir: Path | None,
 ) -> list[str]:
     return [
         str(ace_python),
@@ -169,7 +174,7 @@ def _build_generation_command(
         "--use-lora",
         "true" if use_lora else "false",
         "--lora-path",
-        str(adapter_dir) if use_lora and adapter_dir is not None else "__none__",
+        str(lora_dir) if use_lora and lora_dir is not None else "__none__",
         "--lora-scale",
         str(RUNTIME_CONFIG["lora_scale"]),
     ]
@@ -225,7 +230,8 @@ def _write_markdown_report(report: dict[str, Any], path: Path) -> None:
         f"- Training Run: `{report['training_run_id']}`",
         f"- Frozen Dataset: `{report['frozen_dataset_id']}`",
         f"- Frozen Manifest Hash: `{report['frozen_dataset_manifest_hash']}`",
-        f"- Adapter: `{report['adapter_artifact_path']}`",
+        f"- Type: `LoRA`",
+        f"- LoRA: `{report['lora_path']}`",
         "",
         "## Manual Listening Checklist",
         "",
@@ -280,10 +286,11 @@ def verify_ace_model_version_comparison(
     if not training_run.artifact_path:
         raise RuntimeError("TrainingRun has no artifact_path")
 
-    adapter_dir = _path_from_artifact(settings.data_dir, training_run.artifact_path)
-    adapter_validation = validate_adapter_package(adapter_dir, run_store.run_dir(training_run.id))
-    if not adapter_validation["ok"]:
-        raise RuntimeError(f"Adapter package validation failed: {adapter_validation}")
+    lora_dir = _path_from_artifact(settings.data_dir, training_run.artifact_path)
+    normalize_lora_artifact(lora_dir)
+    lora_validation = validate_lora_package(lora_dir, run_store.run_dir(training_run.id))
+    if not lora_validation["ok"]:
+        raise RuntimeError(f"LoRA package validation failed: {lora_validation}")
 
     dataset = slice_store.get(training_run.dataset_slice_id)
     if dataset is None:
@@ -334,7 +341,7 @@ def verify_ace_model_version_comparison(
                 device=settings.ace_device,
                 seed=int(pair["seed"]),
                 use_lora=use_lora,
-                adapter_dir=adapter_dir,
+                lora_dir=lora_dir,
             )
             started_at = datetime.now(timezone.utc).isoformat()
             returncode = _run_generation(
@@ -368,9 +375,11 @@ def verify_ace_model_version_comparison(
         "verified_at": datetime.now(timezone.utc).isoformat(),
         "model_version_id": model_version.id,
         "training_run_id": training_run.id,
-        "adapter_artifact_path": str(adapter_dir / "adapter_model.safetensors"),
-        "adapter_dir": str(adapter_dir),
-        "adapter_validation": adapter_validation,
+        "type": "LoRA",
+        "lora_path": str(lora_dir),
+        "lora_artifact_path": str(resolve_lora_files(lora_dir)[1]),
+        "lora_dir": str(lora_dir),
+        "lora_validation": lora_validation,
         "frozen_dataset_id": dataset.id,
         "frozen_dataset_name": dataset.name,
         "frozen_dataset_manifest_hash": frozen_manifest_hash,

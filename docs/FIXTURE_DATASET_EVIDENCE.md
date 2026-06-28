@@ -4,6 +4,14 @@ This covers the first evidence phases of the training and fine-tuning pipeline. 
 
 Normal verification and pytest do not run ACE fine-tuning.
 
+Product terminology:
+
+- Base Model: ACE-Step v1.5 Turbo
+- Model Version: user-facing object created from a successful TrainingRun
+- Type: LoRA
+- Generation uses: Base Model + LoRA
+- Checkpoint: reserved for full ACE base model files under the external ACE runtime
+
 ## What It Proves
 
 - Fixture WAVs exist under `data/fixtures/audio/<slug>/`.

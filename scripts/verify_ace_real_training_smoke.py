@@ -33,8 +33,9 @@ from app.storage.slice_store import SliceStore
 from app.storage.style_version_store import StyleVersionStore
 from app.storage.training_run_store import TrainingRunStore
 from app.training.ace_train_commands import required_adapter_files, run_adapter_final_dir
+from app.training.ace_train_commands import normalize_lora_artifact, resolve_lora_files
 from scripts.verify_ace_training_contract_flow import _absolute_no_symlink, _services, verify_ace_training_contract_flow
-from scripts.verify_mock_training_lineage_flow import ARTIFACT_TYPE, BASE_MODEL_NAME, TRAINING_MODE
+from scripts.verify_mock_training_lineage_flow import ARTIFACT_TYPE, BASE_MODEL_ID, BASE_MODEL_NAME, TRAINING_MODE
 
 GATE_ENV = "ACE_REAL_TRAINING_SMOKE"
 
@@ -85,7 +86,8 @@ def collect_produced_files(run_dir: Path) -> list[dict[str, Any]]:
 
 
 def validate_adapter_artifact(final_dir: Path) -> dict[str, Any]:
-    config_path, weights_path = required_adapter_files(final_dir)
+    config_path, weights_path = resolve_lora_files(final_dir)
+    legacy_config_path, legacy_weights_path = required_adapter_files(final_dir)
     expected_files: dict[str, dict[str, Any]] = {}
     for path in (config_path, weights_path):
         exists = path.is_file()
@@ -100,6 +102,7 @@ def validate_adapter_artifact(final_dir: Path) -> dict[str, Any]:
         "artifact_dir": str(final_dir),
         "artifact_dir_exists": final_dir.is_dir(),
         "expected_files": expected_files,
+        "legacy_peft_files_accepted": legacy_config_path.is_file() and legacy_weights_path.is_file(),
         "ok": final_dir.is_dir() and all(item["exists"] and item["nonzero"] for item in expected_files.values()),
     }
 
@@ -227,7 +230,7 @@ def _create_training_run(
         name="Bell fixture ACE real smoke",
         dataset_slice_id=dataset_id,
         backend="ace-step-real-smoke",
-        base_model_id=BASE_MODEL_NAME,
+        base_model_id=BASE_MODEL_ID,
         base_model_name=BASE_MODEL_NAME,
         training_mode=TRAINING_MODE,
         artifact_type=ARTIFACT_TYPE,
@@ -326,6 +329,7 @@ def verify_ace_real_training_smoke(*, run_training: bool = False) -> dict[str, A
     end_time = datetime.now(timezone.utc).isoformat()
 
     final_dir = run_adapter_final_dir(run_dir)
+    normalize_lora_artifact(final_dir)
     artifact_validation = validate_adapter_artifact(final_dir)
     produced_files = collect_produced_files(run_dir)
     artifact_rel = _relative_to_data(final_dir, settings.data_dir)
@@ -419,7 +423,7 @@ def main() -> int:
         print(f"Frozen Bell dataset: {report['frozen_dataset_id']}")
         print(f"Training run: {report['training_run']['id']}")
         print(f"Model version: {report['training_run']['model_version_id']}")
-        print(f"Artifact: {report['training_run']['artifact_path']}")
+        print(f"LoRA: {report['training_run']['artifact_path']}")
         print(f"Report: {report['report_path']}")
     return 0
 

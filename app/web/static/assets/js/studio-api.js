@@ -22,7 +22,7 @@ window.StudioApi = {
     return this.request(`/api/media/${id}`);
   },
   listCategories() {
-    return this.request('/api/categories');
+    return this.request('/api/categories').then((r) => r.categories || []);
   },
   listConcepts() {
     return this.request('/api/concepts').then((r) => r.concepts || []);

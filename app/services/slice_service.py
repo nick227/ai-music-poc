@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from app.core.errors import NotFoundError, ValidationAppError
-from app.domain.enums import DatasetSliceStatus
+from app.domain.enums import ConfidenceTier, DatasetSliceStatus
 from app.domain.slices import DatasetSlice, DatasetSliceFilter
 from app.domain.text_utils import slugify
 from app.services.category_service import CategoryService
@@ -91,6 +91,7 @@ class SliceService:
         description: str | None = None,
         filter: DatasetSliceFilter | None = None,
         media_ids: list[str] | None = None,
+        confidence_tier: ConfidenceTier | None = None,
     ) -> DatasetSlice:
         record = self.get_required(slice_id)
         if record.status == DatasetSliceStatus.ARCHIVED:
@@ -120,6 +121,9 @@ class SliceService:
             resolved_ids = self._resolve_media_ids(next_filter, None)
             updates["media_ids"] = resolved_ids
             updates["asset_count"] = len(resolved_ids)
+
+        if confidence_tier is not None:
+            updates["confidence_tier"] = confidence_tier
 
         updated = record.model_copy(update=updates)
         self.slice_store.save(updated)

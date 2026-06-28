@@ -31,9 +31,10 @@ from app.storage.training_run_store import TrainingRunStore
 from scripts.verify_fixture_dataset_flow import verify_fixture_dataset_flow
 
 
-BASE_MODEL_NAME = "acestep-v15-turbo"
+BASE_MODEL_ID = "acestep-v15-turbo"
+BASE_MODEL_NAME = "ACE-Step v1.5 Turbo"
 TRAINING_MODE = "lora_finetune"
-ARTIFACT_TYPE = "lora_adapter"
+ARTIFACT_TYPE = "lora"
 
 
 def _sha256(path: Path) -> str:
@@ -99,7 +100,7 @@ def verify_mock_training_lineage_flow() -> dict:
         name="Bell fixture mock LoRA evidence",
         dataset_slice_id=bell_dataset.id,
         backend="mock-training-evidence",
-        base_model_id=BASE_MODEL_NAME,
+        base_model_id=BASE_MODEL_ID,
         base_model_name=BASE_MODEL_NAME,
         training_mode=TRAINING_MODE,
         artifact_type=ARTIFACT_TYPE,
@@ -116,7 +117,7 @@ def verify_mock_training_lineage_flow() -> dict:
     run_store.write_config(run.id, config)
     run_store.append_log(run.id, "phase 2 evidence: mock training started")
 
-    artifact_rel = f"training_runs/{run.id}/artifacts/adapter.safetensors"
+    artifact_rel = f"training_runs/{run.id}/artifacts/lora.safetensors"
     artifact_path = settings.data_dir / artifact_rel
     artifact_payload = {
         "format": "mock-lora-adapter",
@@ -124,6 +125,7 @@ def verify_mock_training_lineage_flow() -> dict:
         "dataset_slice_id": bell_dataset.id,
         "dataset_manifest_hash": manifest_hash,
         "base_model_name": BASE_MODEL_NAME,
+        "base_model_id": BASE_MODEL_ID,
         "training_mode": TRAINING_MODE,
         "artifact_type": ARTIFACT_TYPE,
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -132,16 +134,19 @@ def verify_mock_training_lineage_flow() -> dict:
 
     artifact_manifest = {
         "artifact_type": ARTIFACT_TYPE,
-        "artifact_path": "adapter.safetensors",
+        "artifact_path": "lora.safetensors",
         "load_path": str(artifact_path.resolve()),
+        "lora_path": str(artifact_path.resolve()),
         "training_run_id": run.id,
         "dataset_slice_id": bell_dataset.id,
         "dataset_manifest_hash": manifest_hash,
         "base_model_name": BASE_MODEL_NAME,
         "training_mode": TRAINING_MODE,
     }
-    artifact_manifest_path = run_store.artifacts_dir(run.id) / "artifact_manifest.json"
+    artifact_manifest_path = run_store.artifacts_dir(run.id) / "lora_manifest.json"
     artifact_manifest_path.write_text(json.dumps(artifact_manifest, indent=2), encoding="utf-8")
+    legacy_manifest_path = run_store.artifacts_dir(run.id) / "artifact_manifest.json"
+    legacy_manifest_path.write_text(json.dumps(artifact_manifest, indent=2), encoding="utf-8")
 
     finished_at = datetime.now(timezone.utc)
     run = run.model_copy(

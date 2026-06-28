@@ -30,54 +30,60 @@
       <section id="live-run-panel" class="card workbench-panel hidden">
         <div class="panel-head">
           <div>
-            <h2>Active training run</h2>
-            <p class="panel-lead">Live progress for the run in progress. Only one training job runs at a time.</p>
+            <h2>Active batch job</h2>
+            <p class="panel-lead">Live progress for the batch job in progress.</p>
           </div>
           <span id="live-run-badge" class="status-pill running"></span>
         </div>
+        
+        <div id="batch-queue-container" class="batch-queue-container">
+          <!-- Queue items will be injected here -->
+        </div>
+
         <p id="live-run-name" class="live-run-name"></p>
         <pre id="live-run-log" class="active-run-log"></pre>
         <div class="panel-actions">
-          <button type="button" id="cancel-run-btn" class="ghost hidden" disabled>Cancel run</button>
+          <button type="button" id="cancel-run-btn" class="ghost hidden" disabled>Cancel job</button>
         </div>
       </section>
 
-      <section class="card workbench-panel">
+      <section class="card workbench-panel" style="position: relative; padding-bottom: 72px;">
         <div class="panel-head">
           <div>
-            <h2>Datasets</h2>
-            <p class="panel-lead">Tagged songs become frozen training packages. Each package can be fine-tuned once or re-run to produce a new model version.</p>
+            <h2>Dataset Library</h2>
           </div>
         </div>
 
-        <div id="pending-songs-summary" class="pending-summary muted">Loading pending songs…</div>
-
         <div class="panel-actions dataset-toolbar">
-          <button type="button" id="generate-datasets-btn" class="button primary" title="Group tagged songs by category combos and suggest trainable datasets">Scan for dataset candidates</button>
-          <button type="button" id="run-all-untrained-btn" class="button ghost" title="Start fine-tuning for every frozen package that has never been trained">Run all untrained</button>
-          <button type="button" id="package-all-btn" class="button ghost" title="Freeze all pending tagged songs into one training package">Package all pending songs</button>
-          <p id="package-feedback" class="save-feedback" hidden aria-live="polite"></p>
+          <button type="button" id="select-all-datasets-btn" class="button ghost">Select all</button>
+          <button type="button" id="generate-datasets-btn" class="button ghost" title="Scan available songs and suggest dataset combinations">Scan for dataset candidates</button>
         </div>
+        
+        <div class="batch-runner-toolbar" id="batch-runner-toolbar" hidden>
+          <div class="batch-runner-info">
+            <span class="batch-runner-count" id="batch-runner-count">0 selected</span>
+            <span class="batch-runner-hint muted">Datasets will be queued and processed sequentially.</span>
+          </div>
+          <button type="button" id="start-batch-run-btn" class="button primary">Start Batch Run</button>
+        </div>
+        
         <p id="package-status" class="panel-status muted"></p>
-
         <div class="dataset-subsection">
-          <h3 class="subsection-title">Dataset candidates</h3>
-          <p class="subsection-hint muted">Suggested groupings from tagged songs. Freeze a candidate to make it trainable.</p>
-          <div id="candidates-list" class="history-list"></div>
+          <h3 class="subsection-title">Available Datasets</h3>
+          <div id="untrained-datasets-list" class="dataset-grid"></div>
         </div>
 
         <div class="dataset-subsection">
-          <h3 class="subsection-title">Training packages</h3>
-          <p class="subsection-hint muted">Frozen datasets ready for fine-tuning. Training history is tracked per package.</p>
-          <div id="packages-list" class="history-list"></div>
+          <h3 class="subsection-title">Processed Datasets</h3>
+          <div id="trained-datasets-list" class="dataset-grid"></div>
         </div>
+
       </section>
 
       <section class="card workbench-panel">
         <div class="panel-head">
           <div>
             <h2>Training Runs</h2>
-            <p class="panel-lead">History of fine-tuning jobs. Click a run to view its log. Re-running the same package creates a new model version.</p>
           </div>
         </div>
         <div id="runs-list" class="history-list"></div>

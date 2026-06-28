@@ -6,8 +6,8 @@ from pathlib import Path
 from scripts.verify_ace_model_version_comparison import (
     build_generation_pairs,
     slugify,
-    validate_adapter_package,
     validate_generated_audio,
+    validate_lora_package,
 )
 
 
@@ -25,20 +25,20 @@ def test_slugify_returns_stable_safe_filename_piece() -> None:
     assert slugify("!!!") == "prompt"
 
 
-def test_validate_adapter_package_requires_manifest_and_adapter_files(tmp_path: Path) -> None:
+def test_validate_lora_package_requires_manifest_and_lora_files(tmp_path: Path) -> None:
     run_dir = tmp_path / "training_runs" / "train_ok"
-    adapter_dir = run_dir / "artifacts" / "ace_output" / "final"
-    adapter_dir.mkdir(parents=True)
-    (adapter_dir / "adapter_config.json").write_text("{}", encoding="utf-8")
-    (adapter_dir / "adapter_model.safetensors").write_bytes(b"adapter")
+    lora_dir = run_dir / "artifacts" / "ace_output" / "final"
+    lora_dir.mkdir(parents=True)
+    (lora_dir / "lora_config.json").write_text("{}", encoding="utf-8")
+    (lora_dir / "lora.safetensors").write_bytes(b"lora")
 
-    missing_manifest = validate_adapter_package(adapter_dir, run_dir)
+    missing_manifest = validate_lora_package(lora_dir, run_dir)
     assert missing_manifest["ok"] is False
 
-    (run_dir / "artifacts" / "artifact_manifest.json").write_text("{}", encoding="utf-8")
-    valid = validate_adapter_package(adapter_dir, run_dir)
+    (run_dir / "artifacts" / "lora_manifest.json").write_text("{}", encoding="utf-8")
+    valid = validate_lora_package(lora_dir, run_dir)
     assert valid["ok"] is True
-    assert valid["files"]["adapter_model.safetensors"]["nonzero"] is True
+    assert valid["files"]["lora.safetensors"]["nonzero"] is True
 
 
 def test_validate_generated_audio_reports_rms_peak_and_duration(tmp_path: Path) -> None:

@@ -177,12 +177,59 @@ class TrainingService:
             config["batch_size"] = ace_cfg.get("batch_size")
 
         now = datetime.now(timezone.utc)
+        
+        target_slice = self.slice_service.get_required(dataset_slice_id)
+        target_cats = sorted(target_slice.filter.category_ids)
+        
+        base_model_id = "acestep-v15-turbo"
+        base_model_name = "ACE-Step v1.5 Turbo"
+        
+        parent_lora_id = None
+        parent_lora_path = None
+        reinforcement_mode = "none"
+        
+        # Check explicit reinforcement request
+        explicit_reinforce_id = config.get("reinforce_from_lora_id")
+        
+        if target_cats:
+            # Find an existing style version that matches these exact categories
+            all_styles = self.style_version_service.list_all()
+            all_styles.sort(key=lambda s: s.created_at, reverse=True)
+            
+            for style in all_styles:
+                if style.status not in {StyleVersionStatus.ACTIVE, StyleVersionStatus.CANDIDATE}:
+                    continue
+                try:
+                    old_slice = self.slice_service.get_required(style.dataset_slice_id)
+                    old_cats = sorted(old_slice.filter.category_ids)
+                    if old_cats == target_cats:
+                        parent_lora_id = style.id
+                        reinforcement_mode = "suggested"
+                        break
+                except Exception:
+                    continue
+                    
+        # Apply explicit reinforcement if valid
+        if explicit_reinforce_id:
+            try:
+                explicit_style = self.style_version_service.get_required(explicit_reinforce_id)
+                parent_lora_id = explicit_style.id
+                parent_lora_path = explicit_style.artifact_path
+                reinforcement_mode = "enabled"
+            except Exception:
+                pass
+
         run = TrainingRun(
             name=name,
             dataset_slice_id=dataset_slice_id,
             backend=self.adapter.name,
             config_preset=config_preset,
             config=config,
+            base_model_id=base_model_id,
+            base_model_name=base_model_name,
+            parent_lora_id=parent_lora_id,
+            parent_lora_path=parent_lora_path,
+            reinforcement_mode=reinforcement_mode,
             created_at=now,
             updated_at=now,
         )

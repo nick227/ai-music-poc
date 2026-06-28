@@ -14,15 +14,18 @@ class TrainingRun(BaseModel):
     name: str
     dataset_slice_id: str
     backend: str = "MOCK"
-    base_model_id: str = "ace-v1"
-    base_model_name: str = "ACE v1.0"
+    base_model_id: str = "acestep-v15-turbo"
+    base_model_name: str = "ACE-Step v1.5 Turbo"
     training_mode: str = "lora"
-    artifact_type: str = "adapter"
+    artifact_type: str = "lora"
     config_preset: str
     config: dict[str, Any] = Field(default_factory=dict)
     status: JobStatus = JobStatus.QUEUED
     artifact_path: Optional[str] = None
     style_version_id: Optional[str] = None
+    parent_lora_id: Optional[str] = None
+    parent_lora_path: Optional[str] = None
+    reinforcement_mode: str = "none"
     error: Optional[str] = None
     started_at: Optional[datetime] = None
     finished_at: Optional[datetime] = None

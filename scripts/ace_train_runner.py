@@ -18,12 +18,13 @@ from app.training.ace_subprocess_env import ace_training_env
 
 from app.training.ace_package_converter import unpack_studio_package, write_ace_dataset_json
 from app.training.ace_train_commands import (
-    adapter_artifacts_valid,
     build_preprocess_command,
     build_train_command,
+    LORA_MANIFEST_NAME,
+    normalize_lora_artifact,
     preprocess_command_with_shim,
     train_command_with_shim,
-    required_adapter_files,
+    resolve_lora_files,
     run_adapter_final_dir,
     run_ace_output_dir,
     run_artifacts_dir,
@@ -38,6 +39,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--log", required=True, help="Training log file path")
     parser.add_argument("--checkpoint-dir", default=None, help="ACE checkpoint root directory")
     parser.add_argument("--device", default="auto")
+    parser.add_argument("--parent-lora", dest="parent_lora_path", default=None, help="Path to parent LoRA safetensors")
     parser.add_argument("--ace-step-dir", default=None, help="ACE-Step checkout root")
     parser.add_argument("--dry-run", action="store_true", help="Prepare commands only; do not run ACE subprocesses")
     return parser.parse_args(argv)
@@ -101,21 +103,25 @@ def write_command_manifest(
 
 
 def write_artifact_manifest(artifacts_dir: Path, final_dir: Path) -> Path | None:
-    if not adapter_artifacts_valid(final_dir):
+    normalized = normalize_lora_artifact(final_dir)
+    if normalized is None:
         return None
-    config_path, weights_path = required_adapter_files(final_dir)
+    config_path, weights_path = resolve_lora_files(final_dir)
     payload = {
-        "artifact_type": "ADAPTER_DIR",
+        "artifact_type": "LoRA",
         "artifact_path": "ace_output/final",
         "load_path": str(final_dir.resolve()),
+        "lora_path": str(final_dir.resolve()),
         "required_files": {
-            "adapter_config.json": str(config_path.resolve()),
-            "adapter_model.safetensors": str(weights_path.resolve()),
+            "lora_config.json": str(config_path.resolve()),
+            "lora.safetensors": str(weights_path.resolve()),
         },
         "model_variant": "turbo",
     }
-    path = artifacts_dir / "artifact_manifest.json"
+    path = artifacts_dir / LORA_MANIFEST_NAME
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    legacy_path = artifacts_dir / "artifact_manifest.json"
+    legacy_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     return path
 
 
@@ -170,6 +176,7 @@ def main(argv: list[str] | None = None) -> int:
             rank=int(config.get("rank", 8)),
             learning_rate=float(config.get("learning_rate", 1e-4)),
             device=args.device,
+            parent_lora_path=args.parent_lora_path,
         ),
         ROOT,
     )
@@ -196,7 +203,7 @@ def main(argv: list[str] | None = None) -> int:
 
     manifest = write_artifact_manifest(artifacts_dir, run_adapter_final_dir(run_dir))
     if manifest is None:
-        append_log(log_path, "[ace_train_runner] training finished but adapter artifacts are missing")
+        append_log(log_path, "[ace_train_runner] training finished but LoRA artifacts are missing")
         return 3
     append_log(log_path, f"[ace_train_runner] artifact manifest written to {manifest}")
     return 0

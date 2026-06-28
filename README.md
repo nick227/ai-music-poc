@@ -2,7 +2,7 @@
 
 A local web app for making music from prompts and lyrics. Upload reference tracks, organize them into datasets, generate new songs, and train style models — all from one interface at **http://localhost:8000**.
 
-Drafts can be made instantly on CPU. Higher-quality renders use **ACE-Step**, a separate neural model that lives outside this repo.
+Drafts run instantly on CPU. Higher-quality renders use **ACE-Step**, installed separately under `~/models/ACE-Step-1.5`.
 
 ---
 
@@ -14,7 +14,7 @@ You write a prompt + lyrics
 App creates a job and picks an engine
         ↓
    draft quality  →  fast CPU preview (procedural)
-   balanced/high  →  ACE-Step neural render
+   balanced/high  →  ACE-Step neural render (subprocess)
         ↓
 WAV saved to disk, shown in the UI
 ```
@@ -29,13 +29,26 @@ Package tracks for training  →  run a training job
 Trained style available for future generations
 ```
 
-Everything runs locally. Job state is stored as JSON files under `data/` — no database required.
+Everything runs locally. Job state lives in `data/` as JSON files — no database.
+
+---
+
+## Two repos, one workflow
+
+```
+<anywhere>/ai-music-poc/          ← this app (clone anywhere)
+~/models/ACE-Step-1.5/            ← ACE runtime + weights (fixed location)
+  ├── .venv/                      ← ACE Python env (uv)
+  └── checkpoints/                ← ~11GB model weights (real files, not in app repo)
+```
+
+**Do not** put checkpoints inside this app repo. Weights belong only under `~/models/ACE-Step-1.5/checkpoints`.
 
 ---
 
 ## Install
 
-**You need:** Python 3.10+, `git`, `curl`, `ffmpeg`, and [`uv`](https://docs.astral.sh/uv/) (for ACE-Step's environment).
+**You need:** Python 3.10+, `git`, `curl`, `ffmpeg`, and [`uv`](https://docs.astral.sh/uv/) (for ACE).
 
 ```bash
 git clone <this-repo>
@@ -43,53 +56,54 @@ cd <this-repo>
 ./scripts/dev_bootstrap.sh
 ```
 
-On first run the bootstrap will:
+First run can automatically:
 
-- Create `.env` from `.env.example` if missing
-- Create the app `.venv` and install `requirements.txt` if missing
-- Clone ACE-Step into `~/models/ACE-Step-1.5` if missing
-- Run `uv sync` in ACE if its `.venv` is missing
+- Create `.env` from `.env.example`
+- Create the app `.venv` and install dependencies
+- Clone ACE-Step into `~/models/ACE-Step-1.5`
+- Run `uv sync` in the ACE checkout
 
-Set `AUTO_SETUP=0` to skip clone/venv creation and only validate paths.
+Set `AUTO_SETUP=0` to validate only (no clone/venv creation).
 
-**Manual install** (optional):
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env
-```
-
-After bootstrap, download ACE model weights once:
+**Download model weights** (once, after ACE is installed):
 
 ```bash
 cd ~/models/ACE-Step-1.5 && uv run acestep-download
+```
+
+Weights must be **real files** under `~/models/ACE-Step-1.5/checkpoints`, not symlinks to a Windows cache.
+
+**Verify ACE is ready:**
+
+```bash
+cd <this-repo>
+python scripts/ace_paths_doctor.py
+python scripts/ace_readiness.py --keep-output
 ```
 
 ---
 
 ## Run
 
-**Recommended** — validates ACE paths, exports canonical env vars, starts the app:
+**Recommended:**
 
 ```bash
 ./scripts/dev_bootstrap.sh
 ```
 
-Default mode is **app/subprocess**: ACE runs per job via `scripts/ace_runner.py`. No ACE daemon is started.
+Bootstrap resolves paths from wherever you cloned this repo. ACE paths default to `~/models/ACE-Step-1.5` and are exported into the app process at runtime.
 
-Paths resolve automatically: app repo = wherever you cloned this project; ACE = `~/models/ACE-Step-1.5` (override with `ACE_STEP_DIR` or `ACE_MODELS_ROOT`).
+| `ACE_MODE` | Command | What starts |
+|------------|---------|-------------|
+| `none` (default) | `./scripts/dev_bootstrap.sh` | App only → http://localhost:8000 |
+| `gradio` | `ACE_MODE=gradio ./scripts/dev_bootstrap.sh` | ACE Gradio (:7860) + app |
+| `api` | `ACE_MODE=api ./scripts/dev_bootstrap.sh` | ACE HTTP API (:8001) + app |
 
-| Mode | Command | What starts |
-|------|---------|-------------|
-| App only (default) | `./scripts/dev_bootstrap.sh` | App at http://localhost:8000 |
-| ACE Gradio + app | `ACE_MODE=gradio ./scripts/dev_bootstrap.sh` | Gradio at :7860, then app |
-| ACE API + app | `ACE_MODE=api ./scripts/dev_bootstrap.sh` | API at :8001, then app |
+Default mode is **app/subprocess**: generation calls `scripts/ace_runner.py` per job. No ACE daemon is required. Gradio/API modes are for debugging ACE upstream only.
 
-Log: `logs/app.log` (plus `logs/ace-step-gradio.log` or `logs/ace-step-api.log` in daemon modes).
+Log: `logs/app.log` (bootstrap sets `APP_RELOAD=false` so log writes do not restart the server).
 
-**Without bootstrap** (paths must already be correct in `.env`):
+**Direct start** (hot reload on code changes; `.env` must have correct ACE paths):
 
 ```bash
 python run.py
@@ -103,31 +117,26 @@ pytest
 
 ---
 
-## ACE-Step
+## ACE-Step integration
 
-ACE-Step is **not part of this repo**. It installs separately:
+The app never embeds ACE source code. It shells out to ACE for neural jobs:
 
-```
-~/models/ACE-Step-1.5/     ← neural model + its own Python env
-~/web/ai-music-poc/        ← this app
-```
+| Job | Script |
+|-----|--------|
+| Generation | `scripts/ace_runner.py` |
+| Training | `scripts/ace_train_runner.py` |
 
-The bootstrap script validates ACE paths and passes them into the app. By default it starts **only this app** — ACE runs as a per-job subprocess, not as a background service.
+The app does **not** use `acestep-api` today.
 
-When you generate or train, the app calls `scripts/ace_runner.py` or `scripts/ace_train_runner.py`. It does not call `acestep-api`.
+**Check wiring:** `GET /api/model-status` or generate at balanced/high quality in the UI.
 
-**Check that ACE is wired up:**
-
-- Open http://localhost:8000 and generate something at balanced/high quality, or
-- Hit `GET /api/model-status` in the browser or API client
-
-**Key `.env` settings** (also set automatically by the bootstrap):
+**`.env` paths** (bootstrap exports these at runtime; keep aligned for `python run.py`):
 
 ```env
 ACE_ENABLED=true
-ACE_STEP_DIR=/home/administrator/models/ACE-Step-1.5
-ACE_PYTHON=/home/administrator/models/ACE-Step-1.5/.venv/bin/python
-ACE_MODEL_DIR=/home/administrator/models/ACE-Step-1.5/checkpoints
+ACE_STEP_DIR=${HOME}/models/ACE-Step-1.5
+ACE_PYTHON=${HOME}/models/ACE-Step-1.5/.venv/bin/python
+ACE_MODEL_DIR=${HOME}/models/ACE-Step-1.5/checkpoints
 ```
 
 ---
@@ -158,12 +167,13 @@ Full API reference: [`docs/API.md`](docs/API.md)
 
 | Script | Purpose |
 |--------|---------|
-| `scripts/dev_bootstrap.sh` | Start ACE + app together (day-to-day entry point) |
-| `scripts/ace_runner.py` | Called by the app to generate audio via ACE |
-| `scripts/ace_train_runner.py` | Called by the app to run LoRA training via ACE |
-| `scripts/ace_readiness.py` | Check GPU, ffmpeg, checkpoints, run a smoke test |
+| `scripts/dev_bootstrap.sh` | Day-to-day entry: validate paths, export ACE env, start app |
+| `run.py` | Start app directly (used by bootstrap and manual dev) |
+| `scripts/ace_runner.py` | ACE generation subprocess (called by app) |
+| `scripts/ace_train_runner.py` | ACE training subprocess (called by app) |
+| `scripts/ace_readiness.py` | GPU/ffmpeg/checkpoint check + smoke generation |
+| `scripts/ace_paths_doctor.py` | Diagnose ACE path and config drift |
 | `scripts/ace_smoke_test.py` | Quick ACE integration test |
-| `scripts/ace_paths_doctor.py` | Diagnose ACE path / config problems |
 
 ---
 
@@ -177,6 +187,7 @@ app/web/static/   Browser UI
 data/             Songs, media, jobs, training runs
 docs/             Detailed specs and runbooks
 scripts/          Bootstrap, ACE runners, dev tools
+logs/             Bootstrap runtime logs (gitignored)
 ```
 
 More depth: [`docs/V3_ARCHITECTURE.md`](docs/V3_ARCHITECTURE.md) · [`docs/ROADMAP.md`](docs/ROADMAP.md)

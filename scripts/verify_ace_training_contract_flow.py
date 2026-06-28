@@ -36,7 +36,7 @@ from app.storage.slice_store import SliceStore
 from app.storage.training_run_store import TrainingRunStore
 from app.training.ace_package_converter import unpack_studio_package, write_ace_dataset_json
 from app.training.ace_train_commands import build_preprocess_command, build_train_command, run_ace_output_dir, run_tensors_dir
-from scripts.verify_mock_training_lineage_flow import ARTIFACT_TYPE, BASE_MODEL_NAME, TRAINING_MODE, verify_mock_training_lineage_flow
+from scripts.verify_mock_training_lineage_flow import ARTIFACT_TYPE, BASE_MODEL_ID, BASE_MODEL_NAME, TRAINING_MODE, verify_mock_training_lineage_flow
 
 OLD_WINDOWS_CACHE = "/mnt/c/Users/Administrator/.cache/huggingface/ace-step-checkpoints"
 
@@ -125,7 +125,7 @@ def verify_ace_training_contract_flow() -> dict:
         name="Bell fixture ACE contract evidence",
         dataset_slice_id=dataset.id,
         backend="ace-step-contract",
-        base_model_id=BASE_MODEL_NAME,
+        base_model_id=BASE_MODEL_ID,
         base_model_name=BASE_MODEL_NAME,
         training_mode=TRAINING_MODE,
         artifact_type=ARTIFACT_TYPE,

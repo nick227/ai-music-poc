@@ -7,10 +7,12 @@ window.WorkbenchPackages = (() => {
   let packages = [];
   let runs = [];
   let styleVersions = [];
+  let categories = [];
   let pollTimer = null;
   let activeRunId = null;
   let selectedRunId = null;
   let runAllQueue = [];
+  let selectedDatasets = new Set();
 
   function el(id) {
     return document.getElementById(id);
@@ -50,77 +52,91 @@ window.WorkbenchPackages = (() => {
     if (summary) summary.innerHTML = H.pendingSummaryHtml(readyAudio);
   }
 
-  function renderCandidates() {
-    const list = el('candidates-list');
-    if (!list) return;
-    const items = candidates();
-    if (!items.length) {
-      list.innerHTML = '<p class="empty-hint muted">No candidates yet. Scan tagged songs to discover trainable groupings.</p>';
-      return;
-    }
-    list.innerHTML = items.map((slice) => `
-      <div class="history-row">
-        <div class="history-main">
-          <span class="history-kind">Candidate</span>
-          <span class="history-title">${slice.name}</span>
-          <span class="status-pill draft">${H.tierLabel(slice.confidence_tier)}</span>
-        </div>
-        <p class="history-meta">${slice.asset_count} song${slice.asset_count === 1 ? '' : 's'} · draft · updated ${H.formatWhen(slice.updated_at)}</p>
-        <div class="panel-actions package-actions">
-          <button type="button" class="button small primary freeze-candidate-btn" data-slice-id="${slice.id}">Freeze for training</button>
-        </div>
-      </div>
-    `).join('');
-    list.querySelectorAll('.freeze-candidate-btn').forEach((btn) => {
-      btn.addEventListener('click', () => freezeCandidate(btn.dataset.sliceId, btn).catch((err) => setStatus(err.message, true)));
-    });
+  function formatCategories(categoryIds) {
+    if (!categoryIds || !categoryIds.length) return '';
+    return categoryIds.map((id) => {
+      const cat = categories.find(c => c.id === id);
+      return `<span class="cat-pill">${cat ? cat.name : id}</span>`;
+    }).join('');
   }
 
-  function renderPackages() {
-    const list = el('packages-list');
-    if (!list) return;
-    const busy = globalRunBusy();
-    if (!packages.length) {
-      list.innerHTML = '<p class="empty-hint muted">No frozen training packages yet. Freeze a candidate or package all pending songs.</p>';
-      return;
-    }
-    list.innerHTML = packages.map((pkg) => {
-      const state = H.packageTrainingState(runs, pkg.id, busy);
-      const action = H.trainingActionLabel(state);
-      const disabled = busy && !state.isActive;
-      const btnClass = state.neverTrained ? 'primary' : 'ghost';
-      const title = state.neverTrained
-        ? 'Start the first fine-tuning run for this package'
-        : 'Creates a new training run and model version. Previous runs are kept in history.';
-      return `
-        <div class="history-row${state.isActive ? ' row-active' : ''}">
-          <div class="history-main">
-            <span class="history-kind">Package</span>
-            <span class="history-title">${pkg.name}</span>
-            <span class="status-pill ${state.neverTrained ? 'draft' : state.succeeded ? 'ready' : 'running'}">${state.neverTrained ? 'untrained' : state.isActive ? 'training' : 'trained'}</span>
-          </div>
-          <p class="history-meta">${pkg.track_count} song${pkg.track_count === 1 ? '' : 's'} · frozen ${H.formatWhen(pkg.created_at)}</p>
-          <p class="history-meta training-status-line">${H.trainingStatusLine(state)}</p>
-          <div class="panel-actions package-actions">
-            <a class="button ghost small" href="${pkg.download_url}" download>Download</a>
-            <button type="button" class="button small ${btnClass} start-training-btn" data-slice-id="${pkg.id}" title="${title}" ${disabled ? 'disabled' : ''}>${action}</button>
-          </div>
+  function renderDatasetItem(ds, busy) {
+    const isCandidate = ds.status === 'DRAFT';
+    const state = isCandidate ? { neverTrained: true, isActive: false } : H.packageTrainingState(runs, ds.id, busy);
+    const statusLabel = isCandidate ? H.tierLabel(ds.confidence_tier || 'CANDIDATE') : (state.neverTrained ? 'untrained' : state.isActive ? 'training' : 'trained');
+    const pillClass = isCandidate ? 'draft' : (state.neverTrained ? 'draft' : state.succeeded ? 'ready' : 'running');
+    const isSelected = selectedDatasets.has(ds.id);
+    const cardClass = `dataset-card ${isSelected ? 'selected' : ''} ${state.isActive ? 'row-active' : ''}`;
+    
+    return `
+      <div class="${cardClass}" data-dataset-id="${ds.id}">
+        <div class="dataset-card-check"></div>
+        <div class="history-main">
+          <span class="history-kind">Dataset</span>
+          <span class="history-title">${ds.name}</span>
+          <span class="status-pill ${pillClass}">${statusLabel}</span>
         </div>
-      `;
-    }).join('');
+        <div class="history-categories">${formatCategories(ds.filter?.category_ids)}</div>
+        <p class="history-meta">${ds.asset_count || ds.track_count || 0} song${(ds.asset_count || ds.track_count) === 1 ? '' : 's'} · ${isCandidate ? 'auto-generated' : 'frozen'} ${H.formatWhen(ds.updated_at || ds.created_at)}</p>
+        ${!state.neverTrained ? `<p class="history-meta training-status-line">${H.trainingStatusLine(state)}</p>` : ''}
+      </div>
+    `;
+  }
 
-    list.querySelectorAll('.start-training-btn').forEach((btn) => {
-      btn.addEventListener('click', () => startFineTuning(btn.dataset.sliceId, btn).catch((err) => setStatus(err.message, true)));
+  function updateBatchRunnerToolbar() {
+    const toolbar = el('batch-runner-toolbar');
+    const countEl = el('batch-runner-count');
+    const btn = el('start-batch-run-btn');
+    if (!toolbar || !countEl || !btn) return;
+    
+    const count = selectedDatasets.size;
+    if (count > 0) {
+      toolbar.hidden = false;
+      countEl.textContent = `${count} selected`;
+      btn.disabled = globalRunBusy();
+    } else {
+      toolbar.hidden = true;
+    }
+  }
+
+  function renderDatasets() {
+    const untrainedList = el('untrained-datasets-list');
+    const trainedList = el('trained-datasets-list');
+    if (!untrainedList || !trainedList) return;
+    
+    const busy = globalRunBusy();
+    const allDatasets = [...candidates(), ...packages];
+    
+    const untrained = allDatasets.filter(ds => ds.status === 'DRAFT' || H.packageTrainingState(runs, ds.id, busy).neverTrained);
+    const trained = allDatasets.filter(ds => ds.status !== 'DRAFT' && !H.packageTrainingState(runs, ds.id, busy).neverTrained);
+    
+    if (!untrained.length) {
+      untrainedList.innerHTML = '<p class="empty-hint muted">No untrained datasets. Scan tagged songs to discover trainable groupings.</p>';
+    } else {
+      untrainedList.innerHTML = untrained.map(ds => renderDatasetItem(ds, busy)).join('');
+    }
+
+    if (!trained.length) {
+      trainedList.innerHTML = '<p class="empty-hint muted">No trained datasets yet. Run a batch training above to create a model version.</p>';
+    } else {
+      trainedList.innerHTML = trained.map(ds => renderDatasetItem(ds, busy)).join('');
+    }
+
+    document.querySelectorAll('.dataset-card').forEach((card) => {
+      card.onclick = (e) => {
+        const id = card.dataset.datasetId;
+        if (selectedDatasets.has(id)) {
+          selectedDatasets.delete(id);
+          card.classList.remove('selected');
+        } else {
+          selectedDatasets.add(id);
+          card.classList.add('selected');
+        }
+        updateBatchRunnerToolbar();
+      };
     });
 
-    const untrainedCount = packages.filter((pkg) => H.packageTrainingState(runs, pkg.id, busy).neverTrained).length;
-    const runAllBtn = el('run-all-untrained-btn');
-    if (runAllBtn) {
-      runAllBtn.disabled = !untrainedCount || busy;
-      runAllBtn.textContent = untrainedCount
-        ? `Run all untrained (${untrainedCount})`
-        : 'Run all untrained';
-    }
+    updateBatchRunnerToolbar();
   }
 
   function renderRuns() {
@@ -170,7 +186,8 @@ window.WorkbenchPackages = (() => {
             <span class="history-title">${model.name}</span>
             <span class="status-pill ready">${model.status || 'ACTIVE'}</span>
           </div>
-          <p class="history-meta">Base: ${model.base_model_name || 'ACE v1'} · ${model.training_mode || 'lora'} · ${model.artifact_type || 'adapter'}</p>
+          <p class="history-meta">Base Model: ${model.base_model_name || 'ACE-Step v1.5 Turbo'} · Type: ${model.type || 'LoRA'}</p>
+          <p class="history-meta">Generation uses: Base Model + LoRA</p>
           <p class="history-meta">${lineageText}${run ? ` · ${H.formatWhen(run.finished_at || run.created_at)}` : ''}</p>
         </div>
       `;
@@ -180,8 +197,11 @@ window.WorkbenchPackages = (() => {
   function renderLiveRun(run, logText = '') {
     const panel = el('live-run-panel');
     const cancelBtn = el('cancel-run-btn');
+    const queueContainer = el('batch-queue-container');
     if (!panel) return;
+    
     const isLive = run && (run.status === 'QUEUED' || run.status === 'RUNNING');
+    
     if (!isLive) {
       if (run && run.status === 'SUCCEEDED' && activeRunId === run.id) {
         panel.classList.remove('hidden');
@@ -190,11 +210,12 @@ window.WorkbenchPackages = (() => {
         const logEl = el('live-run-log');
         if (nameEl) nameEl.textContent = run.name;
         if (badgeEl) {
-          badgeEl.textContent = StudioTrainingStatus.runSummary(run);
+          badgeEl.textContent = StudioTrainingStatus.runSummary(run).replace(/training/i, 'processing');
           badgeEl.className = `status-pill ${StudioTrainingStatus.runBadgeClass(run)}`;
         }
         if (logEl) logEl.textContent = logText;
-      } else if (!isLive && !activeRun()) {
+        if (queueContainer) queueContainer.innerHTML = '';
+      } else if (!isLive && !activeRun() && !runAllQueue.length) {
         panel.classList.add('hidden');
       }
       if (cancelBtn) {
@@ -203,20 +224,53 @@ window.WorkbenchPackages = (() => {
       }
       return;
     }
+    
     panel.classList.remove('hidden');
     if (cancelBtn) {
       cancelBtn.classList.remove('hidden');
       cancelBtn.disabled = false;
     }
+    
     const nameEl = el('live-run-name');
     const badgeEl = el('live-run-badge');
     const logEl = el('live-run-log');
     if (nameEl) nameEl.textContent = run.name;
     if (badgeEl) {
-      badgeEl.textContent = StudioTrainingStatus.runSummary(run);
+      badgeEl.textContent = StudioTrainingStatus.runSummary(run).replace(/training/i, 'processing');
       badgeEl.className = `status-pill ${StudioTrainingStatus.runBadgeClass(run)}`;
     }
     if (logEl) logEl.textContent = logText || 'Waiting for logs…';
+
+    // Render visual queue
+    if (queueContainer) {
+      const activePkg = packages.find(p => p.id === run.dataset_slice_id) || slices.find(s => s.id === run.dataset_slice_id);
+      const queueHtml = [];
+      
+      // Active item
+      if (activePkg) {
+        queueHtml.push(`
+          <div class="batch-queue-item active">
+            <span>Processing: <strong>${activePkg.name}</strong></span>
+            <span class="status-pill running">active</span>
+          </div>
+        `);
+      }
+      
+      // Queued items
+      runAllQueue.forEach(sliceId => {
+        const queuedPkg = packages.find(p => p.id === sliceId) || slices.find(s => s.id === sliceId);
+        if (queuedPkg) {
+          queueHtml.push(`
+            <div class="batch-queue-item pending">
+              <span>Waiting: <strong>${queuedPkg.name}</strong></span>
+              <span class="status-pill draft">pending</span>
+            </div>
+          `);
+        }
+      });
+      
+      queueContainer.innerHTML = queueHtml.join('');
+    }
   }
 
   async function toggleRunLog(runId) {
@@ -237,22 +291,23 @@ window.WorkbenchPackages = (() => {
   }
 
   async function refreshAll() {
-    const [readyRes, sliceList, packageList, runList, styles] = await Promise.all([
+    const [readyRes, sliceList, packageList, runList, styles, catList] = await Promise.all([
       StudioApi.getReadyAudio(),
       StudioApi.listSlices(),
       StudioApi.listTrainingPackages(),
       StudioApi.listTrainingRuns(),
       StudioApi.listStyleVersions(),
+      StudioApi.listCategories(),
     ]);
     readyAudio = readyRes;
     slices = sliceList;
     packages = packageList;
     runs = runList;
     styleVersions = styles;
+    categories = catList;
 
     renderPendingSummary();
-    renderCandidates();
-    renderPackages();
+    renderDatasets();
     renderRuns();
     renderModels();
 
@@ -282,7 +337,7 @@ window.WorkbenchPackages = (() => {
     runs = runs.map((item) => (item.id === runId ? run : item));
     renderLiveRun(run, logs.log || '');
     renderRuns();
-    renderPackages();
+    renderDatasets();
     if (selectedRunId === runId) {
       const el = document.getElementById(`run-log-${runId}`);
       if (el) el.textContent = logs.log || 'No log output yet.';
@@ -325,7 +380,7 @@ window.WorkbenchPackages = (() => {
       activeRunId = run.id;
       runs = [run, ...runs.filter((item) => item.id !== run.id)];
       renderLiveRun(run);
-      renderPackages();
+      renderDatasets();
       renderRuns();
       startPolling(run.id);
       setStatus(state.neverTrained ? 'Training started.' : 'Re-run started — a new model version will be created.');
@@ -348,67 +403,73 @@ window.WorkbenchPackages = (() => {
     });
   }
 
-  async function runAllUntrained() {
-    const untrained = packages
-      .filter((pkg) => H.packageTrainingState(runs, pkg.id, false).neverTrained)
-      .map((pkg) => pkg.id);
-    if (!untrained.length) {
-      setStatus('All packages have been trained at least once.');
-      return;
-    }
+  async function startBatchRun() {
+    const ids = Array.from(selectedDatasets);
+    if (!ids.length) return;
+    
     if (globalRunBusy()) {
-      setStatus('A training run is already active.', true);
+      setStatus('A batch job is already active.', true);
       return;
     }
-    runAllQueue = untrained.slice(1);
-    setStatus(`Starting ${untrained.length} training run${untrained.length === 1 ? '' : 's'} sequentially…`);
-    await startFineTuning(untrained[0], null);
+    
+    setStatus(`Preparing ${ids.length} dataset${ids.length === 1 ? '' : 's'} for batch processing...`);
+    const btn = el('start-batch-run-btn');
+    if (btn) btn.disabled = true;
+
+    // Freeze any drafts first
+    try {
+      for (const id of ids) {
+        const slice = slices.find(s => s.id === id) || packages.find(p => p.id === id);
+        if (slice && slice.status === 'DRAFT') {
+          await StudioApi.freezeSlice(id);
+        }
+      }
+    } catch (err) {
+      setStatus(`Failed to freeze dataset: ${err.message}`, true);
+      if (btn) btn.disabled = false;
+      return;
+    }
+
+    await refreshAll();
+    
+    runAllQueue = [...ids];
+    setStatus(`Starting ${runAllQueue.length} batch job${runAllQueue.length === 1 ? '' : 's'} sequentially…`);
+    
+    // Start the first one
+    await maybeStartNextQueuedRun();
+    
+    // Clear selection
+    selectedDatasets.clear();
+    updateBatchRunnerToolbar();
   }
 
-  async function freezeCandidate(sliceId, btn) {
+  function selectAllDatasets() {
+    const allDatasets = [...candidates(), ...packages];
+    if (selectedDatasets.size === allDatasets.length && allDatasets.length > 0) {
+      selectedDatasets.clear();
+    } else {
+      allDatasets.forEach(ds => selectedDatasets.add(ds.id));
+    }
+    renderDatasets();
+  }
+
+  async function trainCandidate(sliceId, btn) {
     btn.disabled = true;
     btn.textContent = 'Freezing…';
     try {
       await StudioApi.freezeSlice(sliceId);
-      setStatus('Candidate frozen — ready for training.');
+      btn.textContent = 'Starting training…';
       await refreshAll();
+      const updatedBtn = document.querySelector(`.start-training-btn[data-slice-id="${sliceId}"]`);
+      await startFineTuning(sliceId, updatedBtn);
     } catch (err) {
       btn.disabled = false;
-      btn.textContent = 'Freeze for training';
+      btn.textContent = 'Train';
       throw err;
     }
   }
 
-  async function packageAllPending() {
-    const button = el('package-all-btn') || el('create-package-btn');
-    if (!button) {
-      setStatus('Package action is unavailable on this page.', true);
-      return;
-    }
-    if (!readyAudio.total) {
-      setStatus('No pending tagged songs to package.', true);
-      return;
-    }
-    await StudioSave.run(
-      button,
-      async () => {
-        const res = await StudioApi.createTrainingPackage({
-          start_training: false,
-          config_preset: 'calibration',
-        });
-        packages = [res.package, ...packages.filter((item) => item.id !== res.package.id)];
-        renderPackages();
-        setStatus(`Packaged ${res.package.track_count} pending song${res.package.track_count === 1 ? '' : 's'}.`);
-        await refreshAll();
-        return res;
-      },
-      {
-        savingLabel: 'Packaging…',
-        successMessage: (res) => `Packaged ${res.package.track_count} song${res.package.track_count === 1 ? '' : 's'}.`,
-        feedbackEl: 'package-feedback',
-      },
-    );
-  }
+
 
   async function scanForCandidates() {
     const btn = el('generate-datasets-btn');
@@ -442,10 +503,9 @@ window.WorkbenchPackages = (() => {
   }
 
   async function init() {
+    bindClick('select-all-datasets-btn', () => selectAllDatasets());
     bindClick('generate-datasets-btn', () => scanForCandidates().catch(() => {}));
-    bindClick('run-all-untrained-btn', () => runAllUntrained().catch((err) => setStatus(err.message, true)));
-    bindClick('package-all-btn', () => packageAllPending().catch(() => {}));
-    bindClick('create-package-btn', () => packageAllPending().catch(() => {}));
+    bindClick('start-batch-run-btn', () => startBatchRun().catch((err) => setStatus(err.message, true)));
     bindClick('cancel-run-btn', () => cancelRun().catch((err) => setStatus(err.message, true)));
     await refreshAll();
   }

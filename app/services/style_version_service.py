@@ -48,6 +48,7 @@ class StyleVersionService:
             base_model_name=run.base_model_name,
             training_mode=run.training_mode,
             artifact_type=run.artifact_type,
+            parent_lora_id=run.parent_lora_id,
             status=status,
             created_at=now,
             updated_at=now,

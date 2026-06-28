@@ -315,6 +315,11 @@ Requires GPU model load + forward passes. **Not executed** in this discovery.
 
 From `trainer_fixed.py` + `trainer_helpers.py` + sidestep docs (confirmed in source for save paths):
 
+These are ACE/PEFT internal filenames. Studio normalizes the successful `final/`
+LoRA into `lora_config.json`, `lora.safetensors`, and `lora_manifest.json` in
+the TrainingRun artifact folder. User-facing product surfaces should call this
+a **LoRA**, not a checkpoint or adapter model.
+
 ```
 {output-dir}/
 ├── final/
@@ -331,7 +336,7 @@ From `trainer_fixed.py` + `trainer_helpers.py` + sidestep docs (confirmed in sou
 
 **LoKR** (`--adapter-type lokr`) writes `lokr_weights.safetensors` instead of PEFT pair.
 
-**Inference-ready path:** `{output-dir}/final/` (or any checkpoint subdirectory — adapter files are flat inside each checkpoint dir).
+**Inference-ready path:** `{output-dir}/final/`. ACE also writes resume directories under its internal `checkpoints/` training-output folder, but Studio Model Versions should point at the normalized LoRA path.
 
 `save_adapter_flat()` uses PEFT `save_pretrained()` → `adapter_config.json` + `adapter_model.safetensors`.
 
@@ -341,7 +346,7 @@ From `trainer_fixed.py` + `trainer_helpers.py` + sidestep docs (confirmed in sou
 
 ### Path to pass
 
-Point at the **directory** containing `adapter_config.json`, not the safetensors file alone:
+Point ACE at the **directory** containing the LoRA files, not an individual safetensors file. Studio can pass a normalized LoRA directory; the runner maps it back to PEFT names only inside the subprocess:
 
 ```
 /full/path/to/output/my_lora/final
