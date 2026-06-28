@@ -71,6 +71,8 @@ def main() -> int:
     print(f"ffprobe:    {hw.ffprobe_path or 'NOT FOUND'}")
     print(f"Model dir:  {hw.checkpoint_dir} (exists={hw.checkpoint_dir_exists})")
     print(f"Turbo ckpt: {hw.turbo_checkpoint or 'NOT FOUND'}")
+    print(f"SFT ckpt:   {hw.sft_checkpoint or 'NOT FOUND'}")
+    print(f"Final SFT:  {'ready' if hw.final_sft_available else 'NOT FOUND (optional)'}")
     print(f"LM safe (0.6B): {hw.lm_safe_checkpoint or 'NOT FOUND'}")
     print(f"LM avail:   {hw.lm_checkpoint or 'none'}")
     print(f"VAE:        {'yes' if hw.vae_present else 'NOT FOUND'}")
@@ -90,6 +92,14 @@ def main() -> int:
         print(f"\nExperimental options ({len(hw.experimental_config_options)}):")
         for exp in hw.experimental_config_options:
             print(f"  - {exp.description}")
+    if hw.final_render_profiles:
+        print(f"\nFinal-render profiles ({len(hw.final_render_profiles)}):")
+        for profile in hw.final_render_profiles:
+            print(
+                f"  - {profile.name}: checkpoint={profile.checkpoint}, "
+                f"steps={profile.inference_steps}, lm={profile.lm_model or 'none'}, "
+                f"offload={profile.offload_to_cpu}"
+            )
 
     # ------------------------------------------------------------------ #
     # 2. Package check
@@ -176,6 +186,10 @@ def main() -> int:
     print(f"generation:   {status.generation_ok}")
     print(f"audio_valid:  {status.audio_valid}")
     print(f"message:      {status.user_message}")
+    if status.lm_warning:
+        print(f"lm_warning:   {status.lm_warning}")
+    if status.final_render_warning:
+        print(f"final_render: {status.final_render_warning}")
 
     return 0 if status.ace_usable else 1
 

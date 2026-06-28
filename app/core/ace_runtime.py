@@ -19,6 +19,7 @@ from typing import Optional
 from pydantic import BaseModel
 
 from app.core.hardware import HardwareProfile, build_hardware_profile
+from app.core.ace_profiles import FINAL_SFT_CHECKPOINT
 
 
 _PROFILE_FILENAME = "ace_hardware_profile.json"
@@ -65,6 +66,7 @@ class AceRuntimeStatus(BaseModel):
     last_smoke_test: SmokeTestResult | None = None
     user_message: str = ""
     lm_warning: str = ""           # non-empty when safe 0.6B LM is absent
+    final_render_warning: str = "" # non-empty when optional acestep-v15-sft is absent
 
 
 # ---------------------------------------------------------------------------
@@ -267,8 +269,15 @@ def build_runtime_status(
         else:
             lm_warning = (
                 "No LM model installed. Safe mode runs without LM. "
-                "Install the safe 0.6B: python scripts/install_ace_lm.py"
+                f"Install the safe 0.6B: python scripts/install_ace_lm.py"
             )
+
+    final_render_warning = ""
+    if not hardware.final_sft_available:
+        final_render_warning = (
+            f"optional final-render checkpoint missing ({FINAL_SFT_CHECKPOINT}). "
+            "Turbo generation is unaffected. Install: python scripts/install_ace_dit.py"
+        )
 
     if not deps_ok:
         msg = "ACE venv packages are not verified. Run the readiness check to confirm installation."
@@ -311,6 +320,7 @@ def build_runtime_status(
         last_smoke_test=last_smoke_test,
         user_message=msg,
         lm_warning=lm_warning,
+        final_render_warning=final_render_warning,
     )
 
 

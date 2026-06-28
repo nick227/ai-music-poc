@@ -296,6 +296,7 @@ def dry_run_lines(args: argparse.Namespace) -> list[str]:
         f"device={args.device}",
         f"duration={args.duration} seed={args.seed} quality={args.quality} guidance_scale={args.guidance_scale}",
         f"offload_to_cpu={args.offload_to_cpu} use_lm={args.use_lm} lm_model={args.lm_model or '(none)'}",
+        f"config_path={args.config_path or '(auto)'} inference_steps={args.inference_steps or '(quality preset)'}",
         f"use_lora={args.use_lora} lora_path={args.lora_path or '(not set)'} lora_scale={args.lora_scale}",
         "",
         "== Voice passthrough (app template only; ACE CLI ignores today) ==",
@@ -353,6 +354,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--use-lm", default="false", help="Enable 5Hz language model preprocessing (true/false)")
     parser.add_argument("--lm-model", default="", help="LM model subfolder or path (e.g. acestep-5Hz-lm-0.6B)")
     parser.add_argument("--inference-steps", type=int, default=None, help="Override diffusion steps (default: quality preset)")
+    parser.add_argument("--config-path", default="", help="DiT checkpoint subfolder (e.g. acestep-v15-sft)")
     parser.add_argument("--batch-size", type=int, default=1, help="Generation batch size")
     parser.add_argument("--dry-run", action="store_true", help="Validate wiring without running ACE-Step inference")
     return parser
@@ -411,7 +413,8 @@ def main(argv: list[str] | None = None) -> int:
                 lm_model_path = lm_model_name
             else:
                 lm_model_path = lm_model_name  # pass as-is; ACE will resolve or error
-        write_config(config_path, {
+        config_path_name = args.config_path.strip()
+        config_values: dict[str, object] = {
             "project_root": str(step_dir),
             "checkpoint_dir": checkpoint_dir_str,
             "backend": "pt",
@@ -440,7 +443,10 @@ def main(argv: list[str] | None = None) -> int:
             "use_lora": use_lora,
             "lora_path": str(ace_lora_path) if use_lora and ace_lora_path is not None else "",
             "lora_scale": args.lora_scale if use_lora else 1.0,
-        })
+        }
+        if config_path_name:
+            config_values["config_path"] = config_path_name
+        write_config(config_path, config_values)
         cmd: list[str] = [
             str(venv_python),
             str(cli_script),

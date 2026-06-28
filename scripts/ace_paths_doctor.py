@@ -17,9 +17,11 @@ except Exception:  # pragma: no cover - lets the doctor report paths in minimal 
     load_dotenv = None
 
 from app.core.config import get_settings
+from app.core.ace_profiles import FINAL_SFT_CHECKPOINT, final_sft_installed
 
 LM_SAFE = "acestep-5Hz-lm-0.6B"
 LM_ADVANCED = "acestep-5Hz-lm-1.7B"
+TURBO_CHECKPOINT = "acestep-v15-turbo"
 
 
 def _resolve(path: Path | None) -> Path | None:
@@ -66,6 +68,7 @@ def main() -> int:
     repos = _find_ace_repos(Path.home())
 
     warnings: list[str] = []
+    optional_notes: list[str] = []
     if ace_step_dir is None:
         warnings.append("ACE_STEP_DIR is not set.")
     elif not ace_step_dir.is_dir():
@@ -92,6 +95,13 @@ def main() -> int:
     elif ace_model_dir is not None and ace_train_checkpoint_dir != ace_model_dir:
         warnings.append("ACE_TRAIN_CHECKPOINT_DIR does not match ACE_MODEL_DIR.")
 
+    if ace_model_dir is not None and ace_model_dir.is_dir():
+        if not final_sft_installed(ace_model_dir):
+            optional_notes.append(
+                f"optional final-render checkpoint missing ({FINAL_SFT_CHECKPOINT}). "
+                "Turbo readiness is unaffected. Install: python scripts/install_ace_dit.py"
+            )
+
     if len(repos) > 1:
         warnings.append("Multiple ACE-Step repositories found under home.")
     if ace_step_dir is not None and repos and ace_step_dir not in repos:
@@ -112,6 +122,10 @@ def main() -> int:
     print()
     print(f"{LM_SAFE} exists:     {LM_SAFE in checkpoint_folders}")
     print(f"{LM_ADVANCED} exists: {LM_ADVANCED in checkpoint_folders}")
+    print(f"{TURBO_CHECKPOINT} exists: {TURBO_CHECKPOINT in checkpoint_folders}")
+    print(f"{FINAL_SFT_CHECKPOINT} exists: {FINAL_SFT_CHECKPOINT in checkpoint_folders}")
+    if ace_model_dir is not None:
+        print(f"{FINAL_SFT_CHECKPOINT} weights ready: {final_sft_installed(ace_model_dir)}")
     print()
     print(f"multiple ACE-Step repos under ~: {len(repos) > 1}")
     for repo in repos:
@@ -121,8 +135,17 @@ def main() -> int:
     if warnings:
         for warning in warnings:
             print(f"  - {warning}")
+    else:
+        print("  (none)")
+    print()
+    print("optional notes:")
+    if optional_notes:
+        for note in optional_notes:
+            print(f"  - {note}")
+    else:
+        print("  (none)")
+    if warnings:
         return 1
-    print("  (none)")
     return 0
 
 

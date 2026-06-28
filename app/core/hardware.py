@@ -17,8 +17,15 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
+from app.core.ace_profiles import (
+    AceRenderProfile,
+    build_final_render_profiles,
+    final_sft_installed,
+)
+
 # Checkpoint subfolder names we recognise, in preference order
 _TURBO_NAMES = ["acestep-v15-turbo", "acestep-v1-turbo", "acestep-v1"]
+_SFT_NAMES = ["acestep-v15-sft", "acestep-v15-base"]
 # 0.6B is ACE's recommended safe tier; 1.7B is advanced/higher VRAM
 _LM_SAFE_NAMES = ["acestep-5Hz-lm-0.6B"]
 _LM_ADVANCED_NAMES = ["acestep-5Hz-lm-1.7B"]
@@ -57,6 +64,8 @@ class HardwareProfile(BaseModel):
     checkpoint_dir: str = ""
     checkpoint_dir_exists: bool = False
     turbo_checkpoint: str = ""      # subfolder name found, e.g. "acestep-v15-turbo"
+    sft_checkpoint: str = ""        # non-turbo DiT for 24–50 step generation
+    final_sft_available: bool = False # acestep-v15-sft weights present
     lm_checkpoint: str = ""         # highest-tier LM found (may be advanced)
     lm_safe_checkpoint: str = ""    # safe-tier LM found (0.6B), or ""
     vae_present: bool = False
@@ -67,6 +76,7 @@ class HardwareProfile(BaseModel):
     safe_recommended_config: AceGenConfig | None = None
     detected_available_config: AceGenConfig | None = None
     experimental_config_options: list[AceGenConfig] = []
+    final_render_profiles: list[AceRenderProfile] = []
 
 
 # ---------------------------------------------------------------------------
@@ -138,11 +148,12 @@ def scan_checkpoints(checkpoint_dir: Path) -> dict[str, object]:
     if not checkpoint_dir.exists():
         return {
             "exists": False, "available": [],
-            "turbo": "", "lm": "", "lm_safe": "",
+            "turbo": "", "sft": "", "lm": "", "lm_safe": "",
             "vae": False, "config": False,
         }
     entries = {p.name for p in checkpoint_dir.iterdir()} if checkpoint_dir.is_dir() else set()
     turbo = next((n for n in _TURBO_NAMES if n in entries), "")
+    sft = next((n for n in _SFT_NAMES if n in entries), "")
     lm_safe = next((n for n in _LM_SAFE_NAMES if n in entries), "")
     # Best available LM: prefer safe, fall back to advanced
     lm = lm_safe or next((n for n in _LM_ADVANCED_NAMES if n in entries), "")
@@ -150,6 +161,7 @@ def scan_checkpoints(checkpoint_dir: Path) -> dict[str, object]:
         "exists": True,
         "available": sorted(entries),
         "turbo": turbo,
+        "sft": sft,
         "lm": lm,
         "lm_safe": lm_safe,
         "vae": "vae" in entries,
@@ -161,7 +173,14 @@ def scan_checkpoints(checkpoint_dir: Path) -> dict[str, object]:
 # Config tier selection
 # ---------------------------------------------------------------------------
 
-def _make_configs(gpu_vram_mb: int, turbo: str, lm_safe: str, lm_advanced: str) -> tuple[AceGenConfig, AceGenConfig, list[AceGenConfig]]:
+def _make_configs(
+    gpu_vram_mb: int,
+    turbo: str,
+    sft: str,
+    lm_safe: str,
+    lm_advanced: str,
+    checkpoint_dir: Path,
+) -> tuple[AceGenConfig, AceGenConfig, list[AceGenConfig]]:
     """
     Return (safe_recommended, detected_available, experimental_options).
 
@@ -237,8 +256,8 @@ def _make_configs(gpu_vram_mb: int, turbo: str, lm_safe: str, lm_advanced: str) 
             device=device,
             description=f"Experimental — {lm_advanced} (higher VRAM; monitor for OOM on {gpu_vram_mb // 1024}GB)",
         ))
-    # More steps is always available as experimental
-    if turbo:
+    # More turbo steps are clamped by ACE; list as experimental for awareness only
+    if turbo and not sft:
         experimental.append(AceGenConfig(
             checkpoint=turbo,
             lm_model=safe_lm,
@@ -247,8 +266,21 @@ def _make_configs(gpu_vram_mb: int, turbo: str, lm_safe: str, lm_advanced: str) 
             inference_steps=24,
             offload_to_cpu=offload,
             device=device,
-            description="Experimental — 24 inference steps (slower, sometimes more musical)",
+            description="Experimental — 24 steps requested but turbo clamps to 8; install acestep-v15-sft",
         ))
+
+    if sft:
+        for profile in build_final_render_profiles(checkpoint_dir):
+            experimental.append(AceGenConfig(
+                checkpoint=profile.checkpoint,
+                lm_model=profile.lm_model,
+                batch_size=profile.batch_size,
+                duration=60,
+                inference_steps=profile.inference_steps,
+                offload_to_cpu=profile.offload_to_cpu,
+                device=device,
+                description=f"{profile.name} — {profile.description}",
+            ))
 
     return safe_cfg, detected_cfg, experimental
 
@@ -287,11 +319,15 @@ def build_hardware_profile(
 
     # Resolve what's present on disk
     turbo: str = ckpt["turbo"]      # type: ignore[assignment]
+    sft: str = ckpt["sft"]          # type: ignore[assignment]
     lm: str = ckpt["lm"]            # type: ignore[assignment]
     lm_safe: str = ckpt["lm_safe"]  # type: ignore[assignment]
     lm_advanced = next((n for n in _LM_ADVANCED_NAMES if n in (ckpt["available"] or [])), "")  # type: ignore[arg-type]
 
-    safe_cfg, detected_cfg, experimental = _make_configs(gpu_vram_mb, turbo, lm_safe, lm_advanced)
+    safe_cfg, detected_cfg, experimental = _make_configs(
+        gpu_vram_mb, turbo, sft, lm_safe, lm_advanced, checkpoint_dir,
+    )
+    final_profiles = build_final_render_profiles(checkpoint_dir)
 
     return HardwareProfile(
         detected_at=now,
@@ -307,6 +343,8 @@ def build_hardware_profile(
         checkpoint_dir=str(checkpoint_dir),
         checkpoint_dir_exists=bool(ckpt["exists"]),
         turbo_checkpoint=turbo,
+        sft_checkpoint=sft,
+        final_sft_available=final_sft_installed(checkpoint_dir),
         lm_checkpoint=lm,
         lm_safe_checkpoint=lm_safe,
         vae_present=bool(ckpt["vae"]),
@@ -315,4 +353,5 @@ def build_hardware_profile(
         safe_recommended_config=safe_cfg,
         detected_available_config=detected_cfg,
         experimental_config_options=experimental,
+        final_render_profiles=final_profiles,
     )

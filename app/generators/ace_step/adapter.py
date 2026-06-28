@@ -11,6 +11,7 @@ from app.core.audio_validation import validate_wav_output
 from app.core.config import Settings
 from app.core.hardware import AceGenConfig
 from app.domain.models import GenerationRequest, GenerationResult, GeneratorInfo
+from app.generators.ace_step.checkpoints import resolve_generation_plan
 from app.generators.ace_step.command_builder import AceCommandBuilder
 from app.generators.ace_step.env import ace_subprocess_env
 from app.generators.ace_step.health import get_ace_status
@@ -39,24 +40,29 @@ def _load_safe_config(settings: Settings) -> AceGenConfig | None:
 
 def _build_runtime_config_record(
     request: GenerationRequest,
-    safe_cfg: AceGenConfig | None,
+    *,
+    checkpoint: str,
+    inference_steps: int,
+    batch_size: int,
     offload_to_cpu: bool,
     profile_detected_at: str,
+    is_turbo: bool,
+    safe_cfg: AceGenConfig | None,
 ) -> dict[str, Any]:
     """Build the ace_runtime_config dict that gets stored on the song."""
     return {
-        "checkpoint": safe_cfg.checkpoint if safe_cfg else "acestep-v15-turbo",
+        "checkpoint": checkpoint,
         "lm_model": "none",
         "use_lm": False,
-        "inference_steps": _QUALITY_STEPS.get(request.quality, 24),
-        "turbo_max_steps": 8,
+        "inference_steps": inference_steps,
+        "turbo_max_steps": 8 if is_turbo else None,
         "batch_size": batch_size,
         "offload_to_cpu": offload_to_cpu,
         "device": safe_cfg.device if safe_cfg else "cuda",
         "seed": request.seed,
         "duration_seconds": request.duration_seconds,
         "runtime_profile_detected_at": profile_detected_at,
-        "config_tier": "safe_recommended" if safe_cfg else "fallback_defaults",
+        "config_tier": "quality_routed" if not is_turbo else ("safe_recommended" if safe_cfg else "fallback_defaults"),
     }
 
 
@@ -129,6 +135,11 @@ class AceStepCommandGenerator:
             
         # Safe tier LM breaks full-length generation (clips to ~10s headless). Keep LM off for songs.
         offload_to_cpu = safe_cfg.offload_to_cpu if safe_cfg is not None else True
+        checkpoint, inference_steps, is_turbo = resolve_generation_plan(
+            quality=request.quality,
+            checkpoint_dir=self.settings.ace_model_dir.expanduser().resolve(),
+        )
+        batch_size = safe_cfg.batch_size if safe_cfg and safe_cfg.batch_size else 1
 
         cmd = self.builder.build(request, output_path)
 
@@ -138,15 +149,16 @@ class AceStepCommandGenerator:
             cmd.append("--offload-to-cpu")
         if "--use-lm" not in cmd_str:
             cmd += ["--use-lm", "false"]
+        if "--config-path" not in cmd_str and checkpoint:
+            cmd += ["--config-path", checkpoint]
         if "--inference-steps" not in cmd_str and "--steps" not in cmd_str:
-            cmd += ["--inference-steps", str(_QUALITY_STEPS.get(request.quality, 24))]
+            cmd += ["--inference-steps", str(inference_steps)]
         if "--batch-size" not in cmd_str:
-            bs = safe_cfg.batch_size if safe_cfg and safe_cfg.batch_size else 1
-            cmd += ["--batch-size", str(bs)]
+            cmd += ["--batch-size", str(batch_size)]
 
         logger.info(
-            "ace_command_start output=%s offload=%s lm=off turbo_steps=%s cmd=%s",
-            output_path, offload_to_cpu, _QUALITY_STEPS.get(request.quality, 24), " ".join(cmd),
+            "ace_command_start output=%s checkpoint=%s steps=%s offload=%s lm=off cmd=%s",
+            output_path, checkpoint, inference_steps, offload_to_cpu, " ".join(cmd),
         )
         started = time.monotonic()
         try:
@@ -193,7 +205,14 @@ class AceStepCommandGenerator:
             command_preview = command_preview[:477] + "..."
 
         runtime_config = _build_runtime_config_record(
-            request, safe_cfg, offload_to_cpu, profile_detected_at,
+            request,
+            checkpoint=checkpoint,
+            inference_steps=inference_steps,
+            batch_size=batch_size,
+            offload_to_cpu=offload_to_cpu,
+            profile_detected_at=profile_detected_at,
+            is_turbo=is_turbo,
+            safe_cfg=safe_cfg,
         )
 
         result_metadata: dict[str, object] = {
