@@ -33,7 +33,7 @@ function versionDetailRows(song) {
     ['Engine', RenderLabels.engineLabel(song)],
     ['LoRA adapter', RenderLabels.loraAdapterLabel(vd)],
     ['Training run', vd.training_run_id],
-    ['LoRA scale', vd.lora_scale],
+    ['LoRA strength', vd.lora_scale != null ? `${vd.lora_scale} (${vd.lora_scale >= 1 ? 'full' : vd.lora_scale <= 0 ? 'off' : 'blend'})` : null],
     ['LoRA loaded', vd.lora_load_succeeded === true ? 'yes' : vd.lora_load_attempted ? 'attempted' : null],
     ['LoRA message', vd.lora_load_message],
     ['Dataset slice', vd.dataset_slice_id],

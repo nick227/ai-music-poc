@@ -52,8 +52,14 @@
             </select>
           </label>
           <label id="lora-scale-wrap" hidden>
-            LoRA scale
-            <input id="lora_scale" name="lora_scale" type="number" min="0" max="2" step="0.05" value="1" />
+            LoRA strength
+            <span class="help">How much the trained adapter affects the output. ACE-Step uses a 0–1 blend: 0 = base model only, 0.5 = half blend, 1 = full adapter (start here). Not a percentage — values above 1 are not supported.</span>
+            <div class="lora-scale-row">
+              <span class="lora-scale-end muted">Off</span>
+              <input id="lora_scale" name="lora_scale" type="range" min="0" max="1" step="0.05" value="1" />
+              <span class="lora-scale-end muted">Full</span>
+              <output id="lora_scale_value" for="lora_scale" class="lora-scale-readout">1.00 · full (recommended)</output>
+            </div>
           </label>
           <label>
             Title

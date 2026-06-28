@@ -73,7 +73,7 @@ class GenerationRequest(BaseModel):
     include_lyrics_in_bundle: bool = True
     style_version_id: Optional[str] = Field(default=None, max_length=80)
     lora_path: Optional[str] = Field(default=None, max_length=1000)
-    lora_scale: float = Field(default=1.0, ge=0.0, le=2.0)
+    lora_scale: float = Field(default=1.0, ge=0.0, le=1.0)
 
     @field_validator("prompt", "lyrics", "title", "negative_prompt")
     @classmethod

@@ -11,6 +11,7 @@ const presetEl = document.querySelector('#preset');
 const styleVersionEl = document.querySelector('#style_version');
 const loraScaleWrap = document.querySelector('#lora-scale-wrap');
 const loraScaleEl = document.querySelector('#lora_scale');
+const loraScaleValueEl = document.querySelector('#lora_scale_value');
 const modelStatusEl = document.querySelector('#model-status');
 const metadataEl = document.querySelector('#metadata');
 const vocalIntensityEl = document.querySelector('#vocal_intensity');
@@ -48,6 +49,21 @@ function formPayload() {
     lora_scale: styleVersionEl.value ? Number(loraScaleEl.value) : 1.0,
   };
 }
+function loraScaleHint(value) {
+  const n = Number(value);
+  if (n <= 0) return '0.00 · off (same as base model)';
+  if (n < 0.35) return `${n.toFixed(2)} · subtle`;
+  if (n < 0.65) return `${n.toFixed(2)} · blended`;
+  if (n < 1) return `${n.toFixed(2)} · strong`;
+  return '1.00 · full (recommended)';
+}
+
+function syncLoraScaleReadout() {
+  if (loraScaleValueEl && loraScaleEl) {
+    loraScaleValueEl.textContent = loraScaleHint(loraScaleEl.value);
+  }
+}
+
 function syncStyleVersionControls() {
   const styled = Boolean(styleVersionEl.value);
   loraScaleWrap.hidden = !styled;
@@ -55,6 +71,10 @@ function syncStyleVersionControls() {
     document.querySelector('#fallback').checked = false;
     const qualityEl = document.querySelector('#quality');
     if (qualityEl.value === 'draft') qualityEl.value = 'balanced';
+    if (loraScaleEl.value === '' || Number(loraScaleEl.value) > 1) {
+      loraScaleEl.value = '1';
+    }
+    syncLoraScaleReadout();
   }
 }
 async function api(url, options = {}) {
@@ -73,6 +93,7 @@ async function loadStyleVersions() {
   syncStyleVersionControls();
 }
 styleVersionEl.addEventListener('change', syncStyleVersionControls);
+loraScaleEl.addEventListener('input', syncLoraScaleReadout);
 async function loadPresets() {
   const data = await api('/api/presets');
   presets = data.presets;
@@ -178,7 +199,8 @@ async function loadJobs() {
     if (req.include_lyrics_in_bundle != null) document.querySelector('#lyrics_bundle').checked = req.include_lyrics_in_bundle;
     if (req.style_version_id) document.querySelector('#style_version').value = req.style_version_id;
     else document.querySelector('#style_version').value = '';
-    if (req.lora_scale != null) loraScaleEl.value = req.lora_scale;
+    if (req.lora_scale != null) loraScaleEl.value = Math.min(1, Math.max(0, Number(req.lora_scale)));
+    syncLoraScaleReadout();
     syncStyleVersionControls();
     
     document.querySelector('#preset').value = ''; // Reset preset since we loaded custom values
@@ -220,6 +242,7 @@ form.addEventListener('submit', async (event) => {
 document.querySelector('#refresh').addEventListener('click', () => loadJobs().catch(err => setError(err.message)));
 presetEl.addEventListener('change', () => applyPreset(presetEl.value));
 vocalIntensityEl.addEventListener('input', () => { vocalIntensityValueEl.textContent = Number(vocalIntensityEl.value).toFixed(2); });
+if (loraScaleEl) syncLoraScaleReadout();
 analyzeBtn.addEventListener('click', async () => {
   setError('');
   analyzeStatusEl.hidden = false;

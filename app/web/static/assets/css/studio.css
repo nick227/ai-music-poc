@@ -135,6 +135,25 @@ button.save-ok {
   color: #bbf7d0;
 }
 
+.lora-scale-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.lora-scale-end {
+  font-size: 12px;
+  min-width: 2rem;
+}
+
+.lora-scale-readout {
+  font-size: 12px;
+  color: #d4d4d8;
+  min-width: 10rem;
+  text-align: right;
+}
+
 @media (max-width: 900px) {
   .detail-grid { grid-template-columns: 1fr; }
 }
