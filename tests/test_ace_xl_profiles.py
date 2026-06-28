@@ -93,14 +93,21 @@ def test_installed_xl_disabled_warning(tmp_path: Path) -> None:
     assert "disabled for app generation" in status.final_render_warning
 
 
-def test_compare_variants_skip_xl_when_missing() -> None:
-    variants, skipped = build_variants(xl_sft_ready=False, xl_turbo_ready=False)
+def test_compare_variants_skip_xl_sft_by_default() -> None:
+    variants, skipped = build_variants(xl_sft_ready=True, xl_turbo_ready=False, include_xl_sft=False)
     assert len(variants) == 1
     assert variants[0]["id"] == "turbo_8"
     assert "xl_sft_24" in skipped
 
 
-def test_compare_variants_include_all_when_installed() -> None:
-    variants, skipped = build_variants(xl_sft_ready=True, xl_turbo_ready=True)
+def test_compare_variants_include_xl_sft_when_requested() -> None:
+    variants, skipped = build_variants(xl_sft_ready=True, xl_turbo_ready=True, include_xl_sft=True)
     assert [v["id"] for v in variants] == ["turbo_8", "xl_turbo_8", "xl_sft_24", "xl_sft_50"]
     assert skipped == []
+
+
+def test_compare_variants_skip_xl_when_missing() -> None:
+    variants, skipped = build_variants(xl_sft_ready=False, xl_turbo_ready=False)
+    assert len(variants) == 1
+    assert variants[0]["id"] == "turbo_8"
+    assert "xl_sft_24" in skipped

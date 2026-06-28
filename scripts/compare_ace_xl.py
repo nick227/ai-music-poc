@@ -71,17 +71,25 @@ def _write_text(path: Path, text: str) -> None:
     path.write_text(text, encoding="utf-8")
 
 
-def build_variants(*, xl_sft_ready: bool, xl_turbo_ready: bool) -> tuple[list[dict[str, Any]], list[str]]:
+def build_variants(
+    *,
+    xl_sft_ready: bool,
+    xl_turbo_ready: bool,
+    include_xl_sft: bool = False,
+) -> tuple[list[dict[str, Any]], list[str]]:
     variants: list[dict[str, Any]] = [TURBO_8]
     skipped: list[str] = []
     if xl_turbo_ready:
         variants.append(XL_TURBO_8)
     else:
         skipped.append(XL_TURBO_8["id"])
-    if xl_sft_ready:
+    if include_xl_sft and xl_sft_ready:
         variants.extend([XL_SFT_24, XL_SFT_50])
     else:
-        skipped.extend([XL_SFT_24["id"], XL_SFT_50["id"]])
+        if xl_sft_ready and not include_xl_sft:
+            skipped.extend([XL_SFT_24["id"], XL_SFT_50["id"]])
+        elif not xl_sft_ready:
+            skipped.extend([XL_SFT_24["id"], XL_SFT_50["id"]])
     return variants, skipped
 
 
@@ -217,29 +225,50 @@ def _run_generation(
     stdout_path: Path,
     stderr_path: Path,
     timeout: int,
+    label: str = "",
 ) -> tuple[int, float, int | None]:
     stdout_path.parent.mkdir(parents=True, exist_ok=True)
     sampler = _VramSampler()
     sampler.start()
     started = time.monotonic()
+    last_heartbeat = 0.0
+    print(f"\n>> {label or 'generation'}: starting", flush=True)
+    print(f"   logs: {stdout_path.parent}", flush=True)
     try:
         with stdout_path.open("w", encoding="utf-8") as stdout, stderr_path.open("w", encoding="utf-8") as stderr:
-            result = subprocess.run(
+            proc = subprocess.Popen(
                 command,
                 cwd=str(ROOT),
                 env=env,
                 stdout=stdout,
                 stderr=stderr,
                 text=True,
-                timeout=timeout,
-                check=False,
             )
+            while proc.poll() is None:
+                elapsed = time.monotonic() - started
+                if elapsed > timeout:
+                    proc.kill()
+                    proc.wait(timeout=10)
+                    peak_vram_mb = sampler.stop()
+                    stderr_path.write_text(
+                        stderr_path.read_text(encoding="utf-8") + f"\nTimed out after {timeout} seconds\n",
+                        encoding="utf-8",
+                    )
+                    print(f"   timed out after {timeout}s", flush=True)
+                    return 124, round(elapsed, 3), peak_vram_mb
+                if elapsed - last_heartbeat >= 15:
+                    print(f"   ... still running ({int(elapsed)}s)", flush=True)
+                    last_heartbeat = elapsed
+                time.sleep(1)
+            returncode = proc.returncode or 0
         peak_vram_mb = sampler.stop()
-        return result.returncode, round(time.monotonic() - started, 3), peak_vram_mb
-    except subprocess.TimeoutExpired as exc:
+        elapsed = round(time.monotonic() - started, 3)
+        print(f"   finished in {elapsed}s (exit {returncode})", flush=True)
+        return returncode, elapsed, peak_vram_mb
+    except Exception as exc:
         peak_vram_mb = sampler.stop()
-        stderr_path.write_text(f"Timed out after {exc.timeout} seconds\n", encoding="utf-8")
-        return 124, round(time.monotonic() - started, 3), peak_vram_mb
+        stderr_path.write_text(f"{exc}\n", encoding="utf-8")
+        return 1, round(time.monotonic() - started, 3), peak_vram_mb
 
 
 def _write_markdown_report(report: dict[str, Any], path: Path) -> None:
@@ -294,6 +323,8 @@ def compare_ace_xl(
     duration_seconds: int = DEFAULT_DURATION,
     offload_to_cpu: bool = True,
     ffprobe: str = "ffprobe",
+    include_xl_sft: bool = False,
+    timeout_seconds: int | None = None,
 ) -> dict[str, Any]:
     if load_dotenv is not None:
         load_dotenv(ROOT / ".env")
@@ -303,7 +334,18 @@ def compare_ace_xl(
     checkpoint_dir = settings.ace_model_dir.expanduser().resolve()
     xl_sft_ready = xl_sft_installed(checkpoint_dir)
     xl_turbo_ready = xl_turbo_installed(checkpoint_dir)
-    variants, skipped = build_variants(xl_sft_ready=xl_sft_ready, xl_turbo_ready=xl_turbo_ready)
+    variants, skipped = build_variants(
+        xl_sft_ready=xl_sft_ready,
+        xl_turbo_ready=xl_turbo_ready,
+        include_xl_sft=include_xl_sft,
+    )
+    run_timeout = timeout_seconds if timeout_seconds is not None else settings.ace_timeout_seconds
+
+    print(f"ACE XL comparison — {len(variants)} variant(s), duration={duration_seconds}s, seed={seed}")
+    if skipped:
+        print(f"Skipped: {', '.join(skipped)}")
+    if xl_sft_ready and not include_xl_sft:
+        print("XL SFT omitted by default (failed listening on 12GB). Pass --include-xl-sft to benchmark it.")
 
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     experiment_dir = settings.data_dir / "experiments" / "ace-xl-comparison" / timestamp
@@ -323,10 +365,13 @@ def compare_ace_xl(
     ace_script = (ROOT / "scripts" / "ace_runner.py").resolve()
 
     variant_reports: list[dict[str, Any]] = []
-    for variant in variants:
+    for index, variant in enumerate(variants, start=1):
         output_path = outputs_dir / f"{variant['id']}.wav"
         stdout_path = logs_dir / f"{variant['id']}.stdout.log"
         stderr_path = logs_dir / f"{variant['id']}.stderr.log"
+        note = ""
+        if variant["checkpoint"] == XL_SFT_CHECKPOINT:
+            note = " — loads ~19GB sharded XL model; first run can take 10–20+ min on 12GB"
         command = build_generation_command(
             ace_python=settings.ace_python,
             ace_script=ace_script,
@@ -346,7 +391,8 @@ def compare_ace_xl(
             env=env,
             stdout_path=stdout_path,
             stderr_path=stderr_path,
-            timeout=settings.ace_timeout_seconds,
+            timeout=run_timeout,
+            label=f"[{index}/{len(variants)}] {variant['label']}{note}",
         )
         audio = validate_generated_audio(
             output_path,
@@ -377,6 +423,8 @@ def compare_ace_xl(
         "xl_sft_available": xl_sft_ready,
         "xl_turbo_available": xl_turbo_ready,
         "offload_to_cpu": offload_to_cpu,
+        "include_xl_sft": include_xl_sft,
+        "timeout_seconds": run_timeout,
         "model_dir": str(checkpoint_dir),
         "quality_note": "Subjective quality must be judged by listening. XL SFT disabled for app generation (failed listening on 12GB).",
         "variants": variant_reports,
@@ -404,6 +452,12 @@ def main() -> int:
     parser.add_argument("--seed", type=int, default=DEFAULT_SEED)
     parser.add_argument("--duration", type=int, default=DEFAULT_DURATION)
     parser.add_argument("--no-offload", action="store_true", help="Disable CPU offload")
+    parser.add_argument(
+        "--include-xl-sft",
+        action="store_true",
+        help="Include XL SFT 24/50 variants (slow ~19GB load each; known noisy on 12GB)",
+    )
+    parser.add_argument("--timeout", type=int, default=None, help="Per-variant timeout seconds (default: ACE_TIMEOUT_SECONDS)")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
 
@@ -413,6 +467,8 @@ def main() -> int:
         seed=args.seed,
         duration_seconds=args.duration,
         offload_to_cpu=not args.no_offload,
+        include_xl_sft=args.include_xl_sft,
+        timeout_seconds=args.timeout,
     )
     if args.json:
         print(json.dumps(report, indent=2))
