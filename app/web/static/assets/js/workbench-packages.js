@@ -12,11 +12,21 @@ window.WorkbenchPackages = (() => {
   let selectedRunId = null;
   let runAllQueue = [];
 
+  function el(id) {
+    return document.getElementById(id);
+  }
+
+  function bindClick(id, handler) {
+    const node = el(id);
+    if (node) node.addEventListener('click', handler);
+  }
+
   function setStatus(message, isError = false) {
-    const el = document.getElementById('package-status');
-    el.textContent = message;
-    el.classList.toggle('error', isError);
-    el.hidden = !message;
+    const statusEl = el('package-status');
+    if (!statusEl) return;
+    statusEl.textContent = message;
+    statusEl.classList.toggle('error', isError);
+    statusEl.hidden = !message;
   }
 
   function candidates() {
@@ -36,11 +46,13 @@ window.WorkbenchPackages = (() => {
   }
 
   function renderPendingSummary() {
-    document.getElementById('pending-songs-summary').innerHTML = H.pendingSummaryHtml(readyAudio);
+    const summary = el('pending-songs-summary');
+    if (summary) summary.innerHTML = H.pendingSummaryHtml(readyAudio);
   }
 
   function renderCandidates() {
-    const list = document.getElementById('candidates-list');
+    const list = el('candidates-list');
+    if (!list) return;
     const items = candidates();
     if (!items.length) {
       list.innerHTML = '<p class="empty-hint muted">No candidates yet. Scan tagged songs to discover trainable groupings.</p>';
@@ -65,7 +77,8 @@ window.WorkbenchPackages = (() => {
   }
 
   function renderPackages() {
-    const list = document.getElementById('packages-list');
+    const list = el('packages-list');
+    if (!list) return;
     const busy = globalRunBusy();
     if (!packages.length) {
       list.innerHTML = '<p class="empty-hint muted">No frozen training packages yet. Freeze a candidate or package all pending songs.</p>';
@@ -101,15 +114,18 @@ window.WorkbenchPackages = (() => {
     });
 
     const untrainedCount = packages.filter((pkg) => H.packageTrainingState(runs, pkg.id, busy).neverTrained).length;
-    const runAllBtn = document.getElementById('run-all-untrained-btn');
-    runAllBtn.disabled = !untrainedCount || busy;
-    runAllBtn.textContent = untrainedCount
-      ? `Run all untrained (${untrainedCount})`
-      : 'Run all untrained';
+    const runAllBtn = el('run-all-untrained-btn');
+    if (runAllBtn) {
+      runAllBtn.disabled = !untrainedCount || busy;
+      runAllBtn.textContent = untrainedCount
+        ? `Run all untrained (${untrainedCount})`
+        : 'Run all untrained';
+    }
   }
 
   function renderRuns() {
-    const list = document.getElementById('runs-list');
+    const list = el('runs-list');
+    if (!list) return;
     if (!runs.length) {
       list.innerHTML = '<p class="empty-hint muted">No training runs yet. Start training on a frozen package above.</p>';
       return;
@@ -137,7 +153,7 @@ window.WorkbenchPackages = (() => {
   }
 
   function renderModels() {
-    const list = document.getElementById('models-list');
+    const list = el('models-list');
     if (!list) return;
     if (!styleVersions.length) {
       list.innerHTML = '<p class="empty-hint muted">No model versions yet. Complete a training run to generate one.</p>';
@@ -162,31 +178,45 @@ window.WorkbenchPackages = (() => {
   }
 
   function renderLiveRun(run, logText = '') {
-    const panel = document.getElementById('live-run-panel');
-    const cancelBtn = document.getElementById('cancel-run-btn');
+    const panel = el('live-run-panel');
+    const cancelBtn = el('cancel-run-btn');
+    if (!panel) return;
     const isLive = run && (run.status === 'QUEUED' || run.status === 'RUNNING');
     if (!isLive) {
       if (run && run.status === 'SUCCEEDED' && activeRunId === run.id) {
         panel.classList.remove('hidden');
-        document.getElementById('live-run-name').textContent = run.name;
-        document.getElementById('live-run-badge').textContent = StudioTrainingStatus.runSummary(run);
-        document.getElementById('live-run-badge').className = `status-pill ${StudioTrainingStatus.runBadgeClass(run)}`;
-        document.getElementById('live-run-log').textContent = logText;
+        const nameEl = el('live-run-name');
+        const badgeEl = el('live-run-badge');
+        const logEl = el('live-run-log');
+        if (nameEl) nameEl.textContent = run.name;
+        if (badgeEl) {
+          badgeEl.textContent = StudioTrainingStatus.runSummary(run);
+          badgeEl.className = `status-pill ${StudioTrainingStatus.runBadgeClass(run)}`;
+        }
+        if (logEl) logEl.textContent = logText;
       } else if (!isLive && !activeRun()) {
         panel.classList.add('hidden');
       }
-      cancelBtn.classList.add('hidden');
-      cancelBtn.disabled = true;
+      if (cancelBtn) {
+        cancelBtn.classList.add('hidden');
+        cancelBtn.disabled = true;
+      }
       return;
     }
     panel.classList.remove('hidden');
-    cancelBtn.classList.remove('hidden');
-    cancelBtn.disabled = false;
-    document.getElementById('live-run-name').textContent = run.name;
-    const badge = document.getElementById('live-run-badge');
-    badge.textContent = StudioTrainingStatus.runSummary(run);
-    badge.className = `status-pill ${StudioTrainingStatus.runBadgeClass(run)}`;
-    document.getElementById('live-run-log').textContent = logText || 'Waiting for logs…';
+    if (cancelBtn) {
+      cancelBtn.classList.remove('hidden');
+      cancelBtn.disabled = false;
+    }
+    const nameEl = el('live-run-name');
+    const badgeEl = el('live-run-badge');
+    const logEl = el('live-run-log');
+    if (nameEl) nameEl.textContent = run.name;
+    if (badgeEl) {
+      badgeEl.textContent = StudioTrainingStatus.runSummary(run);
+      badgeEl.className = `status-pill ${StudioTrainingStatus.runBadgeClass(run)}`;
+    }
+    if (logEl) logEl.textContent = logText || 'Waiting for logs…';
   }
 
   async function toggleRunLog(runId) {
@@ -350,7 +380,11 @@ window.WorkbenchPackages = (() => {
   }
 
   async function packageAllPending() {
-    const button = document.getElementById('package-all-btn');
+    const button = el('package-all-btn') || el('create-package-btn');
+    if (!button) {
+      setStatus('Package action is unavailable on this page.', true);
+      return;
+    }
     if (!readyAudio.total) {
       setStatus('No pending tagged songs to package.', true);
       return;
@@ -377,7 +411,11 @@ window.WorkbenchPackages = (() => {
   }
 
   async function scanForCandidates() {
-    const btn = document.getElementById('generate-datasets-btn');
+    const btn = el('generate-datasets-btn');
+    if (!btn) {
+      setStatus('Scan action is unavailable on this page.', true);
+      return;
+    }
     btn.disabled = true;
     btn.textContent = 'Scanning…';
     try {
@@ -404,10 +442,11 @@ window.WorkbenchPackages = (() => {
   }
 
   async function init() {
-    document.getElementById('generate-datasets-btn').addEventListener('click', () => scanForCandidates().catch(() => {}));
-    document.getElementById('run-all-untrained-btn').addEventListener('click', () => runAllUntrained().catch((err) => setStatus(err.message, true)));
-    document.getElementById('package-all-btn').addEventListener('click', () => packageAllPending().catch(() => {}));
-    document.getElementById('cancel-run-btn').addEventListener('click', () => cancelRun().catch((err) => setStatus(err.message, true)));
+    bindClick('generate-datasets-btn', () => scanForCandidates().catch(() => {}));
+    bindClick('run-all-untrained-btn', () => runAllUntrained().catch((err) => setStatus(err.message, true)));
+    bindClick('package-all-btn', () => packageAllPending().catch(() => {}));
+    bindClick('create-package-btn', () => packageAllPending().catch(() => {}));
+    bindClick('cancel-run-btn', () => cancelRun().catch((err) => setStatus(err.message, true)));
     await refreshAll();
   }
 
