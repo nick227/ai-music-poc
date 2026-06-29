@@ -74,6 +74,7 @@ class GenerationRequest(BaseModel):
     style_version_id: Optional[str] = Field(default=None, max_length=80)
     lora_path: Optional[str] = Field(default=None, max_length=1000)
     lora_scale: float = Field(default=1.0, ge=0.0, le=1.0)
+    auto_polish: Optional[bool] = None
 
     @field_validator("prompt", "lyrics", "title", "negative_prompt")
     @classmethod
@@ -173,6 +174,7 @@ class JobStatusResponse(BaseModel):
     vocal_download_url: Optional[str] = None
     vocal_plan_url: Optional[str] = None
     bundle_url: Optional[str] = None
+    raw_download_url: Optional[str] = None
 
 
 class SongGenerationSummary(BaseModel):

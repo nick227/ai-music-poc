@@ -32,6 +32,7 @@ class GeneratorRegistry:
 
 def create_default_registry(settings: Settings) -> GeneratorRegistry:
     from app.generators.ace_step import AceStepCommandGenerator
+    from app.generators.ace_cpp import AceCppGenerator
     from app.generators.auto_render import AutoRenderGenerator
     from app.generators.mock_ai import MockAIGenerator
     from app.generators.procedural import ProceduralGenerator
@@ -43,4 +44,5 @@ def create_default_registry(settings: Settings) -> GeneratorRegistry:
     registry.register(procedural)
     registry.register(MockAIGenerator())
     registry.register(ace)
+    registry.register(AceCppGenerator(timeout_seconds=settings.ace_timeout_seconds))
     return registry

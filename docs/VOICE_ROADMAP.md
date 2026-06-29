@@ -2,11 +2,23 @@
 
 Focused MVP: **Phase 0 only** — establish the timing contract before any neural voice work.
 
-Full singing quality (Suno-like alignment) depends on a shared **VocalPlan** for controlled renderers. Until that exists, SVS adapters and voice cloning add complexity without fixing the real bug: **equal per-word timing**.
+Full singing quality depends on a shared **VocalPlan** for controlled renderers. Until a future neural renderer is wired, SVS adapters and voice cloning add complexity without fixing the root issue: **equal per-word timing**.
 
 ---
 
-## Core architectural decision
+## Current Status
+
+| Area | Status |
+|------|--------|
+| Phase 0 VocalPlan v0 — schema, syllable timing, VocalEngine wiring | **shipped** |
+| VocalPlan v0.1 — phrase holds, rest gaps, section density, pitch contours, debug grid | **shipped** |
+| Workbench syllable timing grid | **shipped** |
+| Current focus: validate procedural draft timing/audio behavior; protect against regressions | **in progress** |
+| SVS, forced alignment, ACE observed plans, voice cloning | **deferred** |
+
+---
+
+## Core Architectural Decision
 
 **Controlled render path** (procedural draft today; SVS later):
 
@@ -22,37 +34,35 @@ lyrics → TTS/singer → hope it fits
 
 - **Prosody + timing** are planned first and stored as `vocal_plan.json`.
 - **Controlled render** (procedural, future SVS) produces audio from the plan.
-- **Align/mix** (forced alignment, time-warp, stem mixdown) refines output against the plan — deferred until Phase 0 is proven.
+- **Align/mix** (forced alignment, time-warp, stem mixdown) refines output against the plan — deferred until Phase 0 is validated.
 
-**ACE remains separate** — it does not consume `VocalPlan` today:
+**ACE separation rule:** ACE outputs audio only. It does not consume `VocalPlan`. Any `observed_vocal_plan.json` derived from ACE output is a post-render analysis artifact produced by forced alignment — not an input to ACE inference.
 
 ```
-lyrics/prompt → ACE → audio → optional observed_vocal_plan.json
+lyrics/prompt → ACE → audio → (post-render forced alignment) → observed_vocal_plan.json
 ```
-
-After ACE renders, forced alignment can derive `observed_vocal_plan.json` from the performed vocal. That file informs future planners and edit UI; it is not an input to ACE inference.
 
 Cloning, when it arrives, is **timbre conversion on top of a correct performance**, not a substitute for timing generation.
 
 ---
 
-## Current gap
+## Problem Statement
 
-`app/generators/lyrics_timeline.py` assigns equal duration to every word:
+Before VocalPlan, `app/generators/lyrics_timeline.py` assigned equal duration to every word:
 
 ```python
 word_beats = beats_per_line / len(words)
 ```
 
-That ignores syllable count, stress, section density, and melodic contour. `VocalEngine` rebuilds its own timeline internally, so each renderer can invent timing separately.
+That ignored syllable count, stress, section density, and melodic contour. Each renderer invented its own timeline independently. VocalPlan is the shared contract that fixes this.
 
 ---
 
-## Phase 0 — MVP (build this first)
+## Phase 0 — VocalPlan v0 [done]
 
-### 1. VocalPlan JSON schema (v0)
+### 1. VocalPlan JSON schema
 
-First-class artifact saved beside each generation job (e.g. `data/jobs/<id>/vocal_plan.json` or in job result metadata).
+First-class artifact saved beside each generation job as `data/jobs/<id>/vocal_plan.json`.
 
 ```json
 {
@@ -68,13 +78,11 @@ First-class artifact saved beside each generation job (e.g. `data/jobs/<id>/voca
       "lines": [
         {
           "text": "I saw your shadow in the rain",
+          "rest_beats_after": 0.5,
           "syllables": [
-            {
-              "text": "saw",
-              "beat_start": 1.0,
-              "beat_duration": 0.5,
-              "pitch_midi": 69
-            }
+            { "text": "I",    "beat_start": 0.00, "beat_duration": 0.25, "pitch_midi": 67, "stressed": false, "phrase_end": false },
+            { "text": "saw",  "beat_start": 0.25, "beat_duration": 0.50, "pitch_midi": 69, "stressed": true,  "phrase_end": false },
+            { "text": "your", "beat_start": 0.75, "beat_duration": 0.25, "pitch_midi": 67, "stressed": false, "phrase_end": false }
           ]
         }
       ]
@@ -83,111 +91,120 @@ First-class artifact saved beside each generation job (e.g. `data/jobs/<id>/voca
 }
 ```
 
+*The `syllables` array above is abbreviated. A full line produces one entry per syllable.*
+
 | Field | Purpose |
 |-------|---------|
 | `bpm`, `key` | Locked musical grid from request or inferred |
 | `sections` | Verse/chorus/bridge boundaries |
-| `lines` | Raw lyric line text |
-| `syllables` | Atomic timing unit — beat start, duration, pitch |
+| `lines` | Raw lyric line text + rest gap after the line |
+| `syllables` | Atomic timing unit — beat start, duration, pitch, stress flag, phrase-end flag |
 
-v0 pitch can come from existing melodic contours; v0 prosody can be heuristic (no ML).
+**Pitch in v0:** `pitch_midi` values are heuristic — generated from existing procedural melodic contour patterns (scale-degree sequences mapped to MIDI). No pitch inference or neural melody extraction is performed in Phase 0.
 
-### 2. Replace word timing with syllable-weighted timing
+### 2. Syllable-weighted timing [done]
 
-- Syllabify lyrics (English v1: `pyphen`, `syllables`, or `g2p_en`).
-- Allocate beats by **syllable count**, not word count.
-- Stressed syllables → longer duration, nearer downbeats.
-- Section-aware density (chorus tighter than verse; rap higher syllables/beat).
-- Output populates `VocalPlan`; deprecate equal-word `LyricEvent` as the source of truth.
+- Lyrics are syllabified (English v1: `pyphen`).
+- Beats are allocated by **syllable count**, not word count.
+- Stressed syllables receive longer duration and are placed nearer downbeats.
+- Section-aware density: chorus tighter than verse; rap higher syllables/beat.
+- `VocalPlan` is the source of truth; the equal-word `LyricEvent` path is deprecated.
 
-### 3. Make `VocalEngine` consume `VocalPlan`
+### 3. VocalEngine consumes VocalPlan [done]
 
-- Build plan once per job (new module, e.g. `app/generators/vocal_plan.py`).
-- `VocalEngine` reads syllable events + pitch from the plan — no internal `build_lyric_timeline()` call.
-- Procedural generator passes the same plan it exports to metadata.
-- Future SVS adapters receive `vocal_plan.json`; ACE may later produce `observed_vocal_plan.json` after rendering/alignment.
+- One `build_vocal_plan()` call per job (`app/generators/vocal_plan.py`).
+- `VocalEngine` reads syllable events and pitch from the plan — no internal `build_lyric_timeline()` call.
+- Procedural generator passes the same plan it exports to job metadata.
 - Controlled renderers do not invent timing independently.
 
-### 4. Draft karaoke / grid preview
-
-- Workbench overlay: syllable grid on waveform or beat ruler.
-- Proves timing **before** neural generation.
-- Foundation for future line-level edit UI and “match to audio.”
-
-### Exit criteria
-
-- `VocalPlan` saved on every vocal job.
-- Draft vocals audibly land on the beat for simple verse–chorus lyrics.
-- Karaoke grid visually matches perceived syllable onset.
-- No new model installs required.
-
 ---
 
-## Deferred (only after Phase 0)
-
-| Track | Notes |
-|-------|-------|
-| **SVS** (DiffSinger-style) | MIDI + lyrics → singing; consumes `VocalPlan` pitch/duration |
-| **ACE stem + forced align** | Derive `observed_vocal_plan.json` from ACE vocal; learn from / correct against planned plan |
-| **Time-warp / section re-sing** | Post-render alignment loop |
-| **Voice cloning** | Timbre conversion (RVC / So-VITS) on SVS performance — **not** timing generation |
-
-Do **not** start with RVC, So-VITS, or voice cloning. Model complexity before the timing contract exists wastes effort.
-
----
-
-## First implementation issue
-
-**Title:** Implement VocalPlan v0 and syllable-based lyric timing
-
-**Scope:**
-
-1. Define `VocalPlan` schema (Pydantic model + JSON serialization).
-2. Implement `build_vocal_plan(lyrics, bpm, key, duration_beats, structure)` with syllable-weighted beat allocation.
-3. Wire procedural generation to save `vocal_plan.json` per job.
-4. Refactor `VocalEngine` to sample from `VocalPlan` syllables.
-5. Add tests: syllable count, section boundaries, no equal-word regression.
-6. (Stretch) Workbench syllable grid preview.
-
-**Out of scope:** SVS subprocess, clone training, forced alignment, ACE plan input.
-
-### v0.1 quality pass (current)
+## Phase 0 — v0.1 Timing/Musicality Pass [done]
 
 - Phrase-end syllables held longer with softer release in procedural renderer
 - Explicit `rest_beats_after` gaps between lines and sections
-- `SectionDensityKnobs` + `VocalPlanTiming` exposed on plan (`section_density`, `timing`)
-- Debug rows: beat start/duration, `pitch_midi`, stress, phrase end
+- `SectionDensityKnobs` + `VocalPlanTiming` exposed on the plan (`section_density`, `timing` fields)
+- Workbench syllable timing grid: visual track + debug table (beat start/duration, `pitch_midi`, stress, phrase end)
 - Golden fixtures: `tests/fixtures/vocal_plan/{pop_chorus,rap_dense,ballad_held}.json`
 
 ---
 
-## File touch map (Phase 0)
+## Current Focus: Validation [current]
 
-| File | Change |
-|------|--------|
-| `app/generators/vocal_plan.py` | **New** — schema, builder, serialization |
-| `app/generators/lyrics_timeline.py` | Syllable events; or fold into vocal_plan |
-| `app/generators/vocal_engine.py` | Consume `VocalPlan` |
-| `app/generators/procedural.py` | Build plan once; export to job metadata |
-| `app/services/generation_service.py` | Persist plan path in job result |
-| `app/web/static/workbench/` | Grid / karaoke preview |
-| `tests/test_vocal_plan.py` | **New** — timing contract tests |
+Validate that procedural draft timing and audio behaviour match the VocalPlan contract. Protect against regressions as the codebase evolves.
 
----
-
-## Success metrics (Phase 0)
-
-| Metric | Target |
-|--------|--------|
-| Plan persistence | 100% of vocal jobs write `vocal_plan.json` |
-| Syllable coverage | Every lyric token syllabified or flagged |
-| Timing sanity | Longer words only get longer timing when they contain more syllables or stressed syllables |
-| Preview | Grid columns align with draft vocal onsets (informal listen test) |
+Active validation targets:
+- Syllable timing correctness across section types (verse, chorus, bridge, rap)
+- Section density and rest gap behaviour
+- Bundle plumbing: `vocal_plan.json` present in every vocal job output
+- API contract: plan accessible via job result metadata
+- Procedural draft audio lands on the beat for simple verse–chorus lyrics
 
 ---
 
-## Related docs
+## Definition of Done / Validation Gates
+
+All gates below must pass for Phase 0 to be considered complete.
+
+| Gate | Target | Status |
+|------|--------|--------|
+| Plan persistence | 100% of vocal jobs write `vocal_plan.json` | done |
+| Syllable coverage | Every lyric token syllabified or flagged | done |
+| Timing sanity | Syllable count and stress drive duration; word length alone does not | done |
+| Phrase/rest pacing | Phrase-end holds and inter-line rests are present and non-zero | done |
+| Grid preview | Workbench syllable grid columns align with draft vocal onsets | done |
+| No new model installs | Phase 0 uses `pyphen` + heuristics only; no neural model required | done |
+| Procedural draft audio | Draft vocals land on the beat for simple verse–chorus lyrics; auto-polish is skipped by default in draft/procedural mode | in progress |
+
+---
+
+## Non-Goals
+
+- **No SVS integration.** DiffSinger-style renderers are deferred until Phase 0 validation is complete.
+- **No voice cloning.** RVC, So-VITS, and timbre conversion are deferred.
+- **No forced alignment.** Post-render alignment is a Phase 1+ concern.
+- **ACE does not consume VocalPlan.** ACE receives lyrics and prompt; `VocalPlan` is not an ACE input.
+- **Procedural renderer is not a commercial vocal path.** The formant/procedural renderer validates timing logic and structure. It is not the target audio quality for end users.
+
+---
+
+## Current Known Limitation
+
+The procedural/formant renderer sounds synthetic. This is expected and acceptable in Phase 0.
+
+VocalPlan validates: syllable timing, phrasing, section density, rests, pitch event structure, API plumbing, and bundle output. Commercial vocal realism requires a future controlled renderer (SVS, DiffSinger-style) that consumes the same `VocalPlan` contract. That renderer is deferred.
+
+---
+
+## Deferred [deferred]
+
+| Track | Notes |
+|-------|-------|
+| **SVS** (DiffSinger-style) | MIDI + lyrics → singing; consumes `VocalPlan` pitch/duration |
+| **ACE stem + forced align** | Derive `observed_vocal_plan.json` from ACE vocal; post-render analysis only, not an ACE input |
+| **Time-warp / section re-sing** | Post-render alignment loop |
+| **Voice cloning** | Timbre conversion (RVC / So-VITS) on SVS performance — **not** timing generation |
+
+Do **not** start with RVC, So-VITS, or voice cloning. Model complexity before the timing contract is validated wastes effort.
+
+---
+
+## File Touch Map
+
+| File | Change | Status |
+|------|--------|--------|
+| `app/generators/vocal_plan.py` | Schema, builder, serialization | done |
+| `app/generators/lyrics_timeline.py` | Syllable events; superseded by vocal_plan | done |
+| `app/generators/vocal_engine.py` | Consumes `VocalPlan` | done |
+| `app/generators/procedural.py` | Builds plan once; exports to job metadata | done |
+| `app/services/generation_service.py` | Persists plan path in job result | done |
+| `app/web/static/workbench/` | Syllable grid / karaoke preview | done |
+| `tests/test_vocal_plan.py` | Timing contract tests + golden fixtures | done |
+
+---
+
+## Related Docs
 
 - [`ROADMAP.md`](ROADMAP.md) — product phases
-- [`ACE_STEP_SETUP.md`](ACE_STEP_SETUP.md) — ACE neural render path (separate from `vocal_plan.json` input)
+- [`ACE_STEP_SETUP.md`](ACE_STEP_SETUP.md) — ACE neural render path (separate from `vocal_plan.json`)
 - [`GENERATOR_ADAPTERS.md`](GENERATOR_ADAPTERS.md) — adapter pattern for future SVS

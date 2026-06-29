@@ -20,18 +20,6 @@ from app.storage.metadata_store import MetadataStore
 logger = logging.getLogger(__name__)
 
 
-def should_auto_polish(result: GenerationResult) -> bool:
-    """Procedural draft audio is synthetic — denoise/loudnorm chains destroy it."""
-    meta = result.metadata or {}
-    if meta.get("render_route") == "draft-parametric":
-        return False
-    engine = str(meta.get("engine") or "")
-    if engine.startswith("procedural"):
-        return False
-    if meta.get("render_backend") == "procedural-v3":
-        return False
-    return True
-
 
 class GenerationService:
     def __init__(
@@ -99,13 +87,17 @@ class GenerationService:
             self.log_store.append(job.id, f"running generator={generator_name} output={output_path}")
             result = generator.generate(job.request, output_path)
 
-            if should_auto_polish(result):
-                try:
-                    polish_metadata = auto_polish(output_path)
-                    result.metadata["postprocess"] = polish_metadata
-                except Exception:
-                    logger.exception("auto_polish failed, ignoring error")
-                
+            try:
+                polish_metadata = auto_polish(
+                    output_path,
+                    generator_name=generator_name,
+                    quality_mode=job.request.quality or "balanced",
+                    auto_polish_override=job.request.auto_polish,
+                )
+                result.metadata["postprocess"] = polish_metadata
+            except Exception:
+                logger.exception("auto_polish failed, ignoring error")
+
             audio = validate_wav_output(output_path, expected_duration_seconds=job.request.duration_seconds)
             version_details = self._result_version_details(version_details, result)
             media_asset = MediaAsset(

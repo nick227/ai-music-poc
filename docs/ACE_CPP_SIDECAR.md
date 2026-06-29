@@ -42,10 +42,19 @@ Once the models are correctly placed and ACE.cpp is compiled, you can run a gene
 
 Example command (adjust the prompt and model path as necessary):
 ```bash
-cd /home/administrator/models/acestep.cpp/build/bin
-./acestep -m /home/administrator/models/ace-gguf/ace-1.5-q4_k_m.gguf -p "A simple test prompt" --seed 42
+cd /home/administrator/models/acestep.cpp
+
+# 1. Create a request JSON
+echo '{"caption": "A simple test prompt", "seed": 42}' > /tmp/req.json
+
+# 2. Run the Language Model to generate audio codes
+./build/ace-lm --models /home/administrator/models/ace-gguf --request /tmp/req.json
+
+# 3. Render the generated codes to audio using the Synthesizer
+# ace-lm writes the output to req0.json in the same directory
+./build/ace-synth --models /home/administrator/models/ace-gguf --request /tmp/req0.json
 ```
-The output file will typically be written to the current directory as a `.wav` file.
+The output file will typically be written to `/tmp/req00.mp3` or `.wav`.
 
 ## Validating Output with `ffprobe`
 

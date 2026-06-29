@@ -4,6 +4,7 @@ const progressEl = document.querySelector('#progress');
 const errorEl = document.querySelector('#error');
 const playerEl = document.querySelector('#player');
 const downloadEl = document.querySelector('#download');
+const rawEl = document.querySelector('#raw');
 const bundleEl = document.querySelector('#bundle');
 const jobsEl = document.querySelector('#jobs');
 const generatorEl = document.querySelector('#generator');
@@ -188,6 +189,11 @@ async function poll(jobId) {
   if (data.download_url) {
     playerEl.hidden = false; playerEl.src = data.download_url;
     downloadEl.hidden = false; downloadEl.href = data.download_url;
+    if (data.raw_download_url) {
+      rawEl.hidden = false; rawEl.href = data.raw_download_url;
+    } else {
+      rawEl.hidden = true;
+    }
     bundleEl.hidden = false; bundleEl.href = data.bundle_url;
     await loadVocalPlan(data.vocal_plan_url);
     await loadJobs();
@@ -220,9 +226,11 @@ async function loadJobs() {
     
     const playBtn = ready ? `<button style="min-width: 90px;" class="button ghost small play-btn" data-url="/api/download/${job.id}" type="button">▶ Play</button>` : '';
     const wavBtn = ready ? `<a class="button ghost small" href="/api/download/${job.id}">WAV</a>` : '';
+    const rawBtn = job.raw_download_url ? `<a class="button ghost small" href="${job.raw_download_url}" title="Download raw unpolished generation">RAW</a>` : '';
     const bundleBtn = ready ? `<a class="button ghost small" href="/api/download/${job.id}/bundle">Bundle</a>` : '';
+    const vocalBtn = job.vocal_download_url ? `<a class="button ghost small" href="${job.vocal_download_url}">Vocal</a>` : '';
     
-    return `<div class="job"><strong>${req.title}</strong><span style="display: block; margin-bottom: 4px;">${meta}</span><small>${req.prompt.slice(0, 180)}</small><div class="actions">${playBtn}${wavBtn}${bundleBtn}<button class="small load-btn" data-id="${job.id}" type="button">Cover</button></div></div>`;
+    return `<div class="job"><strong>${req.title}</strong><span style="display: block; margin-bottom: 4px;">${meta}</span><small>${req.prompt.slice(0, 180)}</small><div class="actions">${playBtn}${wavBtn}${rawBtn}${bundleBtn}${vocalBtn}<button class="small load-btn" data-id="${job.id}" type="button">Cover</button></div></div>`;
   }).join('');
   
   document.querySelectorAll('.load-btn').forEach(btn => btn.addEventListener('click', () => {
@@ -295,7 +303,7 @@ playerEl.addEventListener('pause', () => {
 form.addEventListener('submit', async (event) => {
   event.preventDefault(); setError('');
   document.querySelector('#submit').disabled = true;
-  playerEl.hidden = true; downloadEl.hidden = true; bundleEl.hidden = true; metadataEl.hidden = true;
+  playerEl.hidden = true; downloadEl.hidden = true; rawEl.hidden = true; bundleEl.hidden = true; metadataEl.hidden = true;
   try {
     const data = await api('/api/generate', { method: 'POST', body: JSON.stringify(formPayload()) });
     currentJobId = data.job_id; statusEl.textContent = 'QUEUED\nJob submitted'; progressEl.value = 0; poll(currentJobId);

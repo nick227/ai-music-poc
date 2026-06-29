@@ -1,8 +1,18 @@
+from pathlib import Path
+
+from app.audio.postprocess import auto_polish, should_auto_polish
 from app.domain.models import GenerationResult
-from app.services.generation_service import should_auto_polish
 
 
 def test_skip_auto_polish_for_procedural_draft():
+    assert should_auto_polish("procedural-v3", "draft") is False
+
+
+def test_auto_polish_for_ace_render():
+    assert should_auto_polish("ace-step-command", "balanced") is True
+
+
+def test_skip_auto_polish_from_result_metadata():
     result = GenerationResult(
         file_name="x.wav",
         duration_seconds=10,
@@ -10,29 +20,11 @@ def test_skip_auto_polish_for_procedural_draft():
         generator_name="procedural-v3",
         metadata={"engine": "procedural-v3.32", "render_route": "draft-parametric"},
     )
-    assert should_auto_polish(result) is False
+    assert should_auto_polish(result.generator_name, "draft") is False
 
 
-def test_auto_polish_for_ace_render():
-    result = GenerationResult(
-        file_name="x.wav",
-        duration_seconds=10,
-        sample_rate=44100,
-        generator_name="ace-step-command",
-        metadata={"render_route": "final-neural", "render_backend": "ace-step-command"},
-    )
-    assert should_auto_polish(result) is True
-
-
-def test_regression_draft_job_does_not_run_auto_polish(client, monkeypatch):
-    polish_calls: list[object] = []
-
-    def _fake_polish(path):
-        polish_calls.append(path)
-        return {"status": "success", "chain_used": "test"}
-
-    monkeypatch.setattr("app.services.generation_service.auto_polish", _fake_polish)
-    api_client, _ = client
+def test_regression_draft_job_skips_polish_chain(client):
+    api_client, tmp = client
     job_id = api_client.post(
         "/api/generate",
         json={
@@ -40,12 +32,28 @@ def test_regression_draft_job_does_not_run_auto_polish(client, monkeypatch):
             "prompt": "bright pop chorus hook",
             "lyrics": "Verse:\nhello world\nChorus:\nsing it now",
             "generator": "procedural-v3",
-                "duration_seconds": 10,
+            "duration_seconds": 10,
             "quality": "draft",
             "mode": "song",
         },
     ).json()["job_id"]
     job = api_client.get(f"/api/jobs/{job_id}").json()["job"]
-    assert polish_calls == []
     assert job["status"] == "SUCCEEDED"
-    assert "postprocess" not in (job.get("result") or {}).get("metadata", {})
+    postprocess = (job.get("result") or {}).get("metadata", {}).get("postprocess", {})
+    assert postprocess.get("postprocess_skipped") is True
+    wav_path = tmp / "outputs" / job["result"]["file_name"]
+    assert wav_path.exists()
+    raw_path = wav_path.with_name(f"{wav_path.stem}_raw{wav_path.suffix}")
+    assert raw_path.exists()
+
+
+def test_regression_skipped_polish_restores_playback_wav(tmp_path: Path):
+    target = tmp_path / "test.wav"
+    target.write_bytes(b"original-audio-bytes")
+
+    metadata = auto_polish(target, "procedural-v3", "draft")
+
+    assert metadata["postprocess_skipped"] is True
+    assert target.exists()
+    assert target.read_bytes() == b"original-audio-bytes"
+    assert (tmp_path / "test_raw.wav").exists()

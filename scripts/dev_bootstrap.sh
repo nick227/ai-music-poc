@@ -70,8 +70,11 @@ normalize_ace_mode() {
     api)
       ACE_MODE="api"
       ;;
+    cpp)
+      ACE_MODE="cpp"
+      ;;
     *)
-      die "invalid ACE_MODE=${ACE_MODE} (use none, gradio, or api)"
+      die "invalid ACE_MODE=${ACE_MODE} (use none, gradio, api, or cpp)"
       ;;
   esac
 }
@@ -273,6 +276,11 @@ print_mode_banner() {
       echo "ACE integration: API at ${ACE_API_HEALTH_URL} (not wired into app yet)"
       echo "App jobs:        still use scripts/ace_runner.py subprocess unless you change the app"
       ;;
+    cpp)
+      echo "Runtime:         ACE.cpp daemon + app"
+      echo "ACE integration: Standalone WebUI at http://127.0.0.1:8085"
+      echo "App jobs:        can use experimental ACE.cpp UI backend option"
+      ;;
   esac
   echo
 }
@@ -294,6 +302,14 @@ start_ace_daemon() {
       ACE_DAEMON_LOG="${LOG_DIR}/ace-step-api.log"
       ACE_DAEMON_LABEL="ACE-Step API"
       ;;
+    cpp)
+      # ace-server handles its own host/port in server.sh
+      ace_run=("./server.sh")
+      ACE_STEP_DIR="${ACE_MODELS_ROOT}/acestep.cpp"
+      health_url="http://127.0.0.1:8085"
+      ACE_DAEMON_LOG="${LOG_DIR}/ace-cpp-server.log"
+      ACE_DAEMON_LABEL="ACE.cpp Server"
+      ;;
     *)
       return 0
       ;;
@@ -303,7 +319,11 @@ start_ace_daemon() {
   echo "starting ${ACE_DAEMON_LABEL} from ${ACE_STEP_DIR}..."
   (
     cd "$ACE_STEP_DIR"
-    exec "${ACE_STEP_DIR}/.venv/bin/uv" "${ace_run[@]}"
+    if [[ "$ACE_MODE" == "cpp" ]]; then
+      exec ./server.sh
+    else
+      exec "${ACE_STEP_DIR}/.venv/bin/uv" "${ace_run[@]}"
+    fi
   ) >>"${ACE_DAEMON_LOG}" 2>&1 &
   ACE_PID=$!
   echo "${ACE_DAEMON_LABEL} pid ${ACE_PID} -> ${ACE_DAEMON_LOG}"
@@ -339,6 +359,10 @@ print_ready_summary() {
       ;;
     api)
       echo "  ACE:  ${ACE_API_HEALTH_URL}"
+      echo "  Log:  ${ACE_DAEMON_LOG}"
+      ;;
+    cpp)
+      echo "  ACE:  http://127.0.0.1:8085 (Standalone UI)"
       echo "  Log:  ${ACE_DAEMON_LOG}"
       ;;
     none)

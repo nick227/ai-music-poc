@@ -46,7 +46,12 @@ def resolve_output_dir(output_dir: Path, timestamped: bool) -> Path:
     return output_dir
 
 
-def regenerate_cases(output_dir: Path, *, duration_seconds: int = 14) -> list[Path]:
+def regenerate_cases(
+    output_dir: Path,
+    *,
+    duration_seconds: int = 14,
+    quality: str = "draft",
+) -> list[Path]:
     output_dir.mkdir(parents=True, exist_ok=True)
     generator = ProceduralGenerator()
     written: list[Path] = []
@@ -57,7 +62,7 @@ def regenerate_cases(output_dir: Path, *, duration_seconds: int = 14) -> list[Pa
                 "prompt": prompt,
                 "lyrics": lyrics,
                 "duration_seconds": duration_seconds,
-                "quality": "high",
+                "quality": quality,
                 "mode": "song",
                 "vocal_intensity": 0.65,
                 "vocal_style": "ballad held legato" if name == "ballad_held" else None,
@@ -83,9 +88,17 @@ def main() -> None:
         action="store_true",
         help="Write into a UTC timestamp subdirectory instead of overwriting stable filenames",
     )
+    parser.add_argument(
+        "--quality",
+        choices=("draft", "balanced", "high"),
+        default="draft",
+        help="Procedural quality (draft = timing preview; not ACE/neural music)",
+    )
     args = parser.parse_args()
     target_dir = resolve_output_dir(args.output_dir.expanduser().resolve(), args.timestamped)
-    paths = regenerate_cases(target_dir)
+    paths = regenerate_cases(target_dir, quality=args.quality)
+    print("Note: procedural draft previews validate VocalPlan timing, not final music quality.")
+    print("Use balanced/high + ACE-Step in the app for listenable songs.")
     for path in paths:
         print(path)
 

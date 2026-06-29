@@ -28,6 +28,19 @@ def download(job_id: str, job_service: JobService = Depends(get_job_service), fi
     return FileResponse(path, media_type=job.result.mime_type, filename=f"{_safe_title(job.request.title, job.id)}.wav")
 
 
+@router.get("/download/{job_id}/raw")
+def download_raw(job_id: str, job_service: JobService = Depends(get_job_service), file_store: LocalFileStore = Depends(get_file_store)):
+    job = job_service.get_required(job_id)
+    if job.status != JobStatus.SUCCEEDED or not job.result:
+        raise NotFoundError("Generated file is not available")
+    path = file_store.path_for_file_name(job.result.file_name)
+    raw_path = path.with_name(f"{path.stem}_raw{path.suffix}")
+    if not raw_path.exists():
+        raise NotFoundError("Raw generated file is missing")
+    return FileResponse(raw_path, media_type=job.result.mime_type, filename=f"{_safe_title(job.request.title, job.id)}-raw.wav")
+
+
+
 @router.get("/download/{job_id}/vocal")
 def download_vocal(job_id: str, job_service: JobService = Depends(get_job_service), file_store: LocalFileStore = Depends(get_file_store)):
     job = job_service.get_required(job_id)
