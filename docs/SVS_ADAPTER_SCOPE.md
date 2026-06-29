@@ -215,16 +215,20 @@ Health endpoint: `GET /api/svs/runtime` (parallel to ACE runtime) — deps, GPU,
 
 ## Implementation Slices
 
-### Slice 1 — Plan export + stub renderer (no GPU)
+### Slice 1 — Plan export + mock renderer (no GPU) **shipped**
 
 **Deliverables**
 
 - `app/generators/svs/plan_export.py` — `vocal_plan_to_score(plan) -> SvsScore`
-- `app/generators/svs/g2p_en.py` — English phoneme tokens
-- Unit tests: golden fixtures → stable `svs_score.json` snapshots
-- `MockSvsRenderer` — writes short sine burst per syllable window (proves mix plumbing)
+- `app/generators/svs/g2p_en.py` — English phoneme tokens (deterministic heuristic, no new deps)
+- `app/generators/svs/mock_audio.py` + `MockSvsRenderer` — sine-burst debug stem
+- `scripts/render_svs_mock_stem.py` — manual QA
+- Golden fixtures: `tests/fixtures/svs_score/{pop_chorus,rap_dense,ballad_held}.json`
+- Tests: `tests/test_svs_slice1.py`
 
-**Exit:** Given `pop_chorus` VocalPlan, score JSON round-trips and event count matches syllable count + rests.
+**Exit:** Given golden VocalPlan fixtures, `SvsScore` round-trips and mock stem passes `assert_vocal_stem_timing()`.
+
+**Do not start Slice 2** until Slice 1 is reviewed and Phase 0 manual sign-off is done.
 
 ### Slice 2 — Command adapter + `svs-vocal` generator
 
@@ -312,12 +316,15 @@ Default recommendations: DiffSinger for Slice 2 reference; separate `procedural-
 
 ## File Touch Map
 
-| File | Slice | Change |
-|------|-------|--------|
-| `app/generators/svs/plan_export.py` | 1 | `VocalPlan` → `SvsScore` |
-| `app/generators/svs/g2p_en.py` | 1 | English phonemes |
-| `app/generators/svs/vocal_renderer.py` | 1–2 | Protocol + mock + command impl |
-| `app/generators/svs/adapter.py` | 2 | `SvsCommandGenerator` |
+| File | Slice | Change | Status |
+|------|-------|--------|--------|
+| `app/generators/svs/plan_export.py` | 1 | `VocalPlan` → `SvsScore` | done |
+| `app/generators/svs/g2p_en.py` | 1 | English phonemes | done |
+| `app/generators/svs/vocal_renderer.py` | 1 | `MockSvsRenderer` | done |
+| `app/generators/svs/mock_audio.py` | 1 | Sine-burst debug stem | done |
+| `scripts/render_svs_mock_stem.py` | 1 | Manual mock stem QA | done |
+| `tests/test_svs_slice1.py` | 1 | Score + mock stem tests | done |
+| `app/generators/svs/adapter.py` | 2 | `SvsCommandGenerator` | pending |
 | `app/generators/svs/command_builder.py` | 2 | Template substitution |
 | `app/generators/svs/health.py` | 2 | Readiness probe |
 | `scripts/svs_runner.py` | 2 | External backend CLI |

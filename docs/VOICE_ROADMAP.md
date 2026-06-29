@@ -15,7 +15,8 @@ Full singing quality depends on a shared **VocalPlan** for controlled renderers.
 | Workbench syllable timing grid | **shipped** |
 | Automated regression suite (timing + audio energy + auto-polish policy) | **shipped** |
 | Phase 0 exit — manual listen QA on 3 golden cases | **next** |
-| SVS adapter — scoped ([`SVS_ADAPTER_SCOPE.md`](SVS_ADAPTER_SCOPE.md)) | **scoping** |
+| SVS Slice 1 — `VocalPlan` → `SvsScore` + mock stem | **shipped** |
+| SVS Slice 2+ (command adapter, external backend) | **deferred** |
 | Forced alignment, ACE observed plans, voice cloning | **deferred** |
 
 ---

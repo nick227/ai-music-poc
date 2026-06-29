@@ -1,0 +1,332 @@
+{
+  "version": 1,
+  "bpm": 118,
+  "language": "en",
+  "duration_beats": 48.0,
+  "events": [
+    {
+      "type": "note",
+      "syllable_text": "i",
+      "phonemes": [
+        "IH"
+      ],
+      "midi": 76,
+      "note_name": "E5",
+      "start_beats": 0.0,
+      "duration_beats": 2.606,
+      "stressed": true,
+      "phrase_end": false,
+      "slur_to_next": true
+    },
+    {
+      "type": "note",
+      "syllable_text": "wal",
+      "phonemes": [
+        "W",
+        "AE",
+        "L"
+      ],
+      "midi": 77,
+      "note_name": "F5",
+      "start_beats": 2.5,
+      "duration_beats": 2.606,
+      "stressed": true,
+      "phrase_end": false,
+      "slur_to_next": true
+    },
+    {
+      "type": "note",
+      "syllable_text": "a",
+      "phonemes": [
+        "AE"
+      ],
+      "midi": 79,
+      "note_name": "G5",
+      "start_beats": 5.25,
+      "duration_beats": 2.606,
+      "stressed": true,
+      "phrase_end": false,
+      "slur_to_next": true
+    },
+    {
+      "type": "note",
+      "syllable_text": "lo",
+      "phonemes": [
+        "L",
+        "AA"
+      ],
+      "midi": 77,
+      "note_name": "F5",
+      "start_beats": 7.817,
+      "duration_beats": 1.548,
+      "stressed": false,
+      "phrase_end": false,
+      "slur_to_next": true
+    },
+    {
+      "type": "note",
+      "syllable_text": "ne",
+      "phonemes": [
+        "N",
+        "EH"
+      ],
+      "midi": 81,
+      "note_name": "A5",
+      "start_beats": 9.366,
+      "duration_beats": 1.548,
+      "stressed": false,
+      "phrase_end": false,
+      "slur_to_next": true
+    },
+    {
+      "type": "note",
+      "syllable_text": "be",
+      "phonemes": [
+        "B",
+        "EH"
+      ],
+      "midi": 79,
+      "note_name": "G5",
+      "start_beats": 11.0,
+      "duration_beats": 2.606,
+      "stressed": true,
+      "phrase_end": false,
+      "slur_to_next": true
+    },
+    {
+      "type": "note",
+      "syllable_text": "neat",
+      "phonemes": [
+        "N",
+        "IY",
+        "T"
+      ],
+      "midi": 77,
+      "note_name": "F5",
+      "start_beats": 13.52,
+      "duration_beats": 1.548,
+      "stressed": false,
+      "phrase_end": false,
+      "slur_to_next": true
+    },
+    {
+      "type": "note",
+      "syllable_text": "the",
+      "phonemes": [
+        "TH",
+        "EH"
+      ],
+      "midi": 76,
+      "note_name": "E5",
+      "start_beats": 15.0,
+      "duration_beats": 2.606,
+      "stressed": true,
+      "phrase_end": false,
+      "slur_to_next": true
+    },
+    {
+      "type": "note",
+      "syllable_text": "ci",
+      "phonemes": [
+        "K",
+        "IH"
+      ],
+      "midi": 76,
+      "note_name": "E5",
+      "start_beats": 17.75,
+      "duration_beats": 2.606,
+      "stressed": true,
+      "phrase_end": false,
+      "slur_to_next": true
+    },
+    {
+      "type": "note",
+      "syllable_text": "ty",
+      "phonemes": [
+        "T",
+        "IY"
+      ],
+      "midi": 77,
+      "note_name": "F5",
+      "start_beats": 20.28,
+      "duration_beats": 1.548,
+      "stressed": false,
+      "phrase_end": false,
+      "slur_to_next": true
+    },
+    {
+      "type": "note",
+      "syllable_text": "lig",
+      "phonemes": [
+        "L",
+        "IH",
+        "G"
+      ],
+      "midi": 80,
+      "note_name": "G#5",
+      "start_beats": 21.75,
+      "duration_beats": 3.7,
+      "stressed": true,
+      "phrase_end": true,
+      "slur_to_next": false
+    },
+    {
+      "type": "rest",
+      "start_beats": 25.45,
+      "duration_beats": 0.38
+    },
+    {
+      "type": "note",
+      "syllable_text": "we",
+      "phonemes": [
+        "W",
+        "EH"
+      ],
+      "midi": 81,
+      "note_name": "A5",
+      "start_beats": 26.25,
+      "duration_beats": 2.137,
+      "stressed": true,
+      "phrase_end": false,
+      "slur_to_next": true
+    },
+    {
+      "type": "note",
+      "syllable_text": "ri",
+      "phonemes": [
+        "R",
+        "IH"
+      ],
+      "midi": 83,
+      "note_name": "B5",
+      "start_beats": 28.5,
+      "duration_beats": 2.137,
+      "stressed": true,
+      "phrase_end": false,
+      "slur_to_next": true
+    },
+    {
+      "type": "note",
+      "syllable_text": "se",
+      "phonemes": [
+        "S",
+        "EH"
+      ],
+      "midi": 72,
+      "note_name": "C5",
+      "start_beats": 30.562,
+      "duration_beats": 1.27,
+      "stressed": false,
+      "phrase_end": false,
+      "slur_to_next": true
+    },
+    {
+      "type": "note",
+      "syllable_text": "to",
+      "phonemes": [
+        "T",
+        "AA"
+      ],
+      "midi": 83,
+      "note_name": "B5",
+      "start_beats": 31.75,
+      "duration_beats": 2.137,
+      "stressed": true,
+      "phrase_end": false,
+      "slur_to_next": true
+    },
+    {
+      "type": "note",
+      "syllable_text": "nig",
+      "phonemes": [
+        "N",
+        "IH",
+        "G"
+      ],
+      "midi": 81,
+      "note_name": "A5",
+      "start_beats": 33.968,
+      "duration_beats": 1.27,
+      "stressed": false,
+      "phrase_end": false,
+      "slur_to_next": true
+    },
+    {
+      "type": "note",
+      "syllable_text": "we",
+      "phonemes": [
+        "W",
+        "EH"
+      ],
+      "midi": 79,
+      "note_name": "G5",
+      "start_beats": 35.25,
+      "duration_beats": 2.137,
+      "stressed": true,
+      "phrase_end": false,
+      "slur_to_next": true
+    },
+    {
+      "type": "note",
+      "syllable_text": "shi",
+      "phonemes": [
+        "SH",
+        "IH"
+      ],
+      "midi": 81,
+      "note_name": "A5",
+      "start_beats": 37.25,
+      "duration_beats": 2.137,
+      "stressed": true,
+      "phrase_end": false,
+      "slur_to_next": true
+    },
+    {
+      "type": "note",
+      "syllable_text": "ne",
+      "phonemes": [
+        "N",
+        "EH"
+      ],
+      "midi": 83,
+      "note_name": "B5",
+      "start_beats": 39.511,
+      "duration_beats": 1.27,
+      "stressed": false,
+      "phrase_end": false,
+      "slur_to_next": true
+    },
+    {
+      "type": "note",
+      "syllable_text": "so",
+      "phonemes": [
+        "S",
+        "AA"
+      ],
+      "midi": 81,
+      "note_name": "A5",
+      "start_beats": 40.75,
+      "duration_beats": 2.137,
+      "stressed": true,
+      "phrase_end": false,
+      "slur_to_next": true
+    },
+    {
+      "type": "note",
+      "syllable_text": "brig",
+      "phonemes": [
+        "B",
+        "R",
+        "IH",
+        "G"
+      ],
+      "midi": 85,
+      "note_name": "C#6",
+      "start_beats": 43.0,
+      "duration_beats": 3.034,
+      "stressed": true,
+      "phrase_end": true,
+      "slur_to_next": false
+    }
+  ]
+}
