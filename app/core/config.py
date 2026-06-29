@@ -50,6 +50,7 @@ class Settings(BaseSettings):
     ace_train_checkpoint_dir: Path | None = Field(default=_DEFAULT_ACE_CHECKPOINTS, alias="ACE_TRAIN_CHECKPOINT_DIR")
 
     svs_enabled: bool = Field(default=True, alias="SVS_ENABLED")
+    svs_backend: str = Field(default="mock", alias="SVS_BACKEND")
     svs_python: Path = Field(default=Path(sys.executable), alias="SVS_PYTHON")
     svs_script: Path = Field(default=Path("./scripts/svs_runner.py"), alias="SVS_SCRIPT")
     svs_model_dir: Path = Field(default=Path("./data/svs_models"), alias="SVS_MODEL_DIR")
@@ -57,6 +58,9 @@ class Settings(BaseSettings):
     svs_command_template: str = Field(default="", alias="SVS_COMMAND_TEMPLATE")
     svs_allow_fallback: bool = Field(default=True, alias="SVS_ALLOW_FALLBACK")
     svs_external_command: str = Field(default="", alias="SVS_EXTERNAL_COMMAND")
+    svs_tiger_dir: Path | None = Field(default=None, alias="SVS_TIGER_DIR")
+    svs_speaker: str = Field(default="tiger_fresh", alias="SVS_SPEAKER")
+    svs_diffsinger_python: Path | None = Field(default=None, alias="SVS_DIFFSINGER_PYTHON")
 
     @property
     def job_dir(self) -> Path:

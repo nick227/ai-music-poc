@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from app.generators.svs.models import SvsScore
-from app.generators.svs.notes import midi_to_note_name
+from app.generators.svs.music import midi_to_note_name
 
 SVS_SCORE_VERSION = 1
 _BEAT_EPSILON = 0.001

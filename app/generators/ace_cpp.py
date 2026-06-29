@@ -40,7 +40,7 @@ class AceCppGenerator:
             supports_seed=self.supports_seed,
             supports_duration=self.supports_duration,
             description=self.description,
-            backend_type="sidecar",
+            backend_type="local",
             available=configured,
             status="configured" if configured else "not-configured",
             install_hint=None if configured else "Build ACE.cpp and place GGUF models.",

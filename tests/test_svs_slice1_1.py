@@ -13,7 +13,7 @@ from app.generators.svs import (
     vocal_plan_to_score,
 )
 from app.generators.svs.models import SvsNoteEvent, SvsRestEvent, SvsScore
-from app.generators.svs.notes import midi_to_note_name
+from app.generators.svs.music import midi_to_note_name
 from app.generators.svs.validation import SvsScoreValidationError
 from app.generators.vocal_plan import load_vocal_plan
 

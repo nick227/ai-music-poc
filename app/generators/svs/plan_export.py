@@ -4,7 +4,7 @@ from pathlib import Path
 
 from app.generators.svs.g2p_en import syllable_to_phonemes
 from app.generators.svs.models import SvsNoteEvent, SvsRestEvent, SvsScore
-from app.generators.svs.notes import midi_to_note_name
+from app.generators.svs.music import midi_to_note_name
 from app.generators.svs.validation import validate_svs_score
 from app.generators.vocal_plan import VocalPlan
 

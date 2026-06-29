@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import shutil
 import subprocess
@@ -104,6 +105,7 @@ class SvsCommandGenerator:
         plan_path = output_path.with_name(f"{output_path.stem}_vocal_plan.json")
         score_path = output_path.with_name(f"{output_path.stem}_svs_score.json")
         stem_path = output_path.with_name(f"{output_path.stem}_vocal_stem.wav")
+        report_path = output_path.with_name(f"{output_path.stem}_svs_report.json")
         save_vocal_plan(plan, plan_path)
         score = vocal_plan_to_score(plan)
         save_svs_score(score, score_path)
@@ -137,7 +139,7 @@ class SvsCommandGenerator:
                 metadata=metadata,
             )
 
-        cmd = self.builder.build(score_path=score_path, output_path=stem_path)
+        cmd = self.builder.build(score_path=score_path, output_path=stem_path, report_path=report_path)
         started = time.monotonic()
         try:
             completed = subprocess.run(
@@ -177,6 +179,20 @@ class SvsCommandGenerator:
             "svs_stderr_tail": stderr_tail,
             "command_preview": " ".join(cmd)[:480],
         })
+
+        svs_report: dict = {}
+        if report_path.exists():
+            try:
+                svs_report = json.loads(report_path.read_text(encoding="utf-8"))
+            except Exception:
+                pass
+        metadata["svs_backend_type"] = self.settings.svs_backend
+        if svs_report:
+            metadata["svs_report_file"] = report_path.name
+            if svs_report.get("tiger_dir"):
+                metadata["svs_tiger_dir"] = svs_report["tiger_dir"]
+            if svs_report.get("speaker"):
+                metadata["svs_speaker"] = svs_report["speaker"]
 
         if completed.returncode != 0 or not stem_path.exists():
             message = stderr_tail.strip() or stdout_tail.strip() or f"SVS runner exited {completed.returncode}"
