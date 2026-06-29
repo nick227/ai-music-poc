@@ -1,8 +1,8 @@
 from pathlib import Path
 
 from app.domain.models import GenerationRequest
-from app.generators.lyrics_timeline import build_lyric_timeline, event_at
 from app.generators.procedural import ProceduralGenerator
+from app.generators.vocal_plan import load_vocal_plan
 from app.generators.vocal_engine import resolve_voice
 
 
@@ -94,16 +94,30 @@ Dancing where the city ends"""
     )
     assert result.metadata["vocal_stem_file"] == "song_vocal.wav"
     assert (tmp_path / "song_vocal.wav").exists()
-    assert result.metadata["lyric_events"] >= 2
+    assert result.metadata["syllable_events"] >= 2
+    assert result.metadata["vocal_plan_file"] == "song_vocal_plan.json"
+    assert (tmp_path / "song_vocal_plan.json").exists()
+    plan = load_vocal_plan(tmp_path / "song_vocal_plan.json")
+    assert plan.syllable_count() >= 2
 
 
 def test_line_aware_lyric_timeline():
+    from app.generators.vocal_plan import build_vocal_plan, syllable_at
+
     lyrics = "hello world\nfoo bar"
-    events = build_lyric_timeline(lyrics, duration_beats=32)
-    assert len(events) == 4
-    assert events[0].word == "hello"
-    foo = next(e for e in events if e.word == "foo")
-    assert event_at(events, foo.beat_start + 0.01).word == "foo"
+    plan = build_vocal_plan(
+        lyrics,
+        bpm=120,
+        key=None,
+        duration_beats=32.0,
+        scale=[0, 2, 4, 5, 7, 9, 11],
+        root_hz=261.63,
+    )
+    assert plan.syllable_count() >= 4
+    foo = next(s for s in plan.flat_syllables() if s.text.startswith("f"))
+    hit = syllable_at(plan, foo.beat_start + 0.01)
+    assert hit is not None
+    assert hit[0].text.startswith("f")
 
 
 def test_auto_voice_detects_male_from_prompt():

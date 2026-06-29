@@ -189,6 +189,8 @@ class GenerationService:
             updated["renderRoute"] = metadata["render_route"]
         if metadata.get("render_backend"):
             updated["renderBackend"] = metadata["render_backend"]
+        if metadata.get("vocal_plan_file"):
+            updated["vocalPlanFile"] = metadata["vocal_plan_file"]
         style_id = updated.get("styleVersionId") or updated.get("style_version_id")
         if style_id:
             try:

@@ -14,6 +14,7 @@ const loraScaleEl = document.querySelector('#lora_scale');
 const loraScaleValueEl = document.querySelector('#lora_scale_value');
 const modelStatusEl = document.querySelector('#model-status');
 const metadataEl = document.querySelector('#metadata');
+const vocalPlanGridEl = document.querySelector('#vocal-plan-grid');
 const vocalIntensityEl = document.querySelector('#vocal_intensity');
 const vocalIntensityValueEl = document.querySelector('#vocal_intensity_value');
 const analyzeBtn = document.querySelector('#analyze');
@@ -22,13 +23,50 @@ let currentJobId = null;
 let presets = [];
 
 function setError(message) { errorEl.hidden = !message; errorEl.textContent = message || ''; }
+
+function renderVocalPlanGrid(plan) {
+  if (!vocalPlanGridEl) return;
+  if (!plan?.sections?.length) {
+    vocalPlanGridEl.hidden = true;
+    vocalPlanGridEl.innerHTML = '';
+    return;
+  }
+  const durationBeats = plan.duration_beats || 1;
+  const cells = [];
+  for (const section of plan.sections) {
+    for (const line of section.lines) {
+      for (const syl of line.syllables) {
+        const left = (syl.beat_start / durationBeats) * 100;
+        const width = Math.max(1.5, (syl.beat_duration / durationBeats) * 100);
+        const stressed = syl.stressed ? ' stressed' : '';
+        cells.push(
+          `<span class="vocal-plan-cell${stressed}" style="left:${left}%;width:${width}%" title="${section.name}: ${syl.text}">${syl.text}</span>`
+        );
+      }
+    }
+  }
+  vocalPlanGridEl.hidden = false;
+  vocalPlanGridEl.innerHTML = `<p class="help">Syllable timing grid (draft VocalPlan)</p><div class="vocal-plan-track">${cells.join('')}</div>`;
+}
+
+async function loadVocalPlan(url) {
+  if (!url) {
+    renderVocalPlanGrid(null);
+    return;
+  }
+  try {
+    renderVocalPlanGrid(await api(url));
+  } catch {
+    renderVocalPlanGrid(null);
+  }
+}
 function tags(value) { return value.split(',').map(x => x.trim()).filter(Boolean).slice(0, 12); }
 function formPayload() {
   return {
     title: document.querySelector('#title').value,
     prompt: document.querySelector('#prompt').value,
     lyrics: document.querySelector('#lyrics').value,
-    generator: 'auto-render',
+    generator: document.querySelector('#generator').value,
     duration_seconds: Number(document.querySelector('#duration').value),
     mode: document.querySelector('#mode').value,
     structure: document.querySelector('#structure').value,
@@ -134,6 +172,7 @@ async function poll(jobId) {
     playerEl.hidden = false; playerEl.src = data.download_url;
     downloadEl.hidden = false; downloadEl.href = data.download_url;
     bundleEl.hidden = false; bundleEl.href = data.bundle_url;
+    await loadVocalPlan(data.vocal_plan_url);
     await loadJobs();
     if (typeof window.loadSongs === 'function') await window.loadSongs();
     return;
@@ -177,7 +216,14 @@ async function loadJobs() {
     document.querySelector('#title').value = req.title || '';
     document.querySelector('#prompt').value = req.prompt || '';
     document.querySelector('#lyrics').value = req.lyrics || '';
-    if (req.generator) { /* always auto-render */ }
+    if (req.generator) {
+      const genSel = document.querySelector('#generator');
+      if ([...genSel.options].some(o => o.value === req.generator)) {
+        genSel.value = req.generator;
+      } else {
+        console.warn(`Stored generator '${req.generator}' is not in the current option list; keeping '${genSel.value}'.`);
+      }
+    }
     document.querySelector('#duration').value = req.duration_seconds || 60;
     if (req.mode) document.querySelector('#mode').value = req.mode;
     if (req.structure) document.querySelector('#structure').value = req.structure;

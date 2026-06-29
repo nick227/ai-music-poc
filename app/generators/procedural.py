@@ -8,8 +8,8 @@ import wave
 from pathlib import Path
 
 from app.domain.models import GenerationRequest, GenerationResult, GeneratorInfo
-from app.generators.lyrics_timeline import build_lyric_timeline, event_at
 from app.generators.quality_profile import quality_for
+from app.generators.vocal_plan import VocalPlan, build_vocal_plan, midi_to_hz, save_vocal_plan, syllable_at
 
 SAMPLE_RATE = 44_100
 NYQUIST = SAMPLE_RATE / 2
@@ -555,8 +555,20 @@ class ProceduralGenerator:
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
         duration_beats = duration / beat
-        lyric_events = build_lyric_timeline(request.lyrics, duration_beats)
-        lyric_idx_map: dict[int, int] = {id(ev): i for i, ev in enumerate(lyric_events)}
+        vocal_plan: VocalPlan | None = None
+        if request.mode in ("song", "vocal_demo") and request.lyrics.strip():
+            vocal_plan = build_vocal_plan(
+                request.lyrics,
+                bpm=bpm,
+                key=request.key,
+                duration_beats=duration_beats,
+                scale=profile.scale,
+                root_hz=root,
+                profile_name=profile.name,
+                melodic_contours=MELODIC_CONTOURS,
+            )
+
+        vocal_frames = bytearray() if quality.export_vocal_stem and vocal_plan and vocal_plan.syllable_count() else None
         voice_profile = self._voice(request, positive_text, profile)
 
         drums_enabled = profile.has_drums and request.mode != "instrumental"
@@ -565,7 +577,6 @@ class ProceduralGenerator:
         if "no drums" in positive_text or "without drums" in positive_text:
             drums_enabled = False
 
-        vocal_frames = bytearray() if quality.export_vocal_stem and lyric_events else None
         raw_l: list[float] = []
         raw_r: list[float] = []
         prev_l = prev_r = 0.0
@@ -719,7 +730,7 @@ class ProceduralGenerator:
                 _lead_rev_buf[_lead_rev_ptr] = lead * 0.45 + _lr_out * 0.35
                 _lead_rev_ptr = (_lead_rev_ptr + 1) % _lead_rev_len
                 lead += _lr_out * 0.22
-            vocal = self._sung_voice(profile, request, lyric_events, lyric_idx_map, voice_profile, root, t, beat_pos, bar, section, quality.harmonics, _formant_cache)
+            vocal = self._sung_voice(profile, request, vocal_plan, voice_profile, root, t, beat_pos, bar, section, quality.harmonics, _formant_cache)
             if vocal != 0.0:
                 vocal *= _voc_sect
                 if quality.vocal_reverb > 0:
@@ -867,6 +878,7 @@ class ProceduralGenerator:
             wav.writeframes(bytes(frames))
 
         vocal_stem_name: str | None = None
+        vocal_plan_name: str | None = None
         if vocal_frames is not None:
             stem_path = output_path.with_name(output_path.stem + "_vocal.wav")
             with wave.open(str(stem_path), "wb") as wav:
@@ -875,24 +887,33 @@ class ProceduralGenerator:
                 wav.setframerate(SAMPLE_RATE)
                 wav.writeframes(bytes(vocal_frames))
             vocal_stem_name = stem_path.name
+        if vocal_plan is not None and vocal_plan.syllable_count():
+            plan_path = output_path.with_name(output_path.stem + "_vocal_plan.json")
+            save_vocal_plan(vocal_plan, plan_path)
+            vocal_plan_name = plan_path.name
 
         voice = self._voice(request, positive_text)
+        syllable_count = vocal_plan.syllable_count() if vocal_plan else 0
         metadata: dict = {
             "engine": "procedural-v3.32",
             "style_profile": profile.name,
-            "lyrics_behavior": "formant_singing" if request.mode in ("song", "vocal_demo") and lyric_events else "none",
+            "lyrics_behavior": "formant_singing" if request.mode in ("song", "vocal_demo") and syllable_count else "none",
             "singing_voice": voice.name,
             "vocal_intensity": request.vocal_intensity,
             "bpm": bpm,
+            "key": request.key,
             "root_hz": round(root, 2),
             "channels": 2,
             "sections": sections,
             "drums_enabled": drums_enabled,
             "chord_system": "harmonic_progressions_v3.4",
-            "lyric_events": len(lyric_events),
+            "syllable_events": syllable_count,
+            "lyric_events": syllable_count,
         }
         if vocal_stem_name:
             metadata["vocal_stem_file"] = vocal_stem_name
+        if vocal_plan_name:
+            metadata["vocal_plan_file"] = vocal_plan_name
         return GenerationResult(
             file_name=output_path.name,
             duration_seconds=duration,
@@ -1277,38 +1298,42 @@ class ProceduralGenerator:
                 requested = "female"
         return VOICE_PROFILES.get(requested, VOICE_PROFILES["female"])
 
-    def _sung_voice(self, profile: StyleProfile, request: GenerationRequest, lyric_events: list, lyric_idx_map: dict, voice: "VoiceProfile", root: float, t: float, beat_pos: float, bar: int, section: str, max_harmonics_cap: int = 22, formant_cache: dict | None = None) -> float:
-        if request.mode not in ("song", "vocal_demo") or not lyric_events or profile.vocal_amp <= 0 or request.vocal_intensity <= 0:
+    def _sung_voice(
+        self,
+        profile: StyleProfile,
+        request: GenerationRequest,
+        vocal_plan: VocalPlan | None,
+        voice: "VoiceProfile",
+        root: float,
+        t: float,
+        beat_pos: float,
+        bar: int,
+        section: str,
+        max_harmonics_cap: int = 22,
+        formant_cache: dict | None = None,
+    ) -> float:
+        if (
+            request.mode not in ("song", "vocal_demo")
+            or vocal_plan is None
+            or vocal_plan.syllable_count() <= 0
+            or profile.vocal_amp <= 0
+            or request.vocal_intensity <= 0
+        ):
             return 0.0
 
-        # Verse: slower phrase speed (lyrical, each word held longer)
-        # Chorus: faster phrase speed (hook-like repetition)
-        if section in ("chorus", "hook"):
-            phrase_speed = 2.05 if profile.name != "rap" else 3.2
-        elif section == "verse":
-            phrase_speed = 1.40 if profile.name != "rap" else 2.1
-        else:
-            phrase_speed = 1.65 if profile.name != "rap" else 2.6
-        phrase_pos = beat_pos * phrase_speed
-
-        # Use lyric timeline for accurate word timing
-        event = event_at(lyric_events, phrase_pos)
-        if event is None:
+        hit = syllable_at(vocal_plan, beat_pos)
+        if hit is None:
             return 0.0
-        word = event.word.lower()
-        syllable_x = max(0.0, min(1.0, (phrase_pos - event.beat_start) / max(event.beat_duration, 0.001)))
-        word_idx = lyric_idx_map.get(id(event), 0)
+        syllable, syllable_idx = hit
 
-        # Phrase variation: 4-cycle pattern to break repetition
-        phrase_cycle = (word_idx // 4) % 4
+        word = syllable.text.lower()
+        syllable_x = max(0.0, min(1.0, (beat_pos - syllable.beat_start) / max(syllable.beat_duration, 0.001)))
 
-        # Vocal melody: chord-aware contour, one step higher than lead
-        contour = MELODIC_CONTOURS.get(section, MELODIC_CONTOURS["verse"])
-        contour_step = int(phrase_pos * 2) % len(contour)
-        chord_idx = _chord_degree_idx(profile, bar, section)
-        note_idx = (chord_idx + contour[contour_step] + 2) % len(profile.scale)
-        degree = profile.scale[note_idx]
-        pitch = root * voice.base_multiplier * (2 ** (degree / 12))
+        phrase_cycle = (syllable_idx // 4) % 4
+
+        pitch = midi_to_hz(syllable.pitch_midi) * voice.base_multiplier
+        if profile.name == "rap":
+            pitch *= 0.82
 
         if voice.quantized:
             pitch = round(pitch / 18.0) * 18.0

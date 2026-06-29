@@ -4,6 +4,7 @@ from fastapi.responses import FileResponse
 from app.api.dependencies import get_bundle_service, get_file_store, get_job_service
 from app.core.errors import NotFoundError
 from app.core.vocal_assets import vocal_stem_path
+from app.core.vocal_plan_assets import vocal_plan_path
 from app.domain.models import JobStatus
 from app.services.bundle_service import BundleService
 from app.services.job_service import JobService
@@ -36,6 +37,19 @@ def download_vocal(job_id: str, job_service: JobService = Depends(get_job_servic
     if not path:
         raise NotFoundError("Vocal stem was not generated for this job")
     return FileResponse(path, media_type="audio/wav", filename=f"{_safe_title(job.request.title, job.id)}-vocal.wav")
+
+
+@router.get("/download/{job_id}/vocal-plan")
+def download_vocal_plan(job_id: str, job_service: JobService = Depends(get_job_service), file_store: LocalFileStore = Depends(get_file_store)):
+    job = job_service.get_required(job_id)
+    if job.status != JobStatus.SUCCEEDED or not job.result:
+        raise NotFoundError("Vocal plan is not available")
+    path = vocal_plan_path(job, file_store)
+    if not path:
+        raise NotFoundError("Vocal plan was not generated for this job")
+    from app.generators.vocal_plan import load_vocal_plan
+
+    return load_vocal_plan(path).model_dump()
 
 
 @router.get("/download/{job_id}/bundle")

@@ -171,6 +171,7 @@ class JobStatusResponse(BaseModel):
     job: JobRecord
     download_url: Optional[str] = None
     vocal_download_url: Optional[str] = None
+    vocal_plan_url: Optional[str] = None
     bundle_url: Optional[str] = None
 
 

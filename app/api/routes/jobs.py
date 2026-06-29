@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, Query
 
 from app.api.dependencies import get_file_store, get_job_service, get_log_store
 from app.core.vocal_assets import vocal_stem_path
+from app.core.vocal_plan_assets import vocal_plan_path
 from app.core.job_paths import stable_output_path
 from app.domain.models import JobPollResponse, JobStatus, JobStatusResponse
 from app.services.job_service import JobService
@@ -22,10 +23,12 @@ def _job_poll(job) -> JobPollResponse:
 def _job_urls(job, file_store: LocalFileStore) -> JobStatusResponse:
     ready = job.status == JobStatus.SUCCEEDED and job.result
     vocal_ready = ready and vocal_stem_path(job, file_store) is not None
+    vocal_plan_ready = ready and vocal_plan_path(job, file_store) is not None
     return JobStatusResponse(
         job=job,
         download_url=f"/api/download/{job.id}" if ready else None,
         vocal_download_url=f"/api/download/{job.id}/vocal" if vocal_ready else None,
+        vocal_plan_url=f"/api/download/{job.id}/vocal-plan" if vocal_plan_ready else None,
         bundle_url=f"/api/download/{job.id}/bundle" if ready else None,
     )
 

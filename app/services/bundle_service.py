@@ -21,6 +21,7 @@ class BundleService:
         if not job.result:
             raise RuntimeError("Job has no result to bundle")
         stem_name = (job.result.metadata or {}).get("vocal_stem_file")
+        plan_name = (job.result.metadata or {}).get("vocal_plan_file")
         req = job.request
         return {
             "job_id": job.id,
@@ -28,6 +29,7 @@ class BundleService:
             "files": {
                 "song": "song.wav",
                 "vocal_stem": "vocal_stem.wav" if stem_name else None,
+                "vocal_plan": "vocal_plan.json" if plan_name else None,
                 "metadata": "metadata.json",
                 "prompt": "prompt.txt",
                 "lyrics": "lyrics.txt" if req.include_lyrics_in_bundle else None,
@@ -69,6 +71,11 @@ class BundleService:
                 stem_path = self.file_store.path_for_file_name(stem_name)
                 if stem_path.exists():
                     zf.write(stem_path, "vocal_stem.wav")
+            plan_name = (job.result.metadata or {}).get("vocal_plan_file")
+            if plan_name:
+                plan_path = self.file_store.path_for_file_name(plan_name)
+                if plan_path.exists():
+                    zf.write(plan_path, "vocal_plan.json")
             zf.writestr("bundle.json", json.dumps(manifest, indent=2))
             if metadata_path.exists():
                 zf.write(metadata_path, "metadata.json")

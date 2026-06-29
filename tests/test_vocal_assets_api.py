@@ -68,3 +68,27 @@ def test_bundle_includes_manifest_and_stem(client):
     manifest = json.loads(zf.read("bundle.json"))
     assert manifest["generation"]["singing_voice"] == "auto"
     assert manifest["files"]["vocal_stem"] == "vocal_stem.wav"
+    assert "vocal_plan.json" in names
+    assert manifest["files"]["vocal_plan"] == "vocal_plan.json"
+
+
+def test_vocal_plan_url_when_plan_exists(client):
+    c, _ = client
+    job_id = c.post(
+        "/api/generate",
+        json={
+            "title": "Plan Test",
+            "prompt": "pop hook with clear vocal",
+            "lyrics": "Verse:\nhello world\nChorus:\nsing it now",
+            "generator": "procedural-v3",
+            "duration_seconds": 10,
+            "quality": "draft",
+            "mode": "song",
+        },
+    ).json()["job_id"]
+    status = c.get(f"/api/jobs/{job_id}").json()
+    assert status["vocal_plan_url"] == f"/api/download/{job_id}/vocal-plan"
+    plan = c.get(f"/api/download/{job_id}/vocal-plan").json()
+    assert plan["version"] == 0
+    syllables = sum(len(line["syllables"]) for section in plan["sections"] for line in section["lines"])
+    assert syllables >= 2

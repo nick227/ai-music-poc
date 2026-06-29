@@ -4,8 +4,8 @@ import math
 from dataclasses import dataclass
 
 from app.domain.models import GenerationRequest
-from app.generators.lyrics_timeline import LyricEvent, build_lyric_timeline, event_at
 from app.generators.quality_profile import QualityProfile
+from app.generators.vocal_plan import VocalPlan, midi_to_hz, syllable_at
 
 
 @dataclass(frozen=True)
@@ -68,9 +68,7 @@ class VocalEngine:
         self,
         request: GenerationRequest,
         profile_name: str,
-        scale: list[int],
-        root: float,
-        duration_beats: float,
+        vocal_plan: VocalPlan,
         phrase_speed: float,
         vocal_amp: float,
         quality: QualityProfile,
@@ -78,20 +76,18 @@ class VocalEngine:
     ) -> None:
         self.request = request
         self.profile_name = profile_name
-        self.scale = scale
-        self.root = root
         self.phrase_speed = phrase_speed
         self.vocal_amp = vocal_amp
         self.quality = quality
         self.voice = resolve_voice(request, positive_text)
-        self.events = build_lyric_timeline(request.lyrics, duration_beats)
+        self.plan = vocal_plan
         self._reverb_buf: list[float] = []
         self._delay_buf: list[float] = []
 
     def enabled(self) -> bool:
         return (
             self.request.mode in ("song", "vocal_demo")
-            and bool(self.events)
+            and self.plan.syllable_count() > 0
             and self.vocal_amp > 0
             and self.request.vocal_intensity > 0
         )
@@ -99,16 +95,16 @@ class VocalEngine:
     def sample(self, t: float, beat_pos: float, bar: int, section: str, motif_shift: int) -> float:
         if not self.enabled():
             return 0.0
-        event = event_at(self.events, beat_pos * self.phrase_speed)
-        if event is None:
+        hit = syllable_at(self.plan, beat_pos)
+        if hit is None:
             return 0.0
+        syllable, syllable_idx = hit
 
-        word = event.word.lower()
-        syllable_x = (beat_pos * self.phrase_speed - event.beat_start) / max(event.beat_duration, 0.001)
-        word_idx = self.events.index(event)
-        note = self.scale[(word_idx + bar + motif_shift + (2 if section in ("chorus", "hook") else 0)) % len(self.scale)]
-        octave = self.voice.base_multiplier * (0.82 if self.profile_name == "rap" else 1.0)
-        pitch = self.root * octave * (2 ** (note / 12))
+        word = syllable.text.lower()
+        syllable_x = (beat_pos - syllable.beat_start) / max(syllable.beat_duration, 0.001)
+        pitch = midi_to_hz(syllable.pitch_midi) * self.voice.base_multiplier
+        if self.profile_name == "rap":
+            pitch *= 0.82
         if self.voice.quantized:
             pitch = round(pitch / 18.0) * 18.0
 

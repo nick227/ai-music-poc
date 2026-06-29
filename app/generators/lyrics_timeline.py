@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from app.generators.vocal_plan import VocalPlan, build_vocal_plan
+
 
 @dataclass(frozen=True)
 class LyricEvent:
@@ -10,42 +12,30 @@ class LyricEvent:
     beat_duration: float
 
 
-def _clean_word(raw: str) -> str:
-    return raw.strip(".,!?;:()[]{}\"'")
+_DEFAULT_SCALE = [0, 2, 4, 5, 7, 9, 11]
 
 
 def build_lyric_timeline(lyrics: str, duration_beats: float) -> list[LyricEvent]:
-    lines = [line.strip() for line in lyrics.splitlines() if line.strip()]
-    if not lines:
-        words = [_clean_word(w) for w in lyrics.split() if _clean_word(w)]
-        if not words:
-            return []
-        lines = [" ".join(words)]
-
-    events: list[LyricEvent] = []
-    beat_cursor = 0.0
-    beats_per_line = max(4.0, duration_beats / max(len(lines), 1))
-
-    for line in lines:
-        words = [_clean_word(w) for w in line.split() if _clean_word(w)]
-        if not words:
-            beat_cursor += beats_per_line * 0.5
-            continue
-        word_beats = beats_per_line / len(words)
-        for word in words:
-            events.append(LyricEvent(word=word, beat_start=beat_cursor, beat_duration=word_beats))
-            beat_cursor += word_beats
-        beat_cursor += word_beats * 0.35
-
-    return events
+    """Deprecated: prefer build_vocal_plan(). Returns syllable-level events."""
+    plan = build_vocal_plan(
+        lyrics,
+        bpm=120,
+        key=None,
+        duration_beats=duration_beats,
+        scale=_DEFAULT_SCALE,
+        root_hz=261.63,
+    )
+    return [
+        LyricEvent(word=syllable.text, beat_start=syllable.beat_start, beat_duration=syllable.beat_duration)
+        for syllable in plan.flat_syllables()
+    ]
 
 
 def event_at(events: list[LyricEvent], beat_pos: float) -> LyricEvent | None:
     if not events:
         return None
-    scaled = beat_pos
     for event in events:
         end = event.beat_start + event.beat_duration
-        if event.beat_start <= scaled < end:
+        if event.beat_start <= beat_pos < end:
             return event
-    return events[int(scaled) % len(events)]
+    return events[int(beat_pos) % len(events)]

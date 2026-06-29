@@ -154,6 +154,42 @@ button.save-ok {
   text-align: right;
 }
 
+.vocal-plan-grid {
+  margin-top: 12px;
+}
+
+.vocal-plan-track {
+  position: relative;
+  height: 2.4rem;
+  margin-top: 6px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.vocal-plan-cell {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  font-size: 0.68rem;
+  color: #e4e4e7;
+  background: rgba(96, 165, 250, 0.28);
+  border: 1px solid rgba(96, 165, 250, 0.45);
+  border-radius: 4px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.vocal-plan-cell.stressed {
+  background: rgba(251, 191, 36, 0.32);
+  border-color: rgba(251, 191, 36, 0.55);
+}
+
 @media (max-width: 900px) {
   .detail-grid { grid-template-columns: 1fr; }
 }
