@@ -13,7 +13,8 @@ Full singing quality depends on a shared **VocalPlan** for controlled renderers.
 | Phase 0 VocalPlan v0 — schema, syllable timing, VocalEngine wiring | **shipped** |
 | VocalPlan v0.1 — phrase holds, rest gaps, section density, pitch contours, debug grid | **shipped** |
 | Workbench syllable timing grid | **shipped** |
-| Current focus: validate procedural draft timing/audio behavior; protect against regressions | **in progress** |
+| Automated regression suite (timing + audio energy + auto-polish policy) | **shipped** |
+| Phase 0 exit — manual listen QA on 3 golden cases | **next** |
 | SVS, forced alignment, ACE observed plans, voice cloning | **deferred** |
 
 ---
@@ -129,20 +130,58 @@ First-class artifact saved beside each generation job as `data/jobs/<id>/vocal_p
 
 ---
 
-## Current Focus: Validation [current]
+## Current Focus: Phase 0 Exit [current]
 
-Validate that procedural draft timing and audio behaviour match the VocalPlan contract. Protect against regressions as the codebase evolves.
+Phase 0 code is shipped. Remaining work is **validation and sign-off**, not new features.
 
-Active validation targets:
-- Syllable timing correctness across section types (verse, chorus, bridge, rap)
-- Section density and rest gap behaviour
-- Bundle plumbing: `vocal_plan.json` present in every vocal job output
-- API contract: plan accessible via job result metadata
-- Procedural draft audio lands on the beat for simple verse–chorus lyrics
+### Automated gates (run before every voice-related merge)
+
+```bash
+.venv/bin/python -m pytest \
+  tests/test_vocal_plan.py \
+  tests/test_vocal_plan_golden.py \
+  tests/test_vocal_plan_regression.py \
+  tests/test_vocal_audio_energy.py \
+  tests/test_auto_polish_policy.py \
+  tests/test_regenerate_vocal_listen_demos.py \
+  tests/test_vocal_assets_api.py -q
+```
+
+| Test file | What it protects |
+|-----------|------------------|
+| `test_vocal_plan_regression.py` | `syllable_at` returns `None` during rests and after plan end (no wrap/stutter) |
+| `test_vocal_audio_energy.py` | Vocal stem louder on syllables than rests; procedural golden cases (balanced stem export) |
+| `test_auto_polish_policy.py` | Procedural draft skips FFmpeg polish; playback WAV restored when skipped |
+| `test_vocal_plan_golden.py` | Plan JSON stable against fixtures (`pop_chorus`, `rap_dense`, `ballad_held`) |
+
+### Manual listen QA (one-time sign-off, repeat after renderer changes)
+
+Regenerate draft listen demos (default `quality=draft` — timing preview, not musical quality):
+
+```bash
+.venv/bin/python scripts/regenerate_vocal_listen_demos.py
+```
+
+Outputs land in `data/experiments/vocal-plan-v01/{pop_chorus,rap_dense,ballad_held}.wav`.
+
+For each case, confirm:
+
+1. **Grid alignment** — open the same lyrics in Generate/Workbench; syllable onsets in the debug table match audible vocal hits (±1 beat tolerance).
+2. **Rests are silent** — gaps between lines/sections have no vocal bleed or stutter.
+3. **Section density** — rap case is denser than ballad; chorus tighter than verse in pop case.
+4. **No polish artifacts** — draft procedural jobs skip auto-polish (no `afftdn` mangling).
+
+Expect synthetic formant vocals. Pass/fail is **timing contract**, not commercial vocal realism.
+
+### Phase 0 complete when
+
+- [ ] Automated suite above passes locally
+- [ ] Manual listen QA signed off on all 3 golden cases
+- [ ] No open regressions against the validation gates table below
 
 ---
 
-## Definition of Done / Validation Gates
+## Validation Gates
 
 All gates below must pass for Phase 0 to be considered complete.
 
@@ -154,7 +193,10 @@ All gates below must pass for Phase 0 to be considered complete.
 | Phrase/rest pacing | Phrase-end holds and inter-line rests are present and non-zero | done |
 | Grid preview | Workbench syllable grid columns align with draft vocal onsets | done |
 | No new model installs | Phase 0 uses `pyphen` + heuristics only; no neural model required | done |
-| Procedural draft audio | Draft vocals land on the beat for simple verse–chorus lyrics; auto-polish is skipped by default in draft/procedural mode | in progress |
+| Rest/post-plan silence | `syllable_at` and vocal stem energy agree: no audio during planned rests | done |
+| Auto-polish policy | Procedural draft skips polish; main WAV playable after skip | done |
+| Draft audio timing | Procedural vocals land on the beat for pop/rap/ballad golden cases | done (automated, balanced stem) |
+| Manual listen sign-off | Human confirms grid + listen match on 3 golden cases | **pending** |
 
 ---
 
@@ -173,6 +215,25 @@ All gates below must pass for Phase 0 to be considered complete.
 The procedural/formant renderer sounds synthetic. This is expected and acceptable in Phase 0.
 
 VocalPlan validates: syllable timing, phrasing, section density, rests, pitch event structure, API plumbing, and bundle output. Commercial vocal realism requires a future controlled renderer (SVS, DiffSinger-style) that consumes the same `VocalPlan` contract. That renderer is deferred.
+
+---
+
+## After Phase 0 — Phase 1 Preview [deferred]
+
+Do not start until Phase 0 manual sign-off is complete.
+
+| Step | Goal | Consumes `vocal_plan.json`? |
+|------|------|----------------------------|
+| **1. SVS adapter** | DiffSinger-style controlled singing from plan pitch + duration | **yes** — primary consumer |
+| **2. ACE observed plan** | Forced-align ACE vocal stem → `observed_vocal_plan.json` for comparison/debug | no — post-render analysis only |
+| **3. Align/mix loop** | Time-warp performed vocal to match plan; section re-sing | uses both planned + observed |
+| **4. Voice cloning** | RVC / So-VITS timbre on SVS performance | timbre only, not timing |
+
+First implementation issue after Phase 0:
+
+> **Add SVS generator adapter that reads `vocal_plan.json` and renders a vocal stem.**
+
+See [`GENERATOR_ADAPTERS.md`](GENERATOR_ADAPTERS.md) for the adapter pattern.
 
 ---
 
@@ -197,9 +258,15 @@ Do **not** start with RVC, So-VITS, or voice cloning. Model complexity before th
 | `app/generators/lyrics_timeline.py` | Syllable events; superseded by vocal_plan | done |
 | `app/generators/vocal_engine.py` | Consumes `VocalPlan` | done |
 | `app/generators/procedural.py` | Builds plan once; exports to job metadata | done |
+| `app/audio/postprocess.py` | `should_auto_polish`; skip + restore for procedural draft | done |
+| `app/audio/vocal_energy.py` | RMS window assertions for stem timing | done |
 | `app/services/generation_service.py` | Persists plan path in job result | done |
 | `app/web/static/workbench/` | Syllable grid / karaoke preview | done |
-| `tests/test_vocal_plan.py` | Timing contract tests + golden fixtures | done |
+| `scripts/regenerate_vocal_listen_demos.py` | Manual QA WAV regen (`--quality draft` default) | done |
+| `tests/test_vocal_plan*.py` | Timing contract + golden fixtures | done |
+| `tests/test_vocal_audio_energy.py` | Measurable stem-on-beat assertions | done |
+| `tests/test_vocal_plan_regression.py` | `syllable_at` rest/post-plan silence | done |
+| `tests/test_auto_polish_policy.py` | Draft procedural polish skip policy | done |
 
 ---
 
