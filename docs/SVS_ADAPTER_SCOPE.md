@@ -230,17 +230,27 @@ Health endpoint: `GET /api/svs/runtime` (parallel to ACE runtime) — deps, GPU,
 
 **Do not start Slice 2** until Slice 1 is reviewed and Phase 0 manual sign-off is done.
 
-### Slice 2 — Command adapter + `svs-vocal` generator
+### Slice 1.1 — Contract hardening **shipped**
+
+- `validate_svs_score()` + version gate on load/save
+- `scripts/render_svs_mock_stem.py --all-golden-cases`
+- Note-name edge tests (`C4`, `C#4`, `B3`/`B4`)
+- Per-fixture rest-energy assertions (`assert_rest_windows_silent`)
+- Bundle manifest keys: `svs_score`, `vocal_backend`, `svs_score_version` (no UI yet)
+
+### Slice 2 — Command adapter + `svs-vocal` generator **shipped (mock backend)**
 
 **Deliverables**
 
 - `SvsCommandGenerator` registered in `registry.py`
-- `scripts/svs_runner.py` — reads `svs_score.json`, calls DiffSinger inference script, writes WAV
-- `svs/health.py` + API route
-- Job metadata + bundle include `svs_score.json` and `vocal_stem.wav`
-- `mode=vocal_demo` + `generator=svs-vocal` works end-to-end
+- `scripts/svs_runner.py` — `--backend mock|external`
+- `SVS_*` config + `svs/health.py` status helper
+- `mode=vocal_demo` + `generator=svs-vocal` end-to-end (mock runner default)
+- Bundle includes `svs_score.json` when job metadata has `svs_score_file`
 
-**Exit:** With DiffSinger installed, `vocal_demo` job produces neural stem; without it, fallback or clear error per `SVS_ALLOW_FALLBACK`.
+**Not in scope:** auto-render routing, SVS runtime API route, DiffSinger external wiring, UI exposure.
+
+**Exit:** `svs-vocal` vocal_demo job succeeds; bundle carries score + plan + stem metadata.
 
 ### Slice 3 — Hybrid song (`procedural-svs`)
 

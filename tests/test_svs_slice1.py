@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from app.audio.vocal_energy import assert_vocal_stem_timing
-from app.generators.svs import MockSvsRenderer, vocal_plan_to_score
+from app.generators.svs import GOLDEN_CASE_NAMES, MockSvsRenderer, vocal_plan_to_score
 from app.generators.svs.g2p_en import syllable_to_phonemes
 from app.generators.vocal_plan import build_vocal_plan, load_vocal_plan, vocal_plan_timing_for
 
@@ -12,7 +12,7 @@ FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures" / "svs_score"
 VOCAL_PLAN_DIR = Path(__file__).resolve().parent / "fixtures" / "vocal_plan"
 SCALE = [0, 2, 4, 5, 7, 9, 11]
 ROOT_HZ = 261.63
-GOLDEN_CASES = ("pop_chorus", "rap_dense", "ballad_held")
+GOLDEN_CASES = GOLDEN_CASE_NAMES
 
 
 def _load_vocal_plan_case(name: str):

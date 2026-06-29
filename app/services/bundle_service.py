@@ -22,6 +22,7 @@ class BundleService:
             raise RuntimeError("Job has no result to bundle")
         stem_name = (job.result.metadata or {}).get("vocal_stem_file")
         plan_name = (job.result.metadata or {}).get("vocal_plan_file")
+        score_name = (job.result.metadata or {}).get("svs_score_file")
         req = job.request
         return {
             "job_id": job.id,
@@ -30,6 +31,7 @@ class BundleService:
                 "song": "song.wav",
                 "vocal_stem": "vocal_stem.wav" if stem_name else None,
                 "vocal_plan": "vocal_plan.json" if plan_name else None,
+                "svs_score": "svs_score.json" if score_name else None,
                 "metadata": "metadata.json",
                 "prompt": "prompt.txt",
                 "lyrics": "lyrics.txt" if req.include_lyrics_in_bundle else None,
@@ -51,6 +53,8 @@ class BundleService:
             "result": {
                 "engine": (job.result.metadata or {}).get("engine"),
                 "backend": (job.result.metadata or {}).get("backend"),
+                "vocal_backend": (job.result.metadata or {}).get("vocal_backend"),
+                "svs_score_version": (job.result.metadata or {}).get("svs_score_version"),
                 "sample_rate": job.result.sample_rate,
             },
         }
@@ -76,6 +80,11 @@ class BundleService:
                 plan_path = self.file_store.path_for_file_name(plan_name)
                 if plan_path.exists():
                     zf.write(plan_path, "vocal_plan.json")
+            score_name = (job.result.metadata or {}).get("svs_score_file")
+            if score_name:
+                score_path = self.file_store.path_for_file_name(score_name)
+                if score_path.exists():
+                    zf.write(score_path, "svs_score.json")
             zf.writestr("bundle.json", json.dumps(manifest, indent=2))
             if metadata_path.exists():
                 zf.write(metadata_path, "metadata.json")

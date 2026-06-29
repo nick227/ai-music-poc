@@ -4,14 +4,11 @@ from pathlib import Path
 
 from app.generators.svs.g2p_en import syllable_to_phonemes
 from app.generators.svs.models import SvsNoteEvent, SvsRestEvent, SvsScore
+from app.generators.svs.notes import midi_to_note_name
+from app.generators.svs.validation import validate_svs_score
 from app.generators.vocal_plan import VocalPlan
 
-_NOTE_NAMES = ("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
 _BEAT_ROUND = 3
-
-
-def midi_to_note_name(midi: int) -> str:
-    return f"{_NOTE_NAMES[midi % 12]}{(midi // 12) - 1}"
 
 
 def _round_beats(value: float) -> float:
@@ -55,15 +52,19 @@ def vocal_plan_to_score(plan: VocalPlan) -> SvsScore:
         version=1,
         bpm=plan.bpm,
         language="en",
-        duration_beats=_round_beats(plan.duration_beats),
+        duration_beats=_round_beats(max(plan.duration_beats, plan.vocal_end_beat())),
         events=events,
     )
 
 
 def save_svs_score(score: SvsScore, path: Path) -> None:
+    validate_svs_score(score)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(score.model_dump_json(indent=2), encoding="utf-8")
 
 
-def load_svs_score(path: Path) -> SvsScore:
-    return SvsScore.model_validate_json(path.read_text(encoding="utf-8"))
+def load_svs_score(path: Path, *, validate: bool = True) -> SvsScore:
+    score = SvsScore.model_validate_json(path.read_text(encoding="utf-8"))
+    if validate:
+        validate_svs_score(score)
+    return score

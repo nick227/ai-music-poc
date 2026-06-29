@@ -16,7 +16,9 @@ Full singing quality depends on a shared **VocalPlan** for controlled renderers.
 | Automated regression suite (timing + audio energy + auto-polish policy) | **shipped** |
 | Phase 0 exit — manual listen QA on 3 golden cases | **next** |
 | SVS Slice 1 — `VocalPlan` → `SvsScore` + mock stem | **shipped** |
-| SVS Slice 2+ (command adapter, external backend) | **deferred** |
+| SVS Slice 1.1 — score validation, golden CLI, bundle metadata | **shipped** |
+| SVS Slice 2 — `svs-vocal` generator + `svs_runner.py` (mock default) | **shipped** |
+| SVS external backend (DiffSinger/NNSVS) + runtime API | **deferred** |
 | Forced alignment, ACE observed plans, voice cloning | **deferred** |
 
 ---

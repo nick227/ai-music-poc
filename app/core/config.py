@@ -1,6 +1,7 @@
 from functools import lru_cache
 from pathlib import Path
 from typing import List
+import sys
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -47,6 +48,15 @@ class Settings(BaseSettings):
     ace_real_training_enabled: bool = Field(default=False, alias="ACE_REAL_TRAINING_ENABLED")
     ace_train_dry_run: bool = Field(default=True, alias="ACE_TRAIN_DRY_RUN")
     ace_train_checkpoint_dir: Path | None = Field(default=_DEFAULT_ACE_CHECKPOINTS, alias="ACE_TRAIN_CHECKPOINT_DIR")
+
+    svs_enabled: bool = Field(default=True, alias="SVS_ENABLED")
+    svs_python: Path = Field(default=Path(sys.executable), alias="SVS_PYTHON")
+    svs_script: Path = Field(default=Path("./scripts/svs_runner.py"), alias="SVS_SCRIPT")
+    svs_model_dir: Path = Field(default=Path("./data/svs_models"), alias="SVS_MODEL_DIR")
+    svs_timeout_seconds: int = Field(default=300, alias="SVS_TIMEOUT_SECONDS")
+    svs_command_template: str = Field(default="", alias="SVS_COMMAND_TEMPLATE")
+    svs_allow_fallback: bool = Field(default=True, alias="SVS_ALLOW_FALLBACK")
+    svs_external_command: str = Field(default="", alias="SVS_EXTERNAL_COMMAND")
 
     @property
     def job_dir(self) -> Path:

@@ -82,6 +82,29 @@ def max_abs_sample(samples: list[float]) -> float:
     return max((abs(sample) for sample in samples), default=0.0)
 
 
+def assert_rest_windows_silent(
+    plan: VocalPlan,
+    stem_path: Path,
+    *,
+    rest_rms_max: float = 0.0025,
+) -> dict[str, float]:
+    samples, sample_rate = read_mono_wav_normalized(stem_path)
+    windows = plan_energy_windows(plan, samples, sample_rate)
+    rest_windows = [window for window in windows if window.kind == "rest"]
+    if not rest_windows:
+        return {"rest_count": 0.0, "rest_max_rms": 0.0}
+
+    loud_rests = [window for window in rest_windows if window.rms > rest_rms_max]
+    if loud_rests:
+        labels = ", ".join(window.label for window in loud_rests[:3])
+        raise AssertionError(f"rest windows not silent: {labels}")
+
+    return {
+        "rest_count": float(len(rest_windows)),
+        "rest_max_rms": max(window.rms for window in rest_windows),
+    }
+
+
 def assert_vocal_stem_timing(
     plan: VocalPlan,
     stem_path: Path,
