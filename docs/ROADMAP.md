@@ -72,3 +72,7 @@ Do not train on commercial music without rights.
 - billing/credits
 - section regeneration
 - stems and visualizer/video export
+
+## Voice (Phase 0 MVP)
+
+Syllable timing contract before SVS or cloning: [`VOICE_ROADMAP.md`](VOICE_ROADMAP.md)
