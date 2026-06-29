@@ -15,7 +15,8 @@ Full singing quality depends on a shared **VocalPlan** for controlled renderers.
 | Workbench syllable timing grid | **shipped** |
 | Automated regression suite (timing + audio energy + auto-polish policy) | **shipped** |
 | Phase 0 exit — manual listen QA on 3 golden cases | **next** |
-| SVS, forced alignment, ACE observed plans, voice cloning | **deferred** |
+| SVS adapter — scoped ([`SVS_ADAPTER_SCOPE.md`](SVS_ADAPTER_SCOPE.md)) | **scoping** |
+| Forced alignment, ACE observed plans, voice cloning | **deferred** |
 
 ---
 
@@ -218,22 +219,33 @@ VocalPlan validates: syllable timing, phrasing, section density, rests, pitch ev
 
 ---
 
-## After Phase 0 — Phase 1 Preview [deferred]
+## After Phase 0 — Phase 1 Preview
 
-Do not start until Phase 0 manual sign-off is complete.
+Do not start SVS implementation until Phase 0 manual sign-off is complete.
+
+**Full scope:** [`SVS_ADAPTER_SCOPE.md`](SVS_ADAPTER_SCOPE.md)
 
 | Step | Goal | Consumes `vocal_plan.json`? |
 |------|------|----------------------------|
-| **1. SVS adapter** | DiffSinger-style controlled singing from plan pitch + duration | **yes** — primary consumer |
+| **1. SVS adapter** | DiffSinger-style controlled singing from plan pitch + duration | **yes** — via `SvsScore` export |
 | **2. ACE observed plan** | Forced-align ACE vocal stem → `observed_vocal_plan.json` for comparison/debug | no — post-render analysis only |
 | **3. Align/mix loop** | Time-warp performed vocal to match plan; section re-sing | uses both planned + observed |
 | **4. Voice cloning** | RVC / So-VITS timbre on SVS performance | timbre only, not timing |
 
-First implementation issue after Phase 0:
+### SVS adapter slices (summary)
 
-> **Add SVS generator adapter that reads `vocal_plan.json` and renders a vocal stem.**
+| Slice | Deliverable |
+|-------|-------------|
+| **1** | `VocalPlan` → `SvsScore` JSON + G2P + mock renderer (no GPU) |
+| **2** | Command adapter, `svs-vocal` generator, `vocal_demo` stem output |
+| **3** | Hybrid `procedural-svs` — instrumental bed + SVS vocal mix |
+| **4** | Regression tests + optional listen-demo regen for SVS |
 
-See [`GENERATOR_ADAPTERS.md`](GENERATOR_ADAPTERS.md) for the adapter pattern.
+First implementation issue:
+
+> **Slice 1: `plan_export.py` + `SvsScore` v1 + golden fixture tests**
+
+See [`GENERATOR_ADAPTERS.md`](GENERATOR_ADAPTERS.md) for the `MusicGenerator` protocol; SVS also introduces a narrower `VocalRenderer` protocol (vocal stem only).
 
 ---
 
@@ -273,5 +285,6 @@ Do **not** start with RVC, So-VITS, or voice cloning. Model complexity before th
 ## Related Docs
 
 - [`ROADMAP.md`](ROADMAP.md) — product phases
+- [`SVS_ADAPTER_SCOPE.md`](SVS_ADAPTER_SCOPE.md) — Phase 1 SVS adapter implementation scope
 - [`ACE_STEP_SETUP.md`](ACE_STEP_SETUP.md) — ACE neural render path (separate from `vocal_plan.json`)
-- [`GENERATOR_ADAPTERS.md`](GENERATOR_ADAPTERS.md) — adapter pattern for future SVS
+- [`GENERATOR_ADAPTERS.md`](GENERATOR_ADAPTERS.md) — adapter pattern for generators

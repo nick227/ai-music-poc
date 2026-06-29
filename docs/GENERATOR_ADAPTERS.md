@@ -38,6 +38,18 @@ class AceStepGenerator:
 
 Register it in `app/generators/registry.py`.
 
+## SVS (controlled vocal path)
+
+SVS consumes `vocal_plan.json` indirectly via `SvsScore` export — not raw plan parsing in the backend.
+
+See [`SVS_ADAPTER_SCOPE.md`](SVS_ADAPTER_SCOPE.md) for the full Phase 1 design. Summary:
+
+- **`VocalRenderer`** — narrow protocol: `VocalPlan` → `vocal_stem.wav`
+- **`SvsCommandGenerator`** — `MusicGenerator` façade for `vocal_demo` / hybrid song modes
+- **Command runner** — `scripts/svs_runner.py` + `SVS_*` env vars (same pattern as ACE)
+
+Do not put DiffSinger/NNSVS inference code in API routes.
+
 ## Rule
 
 Do not put model logic in API routes. Routes should not know whether generation is procedural, local GPU, remote GPU, or hosted API.
