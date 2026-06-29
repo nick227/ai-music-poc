@@ -2,14 +2,16 @@
 
 Focused MVP: **Phase 0 only** — establish the timing contract before any neural voice work.
 
-Full singing quality (Suno-like alignment) depends on a shared **VocalPlan** that every renderer consumes. Until that exists, SVS adapters and voice cloning add complexity without fixing the real bug: **equal per-word timing**.
+Full singing quality (Suno-like alignment) depends on a shared **VocalPlan** for controlled renderers. Until that exists, SVS adapters and voice cloning add complexity without fixing the real bug: **equal per-word timing**.
 
 ---
 
 ## Core architectural decision
 
+**Controlled render path** (procedural draft today; SVS later):
+
 ```
-lyrics → prosody → VocalPlan → render → align/mix
+lyrics → prosody → VocalPlan → controlled render → align/mix
 ```
 
 **Not:**
@@ -18,9 +20,17 @@ lyrics → prosody → VocalPlan → render → align/mix
 lyrics → TTS/singer → hope it fits
 ```
 
-- **Prosody + timing** are planned first and stored as `VocalPlan`.
-- **Render** (procedural draft today; SVS / ACE later) produces audio from the plan.
+- **Prosody + timing** are planned first and stored as `vocal_plan.json`.
+- **Controlled render** (procedural, future SVS) produces audio from the plan.
 - **Align/mix** (forced alignment, time-warp, stem mixdown) refines output against the plan — deferred until Phase 0 is proven.
+
+**ACE remains separate** — it does not consume `VocalPlan` today:
+
+```
+lyrics/prompt → ACE → audio → optional observed_vocal_plan.json
+```
+
+After ACE renders, forced alignment can derive `observed_vocal_plan.json` from the performed vocal. That file informs future planners and edit UI; it is not an input to ACE inference.
 
 Cloning, when it arrives, is **timbre conversion on top of a correct performance**, not a substitute for timing generation.
 
@@ -95,7 +105,8 @@ v0 pitch can come from existing melodic contours; v0 prosody can be heuristic (n
 - Build plan once per job (new module, e.g. `app/generators/vocal_plan.py`).
 - `VocalEngine` reads syllable events + pitch from the plan — no internal `build_lyric_timeline()` call.
 - Procedural generator passes the same plan it exports to metadata.
-- Future SVS / ACE adapters receive the same file; no renderer invents timing independently.
+- Future SVS adapters receive `vocal_plan.json`; ACE may later produce `observed_vocal_plan.json` after rendering/alignment.
+- Controlled renderers do not invent timing independently.
 
 ### 4. Draft karaoke / grid preview
 
@@ -117,7 +128,7 @@ v0 pitch can come from existing melodic contours; v0 prosody can be heuristic (n
 | Track | Notes |
 |-------|-------|
 | **SVS** (DiffSinger-style) | MIDI + lyrics → singing; consumes `VocalPlan` pitch/duration |
-| **ACE stem + forced align** | Learn from / correct neural output against plan |
+| **ACE stem + forced align** | Derive `observed_vocal_plan.json` from ACE vocal; learn from / correct against planned plan |
 | **Time-warp / section re-sing** | Post-render alignment loop |
 | **Voice cloning** | Timbre conversion (RVC / So-VITS) on SVS performance — **not** timing generation |
 
@@ -162,7 +173,7 @@ Do **not** start with RVC, So-VITS, or voice cloning. Model complexity before th
 |--------|--------|
 | Plan persistence | 100% of vocal jobs write `vocal_plan.json` |
 | Syllable coverage | Every lyric token syllabified or flagged |
-| Timing sanity | Longer words ≠ longer beats; syllable count drives duration |
+| Timing sanity | Longer words only get longer timing when they contain more syllables or stressed syllables |
 | Preview | Grid columns align with draft vocal onsets (informal listen test) |
 
 ---
@@ -170,5 +181,5 @@ Do **not** start with RVC, So-VITS, or voice cloning. Model complexity before th
 ## Related docs
 
 - [`ROADMAP.md`](ROADMAP.md) — product phases
-- [`ACE_STEP_SETUP.md`](ACE_STEP_SETUP.md) — neural render path (uses plan later)
+- [`ACE_STEP_SETUP.md`](ACE_STEP_SETUP.md) — ACE neural render path (separate from `vocal_plan.json` input)
 - [`GENERATOR_ADAPTERS.md`](GENERATOR_ADAPTERS.md) — adapter pattern for future SVS
