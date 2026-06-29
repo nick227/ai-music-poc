@@ -57,6 +57,40 @@ def test_syllable_at_returns_active_syllable():
     assert hit[0].text == first.text
 
 
+def test_syllable_at_silent_during_line_rest():
+    plan = build_vocal_plan(
+        """Verse:
+I walk alone beneath the city lights
+Chorus:
+We rise tonight""",
+        bpm=118,
+        key="C",
+        duration_beats=48.0,
+        scale=[0, 2, 4, 5, 7, 9, 11],
+        root_hz=261.63,
+        profile_name="pop",
+    )
+    for section in plan.sections:
+        for line in section.lines:
+            if line.rest_beats_after <= 0 or not line.syllables:
+                continue
+            last = line.syllables[-1]
+            mid_rest = last.beat_start + last.beat_duration + line.rest_beats_after / 2
+            assert syllable_at(plan, mid_rest) is None
+
+
+def test_syllable_at_silent_after_plan_end():
+    plan = build_vocal_plan(
+        "hello world",
+        bpm=120,
+        key=None,
+        duration_beats=16.0,
+        scale=[0, 2, 4, 5, 7, 9, 11],
+        root_hz=261.63,
+    )
+    assert syllable_at(plan, plan.vocal_end_beat() + 0.5) is None
+
+
 def test_section_boundaries_preserved():
     lyrics = "Verse:\none two\nChorus:\nthree four"
     plan = build_vocal_plan(

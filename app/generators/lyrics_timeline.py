@@ -38,4 +38,4 @@ def event_at(events: list[LyricEvent], beat_pos: float) -> LyricEvent | None:
         end = event.beat_start + event.beat_duration
         if event.beat_start <= beat_pos < end:
             return event
-    return events[int(beat_pos) % len(events)]
+    return None

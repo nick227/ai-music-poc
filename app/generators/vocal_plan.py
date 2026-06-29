@@ -77,6 +77,14 @@ class VocalPlan(BaseModel):
     def syllable_count(self) -> int:
         return sum(len(line.syllables) for section in self.sections for line in section.lines)
 
+    def vocal_end_beat(self) -> float:
+        end = 0.0
+        for section in self.sections:
+            for line in section.lines:
+                for syllable in line.syllables:
+                    end = max(end, syllable.beat_start + syllable.beat_duration)
+        return end
+
     def flat_syllables(self) -> list[PlanSyllable]:
         out: list[PlanSyllable] = []
         for section in self.sections:
@@ -319,13 +327,13 @@ def build_vocal_plan(
 
 def syllable_at(plan: VocalPlan, beat_pos: float) -> tuple[PlanSyllable, int] | None:
     flat = plan.flat_syllables()
-    if not flat:
+    if not flat or beat_pos < 0 or beat_pos >= plan.vocal_end_beat():
         return None
     for index, syllable in enumerate(flat):
         end = syllable.beat_start + syllable.beat_duration
         if syllable.beat_start <= beat_pos < end:
             return syllable, index
-    return flat[int(beat_pos) % len(flat)], int(beat_pos) % len(flat)
+    return None
 
 
 def plan_debug_rows(plan: VocalPlan) -> list[dict[str, object]]:
