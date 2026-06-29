@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import math
 import re
 from pathlib import Path
@@ -25,17 +24,37 @@ DEFAULT_MELODIC_CONTOURS: dict[str, list[int]] = {
 }
 
 
+class SectionDensityKnobs(BaseModel):
+    verse: float = 1.0
+    chorus: float = 0.82
+    hook: float = 0.78
+    bridge: float = 1.08
+    pre_chorus: float = 0.92
+    intro: float = 1.05
+    outro: float = 1.15
+    rap_verse: float = 0.85
+    rap_chorus: float = 0.68
+
+
+class VocalPlanTiming(BaseModel):
+    line_rest_beats: float = 0.30
+    section_rest_beats: float = 0.38
+    phrase_end_hold: float = 1.42
+
+
 class PlanSyllable(BaseModel):
     text: str
     beat_start: float
     beat_duration: float
     pitch_midi: int
     stressed: bool = False
+    phrase_end: bool = False
 
 
 class PlanLine(BaseModel):
     text: str
     syllables: list[PlanSyllable] = Field(default_factory=list)
+    rest_beats_after: float = 0.0
 
 
 class PlanSection(BaseModel):
@@ -43,14 +62,17 @@ class PlanSection(BaseModel):
     beat_start: float
     beat_end: float
     lines: list[PlanLine] = Field(default_factory=list)
+    density: float = 1.0
 
 
 class VocalPlan(BaseModel):
-    version: int = 0
+    version: int = 1
     bpm: int
     key: str | None = None
     duration_beats: float
     sections: list[PlanSection] = Field(default_factory=list)
+    timing: VocalPlanTiming | None = None
+    section_density: dict[str, float] = Field(default_factory=dict)
 
     def syllable_count(self) -> int:
         return sum(len(line.syllables) for section in self.sections for line in section.lines)
@@ -81,6 +103,25 @@ def syllabify_word(word: str) -> list[tuple[str, bool]]:
     return list(zip(chunks, stressed))
 
 
+def resolve_section_density(section_name: str, profile_name: str, knobs: SectionDensityKnobs) -> float:
+    name = section_name.lower().replace("-", "_")
+    if profile_name == "rap":
+        return knobs.rap_chorus if name in ("chorus", "hook") else knobs.rap_verse
+    return getattr(knobs, name, knobs.verse)
+
+
+def vocal_plan_timing_for(profile_name: str, vocal_style: str | None = None) -> VocalPlanTiming:
+    style = (vocal_style or "").lower()
+    ballad = profile_name in ("acoustic", "jazz", "bossa") or any(
+        term in style for term in ("ballad", "held", "slow", "sustained", "legato")
+    )
+    if ballad:
+        return VocalPlanTiming(line_rest_beats=0.38, section_rest_beats=0.48, phrase_end_hold=1.85)
+    if profile_name == "rap":
+        return VocalPlanTiming(line_rest_beats=0.14, section_rest_beats=0.22, phrase_end_hold=1.18)
+    return VocalPlanTiming()
+
+
 def _parse_lyric_sections(lyrics: str) -> list[tuple[str, list[str]]]:
     lines_in = [line.strip() for line in lyrics.splitlines()]
     sections: list[tuple[str, list[str]]] = []
@@ -100,9 +141,7 @@ def _parse_lyric_sections(lyrics: str) -> list[tuple[str, list[str]]]:
         match = SECTION_MARKER.match(raw)
         if match:
             flush()
-            label = match.group(1).lower().replace(" ", "-").replace("pre-chorus", "pre-chorus")
-            if label == "pre chorus":
-                label = "pre-chorus"
+            label = match.group(1).lower().replace(" ", "-")
             remainder = match.group(2).strip()
             if remainder:
                 current.append(remainder)
@@ -117,21 +156,10 @@ def _parse_lyric_sections(lyrics: str) -> list[tuple[str, list[str]]]:
     return sections
 
 
-def _section_density(section_name: str, profile_name: str) -> float:
-    name = section_name.lower()
-    if profile_name == "rap":
-        return 0.72 if name in ("chorus", "hook") else 0.85
-    if name in ("chorus", "hook"):
-        return 0.88
-    if name == "bridge":
-        return 1.08
-    return 1.0
-
-
 def _syllable_weight(stressed: bool, profile_name: str) -> float:
-    base = 1.35 if stressed else 0.85
+    base = 1.38 if stressed else 0.82
     if profile_name == "rap":
-        return base * 0.78
+        return base * 0.76
     return base
 
 
@@ -145,12 +173,16 @@ def _pitch_midi(
     scale: list[int],
     root_hz: float,
     contours: dict[str, list[int]],
+    phrase_end: bool,
 ) -> int:
     section_key = section_name.lower().replace("pre-chorus", "verse")
     contour = contours.get(section_key, contours["verse"])
     step = global_index % len(contour)
     degree = scale[(contour[step] + 2) % len(scale)]
-    return _hz_to_midi(root_hz) + degree + 12
+    midi = _hz_to_midi(root_hz) + degree + 12
+    if phrase_end:
+        midi += 2 if section_key in ("chorus", "hook") else 1
+    return midi
 
 
 def build_vocal_plan(
@@ -163,11 +195,15 @@ def build_vocal_plan(
     root_hz: float,
     profile_name: str = "default",
     melodic_contours: dict[str, list[int]] | None = None,
+    density_knobs: SectionDensityKnobs | None = None,
+    timing: VocalPlanTiming | None = None,
 ) -> VocalPlan:
     contours = melodic_contours or DEFAULT_MELODIC_CONTOURS
+    knobs = density_knobs or SectionDensityKnobs()
+    plan_timing = timing or vocal_plan_timing_for(profile_name)
     parsed = _parse_lyric_sections(lyrics)
     if not parsed:
-        return VocalPlan(bpm=bpm, key=key, duration_beats=duration_beats)
+        return VocalPlan(bpm=bpm, key=key, duration_beats=duration_beats, timing=plan_timing)
 
     structured: list[tuple[str, str, list[tuple[str, bool]]]] = []
     for section_name, line_texts in parsed:
@@ -180,17 +216,18 @@ def build_vocal_plan(
                 structured.append((section_name, line_text, syllables))
 
     if not structured:
-        return VocalPlan(bpm=bpm, key=key, duration_beats=duration_beats)
+        return VocalPlan(bpm=bpm, key=key, duration_beats=duration_beats, timing=plan_timing)
 
-    section_names = [item[0] for item in structured]
     section_weight_totals: dict[str, float] = {}
+    section_density_used: dict[str, float] = {}
     for section_name, _, syllables in structured:
-        density = _section_density(section_name, profile_name)
+        density = resolve_section_density(section_name, profile_name, knobs)
+        section_density_used[section_name] = density
         weight = sum(_syllable_weight(stressed, profile_name) for _, stressed in syllables) * density
         section_weight_totals[section_name] = section_weight_totals.get(section_name, 0.0) + weight
 
     total_weight = sum(section_weight_totals.values()) or 1.0
-    usable_beats = max(duration_beats * 0.92, 4.0)
+    usable_beats = max(duration_beats * 0.90, 4.0)
     section_beat_budget = {
         name: usable_beats * (weight / total_weight)
         for name, weight in section_weight_totals.items()
@@ -200,52 +237,83 @@ def build_vocal_plan(
     global_index = 0
     plan_sections: list[PlanSection] = []
     current_section: PlanSection | None = None
-    line_gap = 0.18 if profile_name != "rap" else 0.08
 
-    for section_name, line_text, syllables in structured:
+    for line_index, (section_name, line_text, syllables) in enumerate(structured):
         if current_section is None or current_section.name != section_name:
             if current_section is not None:
                 current_section.beat_end = max(current_section.beat_start + 0.01, cursor)
                 plan_sections.append(current_section)
-                cursor += line_gap
-            current_section = PlanSection(name=section_name, beat_start=cursor, beat_end=cursor, lines=[])
+                cursor += plan_timing.section_rest_beats
+            density = resolve_section_density(section_name, profile_name, knobs)
+            current_section = PlanSection(
+                name=section_name,
+                beat_start=cursor,
+                beat_end=cursor,
+                lines=[],
+                density=density,
+            )
 
         syllable_weights = [_syllable_weight(stressed, profile_name) for _, stressed in syllables]
         weight_sum = sum(syllable_weights) or 1.0
         section_budget = section_beat_budget[section_name]
-        line_share = weight_sum * _section_density(section_name, profile_name)
+        line_share = weight_sum * resolve_section_density(section_name, profile_name, knobs)
         line_beats = section_budget * (line_share / max(section_weight_totals[section_name], 0.001))
 
         line_syllables: list[PlanSyllable] = []
         line_cursor = cursor
-        for (text, stressed), weight in zip(syllables, syllable_weights):
+        last_index = len(syllables) - 1
+        for syllable_index, ((text, stressed), weight) in enumerate(zip(syllables, syllable_weights)):
+            phrase_end = syllable_index == last_index
             beat_duration = max(0.12, line_beats * (weight / weight_sum))
+            if phrase_end:
+                beat_duration *= plan_timing.phrase_end_hold
             beat_start = round(line_cursor * 4.0) / 4.0 if stressed else line_cursor
             line_syllables.append(
                 PlanSyllable(
                     text=text,
                     beat_start=beat_start,
                     beat_duration=beat_duration,
-                    pitch_midi=_pitch_midi(global_index, section_name, scale, root_hz, contours),
+                    pitch_midi=_pitch_midi(
+                        global_index,
+                        section_name,
+                        scale,
+                        root_hz,
+                        contours,
+                        phrase_end,
+                    ),
                     stressed=stressed,
+                    phrase_end=phrase_end,
                 )
             )
             line_cursor += beat_duration
             global_index += 1
 
-        current_section.lines.append(PlanLine(text=line_text, syllables=line_syllables))
-        cursor = line_cursor
+        next_section = structured[line_index + 1][0] if line_index + 1 < len(structured) else None
+        rest_after = 0.0
+        if next_section is not None:
+            rest_after = (
+                plan_timing.section_rest_beats
+                if next_section != section_name
+                else plan_timing.line_rest_beats
+            )
+
+        current_section.lines.append(
+            PlanLine(text=line_text, syllables=line_syllables, rest_beats_after=rest_after)
+        )
+        cursor = line_cursor + rest_after
 
     if current_section is not None:
         current_section.beat_end = max(current_section.beat_start + 0.01, cursor)
         plan_sections.append(current_section)
 
     return VocalPlan(
-        version=0,
+        version=1,
         bpm=bpm,
         key=key,
         duration_beats=duration_beats,
         sections=plan_sections,
+        timing=plan_timing,
+        section_density=section_density_used,
     )
 
 
@@ -258,6 +326,36 @@ def syllable_at(plan: VocalPlan, beat_pos: float) -> tuple[PlanSyllable, int] | 
         if syllable.beat_start <= beat_pos < end:
             return syllable, index
     return flat[int(beat_pos) % len(flat)], int(beat_pos) % len(flat)
+
+
+def plan_debug_rows(plan: VocalPlan) -> list[dict[str, object]]:
+    rows: list[dict[str, object]] = []
+    for section in plan.sections:
+        for line in section.lines:
+            for syllable in line.syllables:
+                rows.append(
+                    {
+                        "section": section.name,
+                        "line": line.text,
+                        "text": syllable.text,
+                        "beat_start": round(syllable.beat_start, 3),
+                        "beat_duration": round(syllable.beat_duration, 3),
+                        "beat_end": round(syllable.beat_start + syllable.beat_duration, 3),
+                        "pitch_midi": syllable.pitch_midi,
+                        "stressed": syllable.stressed,
+                        "phrase_end": syllable.phrase_end,
+                    }
+                )
+            if line.rest_beats_after > 0:
+                rows.append(
+                    {
+                        "section": section.name,
+                        "line": line.text,
+                        "type": "rest",
+                        "rest_beats": round(line.rest_beats_after, 3),
+                    }
+                )
+    return rows
 
 
 def midi_to_hz(midi: int) -> float:

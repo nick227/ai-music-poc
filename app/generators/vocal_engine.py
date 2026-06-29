@@ -108,7 +108,11 @@ class VocalEngine:
         if self.voice.quantized:
             pitch = round(pitch / 18.0) * 18.0
 
-        envelope = _env(syllable_x, 0.08 if self.voice.name != "whisper" else 0.16, 0.34)
+        envelope = _env(syllable_x, 0.08 if self.voice.name != "whisper" else 0.16, 0.54 if syllable.phrase_end else 0.34)
+        if syllable.stressed:
+            envelope *= 1.0 + 0.14 * max(0.0, 1.0 - syllable_x * 1.8)
+        if syllable.phrase_end and syllable_x > 0.50:
+            envelope *= 1.0 + 0.24 * ((syllable_x - 0.50) / 0.50)
         vowel = _dominant_vowel(word)
         vowel_shift = VOWEL_FORMANT_SHIFTS[vowel]
         vibrato = self.voice.vibrato_depth * math.sin(2 * math.pi * self.voice.vibrato_rate * t)

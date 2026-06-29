@@ -1,0 +1,260 @@
+{
+  "version": 1,
+  "bpm": 72,
+  "key": "G",
+  "duration_beats": 24.0,
+  "sections": [
+    {
+      "name": "verse",
+      "beat_start": 0.0,
+      "beat_end": 23.302741935483876,
+      "lines": [
+        {
+          "text": "Hold me close until the night turns into dawn",
+          "syllables": [
+            {
+              "text": "hol",
+              "beat_start": 0.0,
+              "beat_duration": 2.003225806451613,
+              "pitch_midi": 76,
+              "stressed": true,
+              "phrase_end": false
+            },
+            {
+              "text": "me",
+              "beat_start": 2.0,
+              "beat_duration": 2.003225806451613,
+              "pitch_midi": 77,
+              "stressed": true,
+              "phrase_end": false
+            },
+            {
+              "text": "clo",
+              "beat_start": 4.0,
+              "beat_duration": 2.003225806451613,
+              "pitch_midi": 79,
+              "stressed": true,
+              "phrase_end": false
+            },
+            {
+              "text": "se",
+              "beat_start": 6.009677419354839,
+              "beat_duration": 1.1903225806451614,
+              "pitch_midi": 77,
+              "stressed": false,
+              "phrase_end": false
+            },
+            {
+              "text": "un",
+              "beat_start": 7.25,
+              "beat_duration": 2.003225806451613,
+              "pitch_midi": 81,
+              "stressed": true,
+              "phrase_end": false
+            },
+            {
+              "text": "til",
+              "beat_start": 9.203225806451613,
+              "beat_duration": 1.1903225806451614,
+              "pitch_midi": 79,
+              "stressed": false,
+              "phrase_end": false
+            },
+            {
+              "text": "the",
+              "beat_start": 10.5,
+              "beat_duration": 2.003225806451613,
+              "pitch_midi": 77,
+              "stressed": true,
+              "phrase_end": false
+            },
+            {
+              "text": "nig",
+              "beat_start": 12.5,
+              "beat_duration": 2.003225806451613,
+              "pitch_midi": 76,
+              "stressed": true,
+              "phrase_end": false
+            },
+            {
+              "text": "tur",
+              "beat_start": 14.5,
+              "beat_duration": 2.003225806451613,
+              "pitch_midi": 76,
+              "stressed": true,
+              "phrase_end": false
+            },
+            {
+              "text": "in",
+              "beat_start": 16.5,
+              "beat_duration": 2.003225806451613,
+              "pitch_midi": 77,
+              "stressed": true,
+              "phrase_end": false
+            },
+            {
+              "text": "to",
+              "beat_start": 18.40645161290323,
+              "beat_duration": 1.1903225806451614,
+              "pitch_midi": 79,
+              "stressed": false,
+              "phrase_end": false
+            },
+            {
+              "text": "daw",
+              "beat_start": 19.5,
+              "beat_duration": 3.7059677419354844,
+              "pitch_midi": 78,
+              "stressed": true,
+              "phrase_end": true
+            }
+          ],
+          "rest_beats_after": 0.0
+        }
+      ],
+      "density": 1.0
+    }
+  ],
+  "timing": {
+    "line_rest_beats": 0.38,
+    "section_rest_beats": 0.48,
+    "phrase_end_hold": 1.85
+  },
+  "section_density": {
+    "verse": 1.0
+  },
+  "debug": [
+    {
+      "section": "verse",
+      "line": "Hold me close until the night turns into dawn",
+      "text": "hol",
+      "beat_start": 0.0,
+      "beat_duration": 2.003,
+      "beat_end": 2.003,
+      "pitch_midi": 76,
+      "stressed": true,
+      "phrase_end": false
+    },
+    {
+      "section": "verse",
+      "line": "Hold me close until the night turns into dawn",
+      "text": "me",
+      "beat_start": 2.0,
+      "beat_duration": 2.003,
+      "beat_end": 4.003,
+      "pitch_midi": 77,
+      "stressed": true,
+      "phrase_end": false
+    },
+    {
+      "section": "verse",
+      "line": "Hold me close until the night turns into dawn",
+      "text": "clo",
+      "beat_start": 4.0,
+      "beat_duration": 2.003,
+      "beat_end": 6.003,
+      "pitch_midi": 79,
+      "stressed": true,
+      "phrase_end": false
+    },
+    {
+      "section": "verse",
+      "line": "Hold me close until the night turns into dawn",
+      "text": "se",
+      "beat_start": 6.01,
+      "beat_duration": 1.19,
+      "beat_end": 7.2,
+      "pitch_midi": 77,
+      "stressed": false,
+      "phrase_end": false
+    },
+    {
+      "section": "verse",
+      "line": "Hold me close until the night turns into dawn",
+      "text": "un",
+      "beat_start": 7.25,
+      "beat_duration": 2.003,
+      "beat_end": 9.253,
+      "pitch_midi": 81,
+      "stressed": true,
+      "phrase_end": false
+    },
+    {
+      "section": "verse",
+      "line": "Hold me close until the night turns into dawn",
+      "text": "til",
+      "beat_start": 9.203,
+      "beat_duration": 1.19,
+      "beat_end": 10.394,
+      "pitch_midi": 79,
+      "stressed": false,
+      "phrase_end": false
+    },
+    {
+      "section": "verse",
+      "line": "Hold me close until the night turns into dawn",
+      "text": "the",
+      "beat_start": 10.5,
+      "beat_duration": 2.003,
+      "beat_end": 12.503,
+      "pitch_midi": 77,
+      "stressed": true,
+      "phrase_end": false
+    },
+    {
+      "section": "verse",
+      "line": "Hold me close until the night turns into dawn",
+      "text": "nig",
+      "beat_start": 12.5,
+      "beat_duration": 2.003,
+      "beat_end": 14.503,
+      "pitch_midi": 76,
+      "stressed": true,
+      "phrase_end": false
+    },
+    {
+      "section": "verse",
+      "line": "Hold me close until the night turns into dawn",
+      "text": "tur",
+      "beat_start": 14.5,
+      "beat_duration": 2.003,
+      "beat_end": 16.503,
+      "pitch_midi": 76,
+      "stressed": true,
+      "phrase_end": false
+    },
+    {
+      "section": "verse",
+      "line": "Hold me close until the night turns into dawn",
+      "text": "in",
+      "beat_start": 16.5,
+      "beat_duration": 2.003,
+      "beat_end": 18.503,
+      "pitch_midi": 77,
+      "stressed": true,
+      "phrase_end": false
+    },
+    {
+      "section": "verse",
+      "line": "Hold me close until the night turns into dawn",
+      "text": "to",
+      "beat_start": 18.406,
+      "beat_duration": 1.19,
+      "beat_end": 19.597,
+      "pitch_midi": 79,
+      "stressed": false,
+      "phrase_end": false
+    },
+    {
+      "section": "verse",
+      "line": "Hold me close until the night turns into dawn",
+      "text": "daw",
+      "beat_start": 19.5,
+      "beat_duration": 3.706,
+      "beat_end": 23.206,
+      "pitch_midi": 78,
+      "stressed": true,
+      "phrase_end": true
+    }
+  ]
+}

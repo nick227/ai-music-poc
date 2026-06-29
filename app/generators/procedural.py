@@ -9,7 +9,14 @@ from pathlib import Path
 
 from app.domain.models import GenerationRequest, GenerationResult, GeneratorInfo
 from app.generators.quality_profile import quality_for
-from app.generators.vocal_plan import VocalPlan, build_vocal_plan, midi_to_hz, save_vocal_plan, syllable_at
+from app.generators.vocal_plan import (
+    VocalPlan,
+    build_vocal_plan,
+    midi_to_hz,
+    save_vocal_plan,
+    syllable_at,
+    vocal_plan_timing_for,
+)
 
 SAMPLE_RATE = 44_100
 NYQUIST = SAMPLE_RATE / 2
@@ -566,6 +573,7 @@ class ProceduralGenerator:
                 root_hz=root,
                 profile_name=profile.name,
                 melodic_contours=MELODIC_CONTOURS,
+                timing=vocal_plan_timing_for(profile.name, request.vocal_style),
             )
 
         vocal_frames = bytearray() if quality.export_vocal_stem and vocal_plan and vocal_plan.syllable_count() else None
@@ -1344,10 +1352,15 @@ class ProceduralGenerator:
             syllable_x = max(0.0, syllable_x - 0.07)   # onset delay
         elif phrase_cycle == 2:
             _base_attack = min(0.20, _base_attack * 1.9)  # softer attack
-        envelope = _env(syllable_x, _base_attack, 0.34)
+        _release = 0.54 if syllable.phrase_end else 0.34
+        envelope = _env(syllable_x, _base_attack, _release)
+        if syllable.stressed:
+            envelope *= 1.0 + 0.14 * max(0.0, 1.0 - syllable_x * 1.8)
         # Phrase 3: louder tail (build to the end of each phrase)
         if phrase_cycle == 3 and syllable_x > 0.45:
             envelope *= 1.0 + 0.28 * ((syllable_x - 0.45) / 0.55)
+        if syllable.phrase_end and syllable_x > 0.50:
+            envelope *= 1.0 + 0.24 * ((syllable_x - 0.50) / 0.50)
 
         vowel = self._vowel_at(word, syllable_x)
         vowel_shift = VOWEL_FORMANT_SHIFTS[vowel]

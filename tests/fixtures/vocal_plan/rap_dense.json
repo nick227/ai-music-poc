@@ -1,0 +1,355 @@
+{
+  "version": 1,
+  "bpm": 92,
+  "key": "Am",
+  "duration_beats": 16.0,
+  "sections": [
+    {
+      "name": "verse",
+      "beat_start": 0.0,
+      "beat_end": 14.577958208955225,
+      "lines": [
+        {
+          "text": "Spitting rapid fire syllables never miss a beat on the street",
+          "syllables": [
+            {
+              "text": "spit",
+              "beat_start": 0.0,
+              "beat_duration": 0.9886567164179105,
+              "pitch_midi": 76,
+              "stressed": true,
+              "phrase_end": false
+            },
+            {
+              "text": "tin",
+              "beat_start": 0.9886567164179105,
+              "beat_duration": 0.5874626865671642,
+              "pitch_midi": 77,
+              "stressed": false,
+              "phrase_end": false
+            },
+            {
+              "text": "ra",
+              "beat_start": 1.5,
+              "beat_duration": 0.9886567164179105,
+              "pitch_midi": 79,
+              "stressed": true,
+              "phrase_end": false
+            },
+            {
+              "text": "pid",
+              "beat_start": 2.5647761194029854,
+              "beat_duration": 0.5874626865671642,
+              "pitch_midi": 77,
+              "stressed": false,
+              "phrase_end": false
+            },
+            {
+              "text": "fi",
+              "beat_start": 3.25,
+              "beat_duration": 0.9886567164179105,
+              "pitch_midi": 81,
+              "stressed": true,
+              "phrase_end": false
+            },
+            {
+              "text": "re",
+              "beat_start": 4.14089552238806,
+              "beat_duration": 0.5874626865671642,
+              "pitch_midi": 79,
+              "stressed": false,
+              "phrase_end": false
+            },
+            {
+              "text": "syl",
+              "beat_start": 4.75,
+              "beat_duration": 0.9886567164179105,
+              "pitch_midi": 77,
+              "stressed": true,
+              "phrase_end": false
+            },
+            {
+              "text": "lab",
+              "beat_start": 5.717014925373135,
+              "beat_duration": 0.5874626865671642,
+              "pitch_midi": 76,
+              "stressed": false,
+              "phrase_end": false
+            },
+            {
+              "text": "les",
+              "beat_start": 6.3044776119403,
+              "beat_duration": 0.5874626865671642,
+              "pitch_midi": 76,
+              "stressed": false,
+              "phrase_end": false
+            },
+            {
+              "text": "ne",
+              "beat_start": 7.0,
+              "beat_duration": 0.9886567164179105,
+              "pitch_midi": 77,
+              "stressed": true,
+              "phrase_end": false
+            },
+            {
+              "text": "ver",
+              "beat_start": 7.880597014925375,
+              "beat_duration": 0.5874626865671642,
+              "pitch_midi": 79,
+              "stressed": false,
+              "phrase_end": false
+            },
+            {
+              "text": "mis",
+              "beat_start": 8.5,
+              "beat_duration": 0.9886567164179105,
+              "pitch_midi": 77,
+              "stressed": true,
+              "phrase_end": false
+            },
+            {
+              "text": "a",
+              "beat_start": 9.5,
+              "beat_duration": 0.9886567164179105,
+              "pitch_midi": 81,
+              "stressed": true,
+              "phrase_end": false
+            },
+            {
+              "text": "beat",
+              "beat_start": 10.5,
+              "beat_duration": 0.9886567164179105,
+              "pitch_midi": 79,
+              "stressed": true,
+              "phrase_end": false
+            },
+            {
+              "text": "on",
+              "beat_start": 11.5,
+              "beat_duration": 0.9886567164179105,
+              "pitch_midi": 77,
+              "stressed": true,
+              "phrase_end": false
+            },
+            {
+              "text": "the",
+              "beat_start": 12.5,
+              "beat_duration": 0.9886567164179105,
+              "pitch_midi": 76,
+              "stressed": true,
+              "phrase_end": false
+            },
+            {
+              "text": "street",
+              "beat_start": 13.5,
+              "beat_duration": 1.1666149253731344,
+              "pitch_midi": 77,
+              "stressed": true,
+              "phrase_end": true
+            }
+          ],
+          "rest_beats_after": 0.0
+        }
+      ],
+      "density": 0.85
+    }
+  ],
+  "timing": {
+    "line_rest_beats": 0.14,
+    "section_rest_beats": 0.22,
+    "phrase_end_hold": 1.18
+  },
+  "section_density": {
+    "verse": 0.85
+  },
+  "debug": [
+    {
+      "section": "verse",
+      "line": "Spitting rapid fire syllables never miss a beat on the street",
+      "text": "spit",
+      "beat_start": 0.0,
+      "beat_duration": 0.989,
+      "beat_end": 0.989,
+      "pitch_midi": 76,
+      "stressed": true,
+      "phrase_end": false
+    },
+    {
+      "section": "verse",
+      "line": "Spitting rapid fire syllables never miss a beat on the street",
+      "text": "tin",
+      "beat_start": 0.989,
+      "beat_duration": 0.587,
+      "beat_end": 1.576,
+      "pitch_midi": 77,
+      "stressed": false,
+      "phrase_end": false
+    },
+    {
+      "section": "verse",
+      "line": "Spitting rapid fire syllables never miss a beat on the street",
+      "text": "ra",
+      "beat_start": 1.5,
+      "beat_duration": 0.989,
+      "beat_end": 2.489,
+      "pitch_midi": 79,
+      "stressed": true,
+      "phrase_end": false
+    },
+    {
+      "section": "verse",
+      "line": "Spitting rapid fire syllables never miss a beat on the street",
+      "text": "pid",
+      "beat_start": 2.565,
+      "beat_duration": 0.587,
+      "beat_end": 3.152,
+      "pitch_midi": 77,
+      "stressed": false,
+      "phrase_end": false
+    },
+    {
+      "section": "verse",
+      "line": "Spitting rapid fire syllables never miss a beat on the street",
+      "text": "fi",
+      "beat_start": 3.25,
+      "beat_duration": 0.989,
+      "beat_end": 4.239,
+      "pitch_midi": 81,
+      "stressed": true,
+      "phrase_end": false
+    },
+    {
+      "section": "verse",
+      "line": "Spitting rapid fire syllables never miss a beat on the street",
+      "text": "re",
+      "beat_start": 4.141,
+      "beat_duration": 0.587,
+      "beat_end": 4.728,
+      "pitch_midi": 79,
+      "stressed": false,
+      "phrase_end": false
+    },
+    {
+      "section": "verse",
+      "line": "Spitting rapid fire syllables never miss a beat on the street",
+      "text": "syl",
+      "beat_start": 4.75,
+      "beat_duration": 0.989,
+      "beat_end": 5.739,
+      "pitch_midi": 77,
+      "stressed": true,
+      "phrase_end": false
+    },
+    {
+      "section": "verse",
+      "line": "Spitting rapid fire syllables never miss a beat on the street",
+      "text": "lab",
+      "beat_start": 5.717,
+      "beat_duration": 0.587,
+      "beat_end": 6.304,
+      "pitch_midi": 76,
+      "stressed": false,
+      "phrase_end": false
+    },
+    {
+      "section": "verse",
+      "line": "Spitting rapid fire syllables never miss a beat on the street",
+      "text": "les",
+      "beat_start": 6.304,
+      "beat_duration": 0.587,
+      "beat_end": 6.892,
+      "pitch_midi": 76,
+      "stressed": false,
+      "phrase_end": false
+    },
+    {
+      "section": "verse",
+      "line": "Spitting rapid fire syllables never miss a beat on the street",
+      "text": "ne",
+      "beat_start": 7.0,
+      "beat_duration": 0.989,
+      "beat_end": 7.989,
+      "pitch_midi": 77,
+      "stressed": true,
+      "phrase_end": false
+    },
+    {
+      "section": "verse",
+      "line": "Spitting rapid fire syllables never miss a beat on the street",
+      "text": "ver",
+      "beat_start": 7.881,
+      "beat_duration": 0.587,
+      "beat_end": 8.468,
+      "pitch_midi": 79,
+      "stressed": false,
+      "phrase_end": false
+    },
+    {
+      "section": "verse",
+      "line": "Spitting rapid fire syllables never miss a beat on the street",
+      "text": "mis",
+      "beat_start": 8.5,
+      "beat_duration": 0.989,
+      "beat_end": 9.489,
+      "pitch_midi": 77,
+      "stressed": true,
+      "phrase_end": false
+    },
+    {
+      "section": "verse",
+      "line": "Spitting rapid fire syllables never miss a beat on the street",
+      "text": "a",
+      "beat_start": 9.5,
+      "beat_duration": 0.989,
+      "beat_end": 10.489,
+      "pitch_midi": 81,
+      "stressed": true,
+      "phrase_end": false
+    },
+    {
+      "section": "verse",
+      "line": "Spitting rapid fire syllables never miss a beat on the street",
+      "text": "beat",
+      "beat_start": 10.5,
+      "beat_duration": 0.989,
+      "beat_end": 11.489,
+      "pitch_midi": 79,
+      "stressed": true,
+      "phrase_end": false
+    },
+    {
+      "section": "verse",
+      "line": "Spitting rapid fire syllables never miss a beat on the street",
+      "text": "on",
+      "beat_start": 11.5,
+      "beat_duration": 0.989,
+      "beat_end": 12.489,
+      "pitch_midi": 77,
+      "stressed": true,
+      "phrase_end": false
+    },
+    {
+      "section": "verse",
+      "line": "Spitting rapid fire syllables never miss a beat on the street",
+      "text": "the",
+      "beat_start": 12.5,
+      "beat_duration": 0.989,
+      "beat_end": 13.489,
+      "pitch_midi": 76,
+      "stressed": true,
+      "phrase_end": false
+    },
+    {
+      "section": "verse",
+      "line": "Spitting rapid fire syllables never miss a beat on the street",
+      "text": "street",
+      "beat_start": 13.5,
+      "beat_duration": 1.167,
+      "beat_end": 14.667,
+      "pitch_midi": 77,
+      "stressed": true,
+      "phrase_end": true
+    }
+  ]
+}

@@ -47,9 +47,12 @@ def download_vocal_plan(job_id: str, job_service: JobService = Depends(get_job_s
     path = vocal_plan_path(job, file_store)
     if not path:
         raise NotFoundError("Vocal plan was not generated for this job")
-    from app.generators.vocal_plan import load_vocal_plan
+    from app.generators.vocal_plan import load_vocal_plan, plan_debug_rows
 
-    return load_vocal_plan(path).model_dump()
+    plan = load_vocal_plan(path)
+    payload = plan.model_dump()
+    payload["debug"] = plan_debug_rows(plan)
+    return payload
 
 
 @router.get("/download/{job_id}/bundle")

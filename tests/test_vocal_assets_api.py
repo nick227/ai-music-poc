@@ -89,6 +89,6 @@ def test_vocal_plan_url_when_plan_exists(client):
     status = c.get(f"/api/jobs/{job_id}").json()
     assert status["vocal_plan_url"] == f"/api/download/{job_id}/vocal-plan"
     plan = c.get(f"/api/download/{job_id}/vocal-plan").json()
-    assert plan["version"] == 0
+    assert plan["version"] == 1
     syllables = sum(len(line["syllables"]) for section in plan["sections"] for line in section["lines"])
     assert syllables >= 2

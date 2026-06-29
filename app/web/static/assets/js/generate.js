@@ -38,15 +38,32 @@ function renderVocalPlanGrid(plan) {
       for (const syl of line.syllables) {
         const left = (syl.beat_start / durationBeats) * 100;
         const width = Math.max(1.5, (syl.beat_duration / durationBeats) * 100);
-        const stressed = syl.stressed ? ' stressed' : '';
+        const classes = [
+          'vocal-plan-cell',
+          syl.stressed ? 'stressed' : '',
+          syl.phrase_end ? 'phrase-end' : '',
+        ].filter(Boolean).join(' ');
         cells.push(
-          `<span class="vocal-plan-cell${stressed}" style="left:${left}%;width:${width}%" title="${section.name}: ${syl.text}">${syl.text}</span>`
+          `<span class="${classes}" style="left:${left}%;width:${width}%" title="${section.name} · ${syl.beat_start.toFixed(2)}b · midi ${syl.pitch_midi}${syl.phrase_end ? ' · phrase end' : ''}">${syl.text}</span>`
+        );
+      }
+      if (line.rest_beats_after > 0 && line.syllables.length) {
+        const last = line.syllables[line.syllables.length - 1];
+        const restStart = last.beat_start + last.beat_duration;
+        const left = (restStart / durationBeats) * 100;
+        const width = Math.max(1.0, (line.rest_beats_after / durationBeats) * 100);
+        cells.push(
+          `<span class="vocal-plan-rest" style="left:${left}%;width:${width}%" title="rest ${line.rest_beats_after.toFixed(2)} beats"></span>`
         );
       }
     }
   }
+  const debugRows = (plan.debug || []).filter(row => row.type !== 'rest');
+  const debugTable = debugRows.length
+    ? `<table class="vocal-plan-debug"><thead><tr><th>Section</th><th>Text</th><th>Start</th><th>Dur</th><th>MIDI</th><th>Stress</th><th>End</th></tr></thead><tbody>${debugRows.map(row => `<tr><td>${row.section}</td><td>${row.text}</td><td>${row.beat_start}</td><td>${row.beat_duration}</td><td>${row.pitch_midi}</td><td>${row.stressed ? '●' : ''}</td><td>${row.phrase_end ? '◆' : ''}</td></tr>`).join('')}</tbody></table>`
+    : '';
   vocalPlanGridEl.hidden = false;
-  vocalPlanGridEl.innerHTML = `<p class="help">Syllable timing grid (draft VocalPlan)</p><div class="vocal-plan-track">${cells.join('')}</div>`;
+  vocalPlanGridEl.innerHTML = `<p class="help">Syllable timing grid (VocalPlan v${plan.version ?? 1}) · ◆ phrase end · orange = stressed</p><div class="vocal-plan-track">${cells.join('')}</div>${debugTable}`;
 }
 
 async function loadVocalPlan(url) {

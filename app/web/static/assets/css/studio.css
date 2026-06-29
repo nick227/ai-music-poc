@@ -190,6 +190,39 @@ button.save-ok {
   border-color: rgba(251, 191, 36, 0.55);
 }
 
+.vocal-plan-cell.phrase-end {
+  border-color: rgba(167, 139, 250, 0.65);
+  box-shadow: inset 0 -2px 0 rgba(167, 139, 250, 0.55);
+}
+
+.vocal-plan-rest {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px dashed rgba(255, 255, 255, 0.14);
+}
+
+.vocal-plan-debug {
+  width: 100%;
+  margin-top: 10px;
+  border-collapse: collapse;
+  font-size: 0.72rem;
+}
+
+.vocal-plan-debug th,
+.vocal-plan-debug td {
+  padding: 4px 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  text-align: left;
+}
+
+.vocal-plan-debug th {
+  color: #a1a1aa;
+  font-weight: 600;
+}
+
 @media (max-width: 900px) {
   .detail-grid { grid-template-columns: 1fr; }
 }

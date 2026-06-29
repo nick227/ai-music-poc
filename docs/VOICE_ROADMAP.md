@@ -151,6 +151,14 @@ Do **not** start with RVC, So-VITS, or voice cloning. Model complexity before th
 
 **Out of scope:** SVS subprocess, clone training, forced alignment, ACE plan input.
 
+### v0.1 quality pass (current)
+
+- Phrase-end syllables held longer with softer release in procedural renderer
+- Explicit `rest_beats_after` gaps between lines and sections
+- `SectionDensityKnobs` + `VocalPlanTiming` exposed on plan (`section_density`, `timing`)
+- Debug rows: beat start/duration, `pitch_midi`, stress, phrase end
+- Golden fixtures: `tests/fixtures/vocal_plan/{pop_chorus,rap_dense,ballad_held}.json`
+
 ---
 
 ## File touch map (Phase 0)

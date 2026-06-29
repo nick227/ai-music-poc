@@ -1,0 +1,24 @@
+{
+  "pop_chorus": {
+    "lyrics": "Verse:\nI walk alone beneath the city lights\nChorus:\nWe rise tonight we shine so bright",
+    "bpm": 118,
+    "key": "C",
+    "duration_beats": 48.0,
+    "profile_name": "pop"
+  },
+  "rap_dense": {
+    "lyrics": "Verse:\nSpitting rapid fire syllables never miss a beat on the street",
+    "bpm": 92,
+    "key": "Am",
+    "duration_beats": 16.0,
+    "profile_name": "rap"
+  },
+  "ballad_held": {
+    "lyrics": "Verse:\nHold me close until the night turns into dawn",
+    "bpm": 72,
+    "key": "G",
+    "duration_beats": 24.0,
+    "profile_name": "acoustic",
+    "vocal_style": "ballad held legato"
+  }
+}

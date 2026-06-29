@@ -1,0 +1,452 @@
+{
+  "version": 1,
+  "bpm": 118,
+  "key": "C",
+  "duration_beats": 48.0,
+  "sections": [
+    {
+      "name": "verse",
+      "beat_start": 0.0,
+      "beat_end": 25.908302678508985,
+      "lines": [
+        {
+          "text": "I walk alone beneath the city lights",
+          "syllables": [
+            {
+              "text": "i",
+              "beat_start": 0.0,
+              "beat_duration": 2.6057766277362053,
+              "pitch_midi": 76,
+              "stressed": true,
+              "phrase_end": false
+            },
+            {
+              "text": "wal",
+              "beat_start": 2.5,
+              "beat_duration": 2.6057766277362053,
+              "pitch_midi": 77,
+              "stressed": true,
+              "phrase_end": false
+            },
+            {
+              "text": "a",
+              "beat_start": 5.25,
+              "beat_duration": 2.6057766277362053,
+              "pitch_midi": 79,
+              "stressed": true,
+              "phrase_end": false
+            },
+            {
+              "text": "lo",
+              "beat_start": 7.817329883208616,
+              "beat_duration": 1.5483600251765859,
+              "pitch_midi": 77,
+              "stressed": false,
+              "phrase_end": false
+            },
+            {
+              "text": "ne",
+              "beat_start": 9.365689908385203,
+              "beat_duration": 1.5483600251765859,
+              "pitch_midi": 81,
+              "stressed": false,
+              "phrase_end": false
+            },
+            {
+              "text": "be",
+              "beat_start": 11.0,
+              "beat_duration": 2.6057766277362053,
+              "pitch_midi": 79,
+              "stressed": true,
+              "phrase_end": false
+            },
+            {
+              "text": "neat",
+              "beat_start": 13.519826561297993,
+              "beat_duration": 1.5483600251765859,
+              "pitch_midi": 77,
+              "stressed": false,
+              "phrase_end": false
+            },
+            {
+              "text": "the",
+              "beat_start": 15.0,
+              "beat_duration": 2.6057766277362053,
+              "pitch_midi": 76,
+              "stressed": true,
+              "phrase_end": false
+            },
+            {
+              "text": "ci",
+              "beat_start": 17.75,
+              "beat_duration": 2.6057766277362053,
+              "pitch_midi": 76,
+              "stressed": true,
+              "phrase_end": false
+            },
+            {
+              "text": "ty",
+              "beat_start": 20.279739841946988,
+              "beat_duration": 1.5483600251765859,
+              "pitch_midi": 77,
+              "stressed": false,
+              "phrase_end": false
+            },
+            {
+              "text": "lig",
+              "beat_start": 21.75,
+              "beat_duration": 3.7002028113854113,
+              "pitch_midi": 80,
+              "stressed": true,
+              "phrase_end": true
+            }
+          ],
+          "rest_beats_after": 0.38
+        }
+      ],
+      "density": 1.0
+    },
+    {
+      "name": "chorus",
+      "beat_start": 26.288302678508984,
+      "beat_end": 45.95185565424154,
+      "lines": [
+        {
+          "text": "We rise tonight we shine so bright",
+          "syllables": [
+            {
+              "text": "we",
+              "beat_start": 26.25,
+              "beat_duration": 2.1367368347436884,
+              "pitch_midi": 81,
+              "stressed": true,
+              "phrase_end": false
+            },
+            {
+              "text": "ri",
+              "beat_start": 28.5,
+              "beat_duration": 2.1367368347436884,
+              "pitch_midi": 83,
+              "stressed": true,
+              "phrase_end": false
+            },
+            {
+              "text": "se",
+              "beat_start": 30.561776347996357,
+              "beat_duration": 1.2696552206448002,
+              "pitch_midi": 72,
+              "stressed": false,
+              "phrase_end": false
+            },
+            {
+              "text": "to",
+              "beat_start": 31.75,
+              "beat_duration": 2.1367368347436884,
+              "pitch_midi": 83,
+              "stressed": true,
+              "phrase_end": false
+            },
+            {
+              "text": "nig",
+              "beat_start": 33.968168403384844,
+              "beat_duration": 1.2696552206448002,
+              "pitch_midi": 81,
+              "stressed": false,
+              "phrase_end": false
+            },
+            {
+              "text": "we",
+              "beat_start": 35.25,
+              "beat_duration": 2.1367368347436884,
+              "pitch_midi": 79,
+              "stressed": true,
+              "phrase_end": false
+            },
+            {
+              "text": "shi",
+              "beat_start": 37.25,
+              "beat_duration": 2.1367368347436884,
+              "pitch_midi": 81,
+              "stressed": true,
+              "phrase_end": false
+            },
+            {
+              "text": "ne",
+              "beat_start": 39.51129729351702,
+              "beat_duration": 1.2696552206448002,
+              "pitch_midi": 83,
+              "stressed": false,
+              "phrase_end": false
+            },
+            {
+              "text": "so",
+              "beat_start": 40.75,
+              "beat_duration": 2.1367368347436884,
+              "pitch_midi": 81,
+              "stressed": true,
+              "phrase_end": false
+            },
+            {
+              "text": "brig",
+              "beat_start": 43.0,
+              "beat_duration": 3.0341663053360373,
+              "pitch_midi": 85,
+              "stressed": true,
+              "phrase_end": true
+            }
+          ],
+          "rest_beats_after": 0.0
+        }
+      ],
+      "density": 0.82
+    }
+  ],
+  "timing": {
+    "line_rest_beats": 0.3,
+    "section_rest_beats": 0.38,
+    "phrase_end_hold": 1.42
+  },
+  "section_density": {
+    "verse": 1.0,
+    "chorus": 0.82
+  },
+  "debug": [
+    {
+      "section": "verse",
+      "line": "I walk alone beneath the city lights",
+      "text": "i",
+      "beat_start": 0.0,
+      "beat_duration": 2.606,
+      "beat_end": 2.606,
+      "pitch_midi": 76,
+      "stressed": true,
+      "phrase_end": false
+    },
+    {
+      "section": "verse",
+      "line": "I walk alone beneath the city lights",
+      "text": "wal",
+      "beat_start": 2.5,
+      "beat_duration": 2.606,
+      "beat_end": 5.106,
+      "pitch_midi": 77,
+      "stressed": true,
+      "phrase_end": false
+    },
+    {
+      "section": "verse",
+      "line": "I walk alone beneath the city lights",
+      "text": "a",
+      "beat_start": 5.25,
+      "beat_duration": 2.606,
+      "beat_end": 7.856,
+      "pitch_midi": 79,
+      "stressed": true,
+      "phrase_end": false
+    },
+    {
+      "section": "verse",
+      "line": "I walk alone beneath the city lights",
+      "text": "lo",
+      "beat_start": 7.817,
+      "beat_duration": 1.548,
+      "beat_end": 9.366,
+      "pitch_midi": 77,
+      "stressed": false,
+      "phrase_end": false
+    },
+    {
+      "section": "verse",
+      "line": "I walk alone beneath the city lights",
+      "text": "ne",
+      "beat_start": 9.366,
+      "beat_duration": 1.548,
+      "beat_end": 10.914,
+      "pitch_midi": 81,
+      "stressed": false,
+      "phrase_end": false
+    },
+    {
+      "section": "verse",
+      "line": "I walk alone beneath the city lights",
+      "text": "be",
+      "beat_start": 11.0,
+      "beat_duration": 2.606,
+      "beat_end": 13.606,
+      "pitch_midi": 79,
+      "stressed": true,
+      "phrase_end": false
+    },
+    {
+      "section": "verse",
+      "line": "I walk alone beneath the city lights",
+      "text": "neat",
+      "beat_start": 13.52,
+      "beat_duration": 1.548,
+      "beat_end": 15.068,
+      "pitch_midi": 77,
+      "stressed": false,
+      "phrase_end": false
+    },
+    {
+      "section": "verse",
+      "line": "I walk alone beneath the city lights",
+      "text": "the",
+      "beat_start": 15.0,
+      "beat_duration": 2.606,
+      "beat_end": 17.606,
+      "pitch_midi": 76,
+      "stressed": true,
+      "phrase_end": false
+    },
+    {
+      "section": "verse",
+      "line": "I walk alone beneath the city lights",
+      "text": "ci",
+      "beat_start": 17.75,
+      "beat_duration": 2.606,
+      "beat_end": 20.356,
+      "pitch_midi": 76,
+      "stressed": true,
+      "phrase_end": false
+    },
+    {
+      "section": "verse",
+      "line": "I walk alone beneath the city lights",
+      "text": "ty",
+      "beat_start": 20.28,
+      "beat_duration": 1.548,
+      "beat_end": 21.828,
+      "pitch_midi": 77,
+      "stressed": false,
+      "phrase_end": false
+    },
+    {
+      "section": "verse",
+      "line": "I walk alone beneath the city lights",
+      "text": "lig",
+      "beat_start": 21.75,
+      "beat_duration": 3.7,
+      "beat_end": 25.45,
+      "pitch_midi": 80,
+      "stressed": true,
+      "phrase_end": true
+    },
+    {
+      "section": "verse",
+      "line": "I walk alone beneath the city lights",
+      "type": "rest",
+      "rest_beats": 0.38
+    },
+    {
+      "section": "chorus",
+      "line": "We rise tonight we shine so bright",
+      "text": "we",
+      "beat_start": 26.25,
+      "beat_duration": 2.137,
+      "beat_end": 28.387,
+      "pitch_midi": 81,
+      "stressed": true,
+      "phrase_end": false
+    },
+    {
+      "section": "chorus",
+      "line": "We rise tonight we shine so bright",
+      "text": "ri",
+      "beat_start": 28.5,
+      "beat_duration": 2.137,
+      "beat_end": 30.637,
+      "pitch_midi": 83,
+      "stressed": true,
+      "phrase_end": false
+    },
+    {
+      "section": "chorus",
+      "line": "We rise tonight we shine so bright",
+      "text": "se",
+      "beat_start": 30.562,
+      "beat_duration": 1.27,
+      "beat_end": 31.831,
+      "pitch_midi": 72,
+      "stressed": false,
+      "phrase_end": false
+    },
+    {
+      "section": "chorus",
+      "line": "We rise tonight we shine so bright",
+      "text": "to",
+      "beat_start": 31.75,
+      "beat_duration": 2.137,
+      "beat_end": 33.887,
+      "pitch_midi": 83,
+      "stressed": true,
+      "phrase_end": false
+    },
+    {
+      "section": "chorus",
+      "line": "We rise tonight we shine so bright",
+      "text": "nig",
+      "beat_start": 33.968,
+      "beat_duration": 1.27,
+      "beat_end": 35.238,
+      "pitch_midi": 81,
+      "stressed": false,
+      "phrase_end": false
+    },
+    {
+      "section": "chorus",
+      "line": "We rise tonight we shine so bright",
+      "text": "we",
+      "beat_start": 35.25,
+      "beat_duration": 2.137,
+      "beat_end": 37.387,
+      "pitch_midi": 79,
+      "stressed": true,
+      "phrase_end": false
+    },
+    {
+      "section": "chorus",
+      "line": "We rise tonight we shine so bright",
+      "text": "shi",
+      "beat_start": 37.25,
+      "beat_duration": 2.137,
+      "beat_end": 39.387,
+      "pitch_midi": 81,
+      "stressed": true,
+      "phrase_end": false
+    },
+    {
+      "section": "chorus",
+      "line": "We rise tonight we shine so bright",
+      "text": "ne",
+      "beat_start": 39.511,
+      "beat_duration": 1.27,
+      "beat_end": 40.781,
+      "pitch_midi": 83,
+      "stressed": false,
+      "phrase_end": false
+    },
+    {
+      "section": "chorus",
+      "line": "We rise tonight we shine so bright",
+      "text": "so",
+      "beat_start": 40.75,
+      "beat_duration": 2.137,
+      "beat_end": 42.887,
+      "pitch_midi": 81,
+      "stressed": true,
+      "phrase_end": false
+    },
+    {
+      "section": "chorus",
+      "line": "We rise tonight we shine so bright",
+      "text": "brig",
+      "beat_start": 43.0,
+      "beat_duration": 3.034,
+      "beat_end": 46.034,
+      "pitch_midi": 85,
+      "stressed": true,
+      "phrase_end": true
+    }
+  ]
+}
