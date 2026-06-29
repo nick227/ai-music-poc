@@ -22,3 +22,30 @@ def test_auto_polish_for_ace_render():
         metadata={"render_route": "final-neural", "render_backend": "ace-step-command"},
     )
     assert should_auto_polish(result) is True
+
+
+def test_regression_draft_job_does_not_run_auto_polish(client, monkeypatch):
+    polish_calls: list[object] = []
+
+    def _fake_polish(path):
+        polish_calls.append(path)
+        return {"status": "success", "chain_used": "test"}
+
+    monkeypatch.setattr("app.services.generation_service.auto_polish", _fake_polish)
+    api_client, _ = client
+    job_id = api_client.post(
+        "/api/generate",
+        json={
+            "title": "Polish Skip",
+            "prompt": "bright pop chorus hook",
+            "lyrics": "Verse:\nhello world\nChorus:\nsing it now",
+            "generator": "procedural-v3",
+                "duration_seconds": 10,
+            "quality": "draft",
+            "mode": "song",
+        },
+    ).json()["job_id"]
+    job = api_client.get(f"/api/jobs/{job_id}").json()["job"]
+    assert polish_calls == []
+    assert job["status"] == "SUCCEEDED"
+    assert "postprocess" not in (job.get("result") or {}).get("metadata", {})
